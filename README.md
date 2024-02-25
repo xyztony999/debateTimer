@@ -1,70 +1,42 @@
-# Getting Started with Create React App
+# 辩论赛计时器 Debate Match Timer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+本项目使用react构建并运行，网页使用gh-pages进行封装。master分支为主程序，gh-pages分支为gh-pasges封装的静态网页版本。
 
-## Available Scripts
 
-In the project directory, you can run:
 
-### `npm start`
+## 简介
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+本项目根据渥太华大学华语辩论社（UOMDC）的比赛规则制定并执行
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+访问地址：https://debatetimer.tonyxyz.com
 
-### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-### `npm run build`
+## 目前功能
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+本项目目前已完成如下功能
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 切换辩论顺序
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. 点击上方的下拉菜单进行切换
+2. 可以使用1-0数字键和z、x、c、v键对辩论顺序进行切换。此切换将直接覆盖之前的时间设置！
 
-### `npm run eject`
+### 操作倒计时启动、暂停、重置
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. 点击每个stage中的按钮
+2. 按下S（启动）、P（暂停）、T（重置）键（在双计时器模式时：S（正方启动）、D（反方启动）；P（正方暂停）、[（反方暂停）；R（正方重置）、T（反方重置））键
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 在倒计时结束时
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+在倒计时结束时，时间会持续红色闪烁提示，并会播放提示音
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
 
-## Learn More
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 未来计划的功能
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. 在倒计时剩余1分钟或30秒时给予提示：根据不同时长情况，在倒计时剩余不多时，给予辩手提示，表明时间不充足
 
-### Code Splitting
+2. 解决倒计时结束时提示音稍有延迟
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+3. 支持暗黑模式
+4. 美化美化美化...

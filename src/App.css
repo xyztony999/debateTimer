@@ -1,38 +1,117 @@
-.App {
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.blinking {
+  color: red;
+  animation: blink 1s step-start 0s infinite;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #f7f7f7;
+  color: #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+#timer {
+  text-align: center;
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  width: 80%;
+  max-width: 600px;
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 20px;
+  font-size: 20px;
+  border-radius: 5px;
+  border: 1px solid #ddd;
+}
+
+h2 {
+  font-size: 24px;
+  color: #555;
+  margin-bottom: 10px;
+}
+
+h1 {
+  font-size: 100px; /* 增大字体大小 */
+  color: #222;
+  margin: 20px 0;
+}
+
+h3 {
+  font-size: 20px;
+  color: #444;
+}
+
+button {
+  font-size: 20px;
+  padding: 10px 20px;
+  margin: 0 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #5cb85c;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover {
+  background-color: #4cae4c;
+}
+
+/* 控制按钮的横向布局 */
+.controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* 针对两个计时器的布局 */
+.timer-container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.timer-box {
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.timer-box h1 {
+  font-size: 80px; /* 增大字体大小 */
+  margin: 0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+@media screen and (max-width: 768px) {
+  .timer-container {
+    flex-direction: column;
   }
-}
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+  .timer-box {
+    margin-bottom: 20px;
   }
-  to {
-    transform: rotate(360deg);
+
+  /* 适应小屏幕的计时器字体大小 */
+  .timer-box h1 {
+    font-size: 60px; /* 调整为合适的大小 */
   }
 }

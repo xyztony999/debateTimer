@@ -105,6 +105,259 @@ const DebateTimer = () => {
         audio.play();
     };
 
+    useEffect(() => {
+        const handleKeyPress = (event) => {
+            if (event.key === 's' || event.key === 'S') {
+                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                    !runningAff && setRunningAff(true);
+                } else {
+                    !running && setRunning(true);
+                }
+            } else if (event.key === 'p' || event.key === 'P') {
+                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                    runningAff && setRunningAff(false);
+                } else {
+                    running && setRunning(false);
+                }
+            } else if (event.key === 'r' || event.key === 'R') {
+                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                    !runningAff && setTimeLeftAff(debateStages[selectedStage]);
+                    setIsAffTimeUp(false);
+                }
+                else if (selectedStage === '请选择辩论环节') {
+                    !running && setTimeLeft(0);
+                    setIsTimeUp(false);
+                }
+                else {
+                    !running && setTimeLeft(debateStages[selectedStage]);
+                    setIsTimeUp(false);
+                }
+            } else if (event.key === 'd' || event.key === 'D') {
+                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                    !runningNeg && setRunningNeg(true);
+                }
+            } else if (event.key === '[' || event.key === '{') {
+                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                    runningNeg && setRunningNeg(false);
+                }
+            } else if (event.key ==='t' || event.key === 'T') {
+                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                    !runningNeg && setTimeLeftNeg(debateStages[selectedStage]);
+                    setIsNegTimeUp(false);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+
+        // 移除事件监听器
+        return () => {
+            window.removeEventListener('keydown', handleKeyPress);
+        };
+    }, [selectedStage, running, runningAff, runningNeg]);
+
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.key === '1') {
+                setSelectedStage('正方一辩发言');
+                setTimerTitle('正方一辩发言');
+                const time = debateStages['正方一辩发言'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '2') {
+                setSelectedStage('反方四辩盘问正方一辩');
+                setTimerTitle('反方四辩盘问正方一辩');
+                const time = debateStages['反方四辩盘问正方一辩'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '3') {
+                setSelectedStage('反方一辩发言');
+                setTimerTitle('反方一辩发言');
+                const time = debateStages['反方一辩发言'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '4') {
+                setSelectedStage('正方四辩盘问反方一辩');
+                setTimerTitle('正方四辩盘问反方一辩');
+                const time = debateStages['正方四辩盘问反方一辩'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '5') {
+                setSelectedStage('正方二辩作驳论');
+                setTimerTitle('正方二辩作驳论');
+                const time = debateStages['正方二辩作驳论'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '6') {
+                setSelectedStage('反方二辩作驳论');
+                setTimerTitle('反方二辩作驳论');
+                const time = debateStages['反方二辩作驳论'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '7') {
+                setSelectedStage('正方二辩对辩反方二辩');
+                setTimerTitle('正方二辩对辩反方二辩');
+                const time = debateStages['正方二辩对辩反方二辩'];
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '8') {
+                setSelectedStage('正方三辩盘问');
+                setTimerTitle('正方三辩盘问');
+                const time = debateStages['正方三辩盘问'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '9') {
+                setSelectedStage('反方三辩盘问');
+                setTimerTitle('反方三辩盘问');
+                const time = debateStages['反方三辩盘问'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === '0') {
+                setSelectedStage('正方三辩质询小结');
+                setTimerTitle('正方三辩质询小结');
+                const time = debateStages['正方三辩质询小结'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === 'z' || event.key === 'Z') {
+                setSelectedStage('战术暂停');
+                setTimerTitle('战术暂停');
+                const time = debateStages['战术暂停'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === 'x' || event.key === 'X') {
+                setSelectedStage('自由辩论');
+                setTimerTitle('自由辩论');
+                const time = debateStages['自由辩论'];
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === 'c' || event.key === 'C') {
+                setSelectedStage('反方四辩总结陈词');
+                setTimerTitle('反方四辩总结陈词');
+                const time = debateStages['反方四辩总结陈词'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+            if (event.key === 'v' || event.key === 'V') {
+                setSelectedStage('正方四辩总结陈词');
+                setTimerTitle('正方四辩总结陈词');
+                const time = debateStages['正方四辩总结陈词'];
+                setTimeLeft(time);
+                setTimeLeftAff(time);
+                setTimeLeftNeg(time);
+                setIsTimeUp(false);
+                setIsAffTimeUp(false);
+                setIsNegTimeUp(false);
+                setRunning(false);
+                setRunningAff(false);
+                setRunningNeg(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [selectedStage, running, runningAff, runningNeg]);
+
+
     return (
         <div id="timer">
             <select value={selectedStage} onChange={handleStageSelect}>

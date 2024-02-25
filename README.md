@@ -1,6 +1,6 @@
 # 辩论赛计时器 Debate Match Timer
 
-本项目使用react构建并运行，网页使用gh-pages进行封装。master分支为主程序，gh-pages分支为gh-pasges封装的静态网页版本。
+本项目使用react构建并运行，网页使用gh-pages进行封装。master分支为主程序，gh-pages分支为gh-pages封装的静态网页版本。
 
 
 

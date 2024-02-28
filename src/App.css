@@ -5,7 +5,8 @@
 }
 
 .blinking {
-  color: red;
+
+  color: red !important;;
   animation: blink 1s step-start 0s infinite;
 }
 
@@ -26,8 +27,6 @@ body {
   padding: 20px;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  width: 80%;
-  max-width: 600px;
 }
 
 select {
@@ -59,7 +58,7 @@ h3 {
 button {
   font-size: 20px;
   padding: 10px 20px;
-  margin: 0 10px;
+  margin: 10px 10px 20px 10px;
   border: none;
   border-radius: 5px;
   background-color: #5cb85c;
@@ -101,6 +100,28 @@ button:not(:disabled):hover {
   margin: 0;
 }
 
+/* 新增的横向排列样式 */
+.debate-timers-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 确保每个计时器盒子有足够的空间并且居中显示 */
+.timer-box {
+  flex: 1;
+  text-align: center;
+  margin: 0 10px; /* 根据需要调整间距 */
+}
+
+@media screen and (max-width: 768px) {
+  /* 在较小的屏幕上，计时器应该垂直排列以避免拥挤 */
+  .debate-timers-container {
+    flex-direction: column;
+  }
+}
+
+
 @media screen and (max-width: 768px) {
   .timer-container {
     flex-direction: column;
@@ -115,3 +136,57 @@ button:not(:disabled):hover {
     font-size: 60px; /* 调整为合适的大小 */
   }
 }
+
+/* 深色模式下的背景色 */
+.dark-mode {
+  background-color: #333 !important;
+  color: #f7f7f7 !important;
+}
+
+/* 深色模式下的计时器样式 */
+.dark-mode #timer {
+  background-color: #333; /* 深色模式下的背景色 */
+  color: #f7f7f7; /* 深色模式下的文字颜色 */
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); /* 深色模式下的阴影效果 */
+}
+
+/* 深色模式下的计时器样式 */
+.dark-mode h2 {
+  color: #f7f7f7; /* 深色模式下的文字颜色 */
+}
+
+/* 其他深色模式样式 */
+.dark-mode select {
+  background-color: #3c3c3c;
+  color: #f7f7f7;
+  border: 1px solid #555;
+}
+
+.dark-mode button {
+  background-color: #4c4c4c;
+  color: #f7f7f7;
+}
+
+.dark-mode button:not(:disabled):hover {
+  background-color: #5c5c5c;
+}
+
+/* 深色模式下切换按钮的样式 */
+.dark-mode .toggle-mode-btn {
+  border: 1px solid #555;
+}
+
+.dark-mode .toggle-mode-btn:hover {
+  background-color: #3c3c3c;
+}
+
+/* 深色模式下的计时器样式 */
+.dark-mode .timer-box h3 {
+  color: #f7f7f7;
+}
+
+/* 深色模式下的计时器样式 */
+.dark-mode .timer-box h1 {
+  color: #f7f7f7;
+}
+

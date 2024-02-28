@@ -1,4 +1,4 @@
-import logo from './logo.svg';
+// Purpose: Main file for the app. Contains the DebateTimer component.
 import './App.css';
 import './DebateTimer'
 import DebateTimer from "./DebateTimer";

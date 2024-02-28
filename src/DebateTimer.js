@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, Fragment} from 'react';
 import sound from './notify.wav';
 
 const DebateTimer = () => {
@@ -13,6 +13,39 @@ const DebateTimer = () => {
     const [isTimeUp, setIsTimeUp] = useState(false);
     const [isAffTimeUp, setIsAffTimeUp] = useState(false);
     const [isNegTimeUp, setIsNegTimeUp] = useState(false);
+    const [darkMode, setDarkMode] = useState(false);
+
+    const toggleDarkMode = () => {
+        setDarkMode(!darkMode);
+    };
+
+    useEffect(() => {
+        const matchDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+        setDarkMode(matchDarkMode.matches);
+
+        const handleChange = (e) => {
+            setDarkMode(e.matches);
+        };
+
+        // 监听系统深色模式的变化
+        matchDarkMode.addEventListener('change', handleChange);
+
+        // 组件卸载时移除监听器
+        return () => {
+            matchDarkMode.removeEventListener('change', handleChange);
+        };
+    }, []);
+
+
+    useEffect(() => {
+        if (darkMode) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    }, [darkMode]);
+
+
 
     const debateStages = {
         '请选择辩论环节': 0,
@@ -359,67 +392,81 @@ const DebateTimer = () => {
 
 
     return (
-        <div id="timer">
-            <select value={selectedStage} onChange={handleStageSelect}>
-                {Object.keys(debateStages).map((stage) => (
-                    <option key={stage} value={stage}>
-                        {stage}
-                    </option>
-                ))}
-            </select>
-            <h2>{timerTitle}</h2>
+        <Fragment>
+            <div id="timer" className={darkMode ? 'dark-mode' : 'light-mode'}>
+                <button type='button' onClick={toggleDarkMode}>
+                    {darkMode ? '☀' : '🌙'}
+                </button>
+                <select value={selectedStage} onChange={handleStageSelect}>
+                    {Object.keys(debateStages).map((stage) => (
+                        <option key={stage} value={stage} title={stage}>
+                            {stage}
+                        </option>
+                    ))}
+                </select>
+                <h2>{timerTitle}</h2>
 
-            {/* 根据选定的阶段显示不同的计时器和控制按钮 */}
-            {(selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') ? (
-                <>
+                {/* 根据选定的阶段显示不同的计时器和控制按钮 */}
+                {(selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') ? (
+                    <div className='debate-timers-container'>
+                        <div className='timer-box'>
+                            <h3>正方</h3>
+                            <h1 className={isAffTimeUp ? 'blinking' : ''}>{formatTime(timeLeftAff)}</h1>
+                            <div className='controls'>
+                                <button onClick={() => setRunningAff(true)} disabled={runningAff}>
+                                    ▶️
+                                </button>
+                                <button onClick={() => setRunningAff(false)} disabled={!runningAff}>
+                                    ⏸️
+                                </button>
+                                <button onClick={() => {
+                                    setIsAffTimeUp(false);
+                                    setTimeLeftAff(debateStages[selectedStage])
+                                }} disabled={runningAff}>
+                                    🔃
+                                </button>
+                            </div>
+                        </div>
+                        <div className='timer-box'>
+                            <h3>反方</h3>
+                            <h1 className={isNegTimeUp ? 'blinking' : ''}>{formatTime(timeLeftNeg)}</h1>
+                            <div className='controls'>
+                                <button onClick={() => setRunningNeg(true)} disabled={runningNeg}>
+                                    ▶️
+                                </button>
+                                <button onClick={() => setRunningNeg(false)} disabled={!runningNeg}>
+                                    ⏸️
+                                </button>
+                                <button onClick={() => {
+                                    setIsNegTimeUp(false);
+                                    setTimeLeftNeg(debateStages[selectedStage])
+                                }} disabled={runningNeg}>
+                                    🔃
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
                     <div className='timer-box'>
-                        <h3>正方</h3>
-                        <h1 className={isAffTimeUp ? 'blinking' : ''}>{formatTime(timeLeftAff)}</h1>
+                        <h1 className={isTimeUp ? 'blinking' : darkMode ? 'dark-mode' : 'light-mode'}>{formatTime(timeLeft)}</h1>
                         <div className='controls'>
-                            <button onClick={() => setRunningAff(true)} disabled={runningAff}>
+                            <button onClick={() => setRunning(true)} disabled={running}>
                                 ▶️
                             </button>
-                            <button onClick={() => setRunningAff(false)} disabled={!runningAff}>
+                            <button onClick={() => setRunning(false)} disabled={!running}>
                                 ⏸️
                             </button>
-                            <button onClick={() => {setIsAffTimeUp(false); setTimeLeftAff(debateStages[selectedStage])}} disabled={runningAff}>
+                            <button onClick={() => {
+                                setIsTimeUp(false);
+                                setTimeLeft(debateStages[selectedStage])
+                            }} disabled={running}>
                                 🔃
                             </button>
                         </div>
                     </div>
-                    <div className='timer-box'>
-                        <h3>反方</h3>
-                        <h1 className={isNegTimeUp ? 'blinking' : ''}>{formatTime(timeLeftNeg)}</h1>
-                        <div className='controls'>
-                            <button onClick={() => setRunningNeg(true)} disabled={runningNeg}>
-                                ▶️
-                            </button>
-                            <button onClick={() => setRunningNeg(false)} disabled={!runningNeg}>
-                                ⏸️
-                            </button>
-                            <button onClick={() => {setIsNegTimeUp(false); setTimeLeftNeg(debateStages[selectedStage])}} disabled={runningNeg}>
-                                🔃
-                            </button>
-                        </div>
-                    </div>
-                </>
-            ) : (
-                <div className='timer-box'>
-                    <h1 className={isTimeUp ? 'blinking' : ''}>{formatTime(timeLeft)}</h1>
-                    <div className='controls'>
-                        <button onClick={() => setRunning(true)} disabled={running}>
-                            ▶️
-                        </button>
-                        <button onClick={() => setRunning(false)} disabled={!running}>
-                            ⏸️
-                        </button>
-                        <button onClick={() => {setIsTimeUp(false); setTimeLeft(debateStages[selectedStage])}} disabled={running}>
-                            🔃
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
+                )}
+            </div>
+        </Fragment>
     );
 };
 

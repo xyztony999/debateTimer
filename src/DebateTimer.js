@@ -413,13 +413,13 @@ const DebateTimer = () => {
                             <h3>正方</h3>
                             <h1 className={isAffTimeUp ? 'blinking' : ''}>{formatTime(timeLeftAff)}</h1>
                             <div className='controls'>
-                                <button onClick={() => setRunningAff(true)} disabled={runningAff}>
+                                <button className={!runningAff ? 'active' : ''} onClick={() => setRunningAff(true)} disabled={runningAff}>
                                     ▶️
                                 </button>
-                                <button onClick={() => setRunningAff(false)} disabled={!runningAff}>
+                                <button className={runningAff ? 'active' : ''} onClick={() => setRunningAff(false)} disabled={!runningAff}>
                                     ⏸️
                                 </button>
-                                <button onClick={() => {
+                                <button className={!runningAff ? 'active' : ''} onClick={() => {
                                     setIsAffTimeUp(false);
                                     setTimeLeftAff(debateStages[selectedStage])
                                 }} disabled={runningAff}>
@@ -431,13 +431,13 @@ const DebateTimer = () => {
                             <h3>反方</h3>
                             <h1 className={isNegTimeUp ? 'blinking' : ''}>{formatTime(timeLeftNeg)}</h1>
                             <div className='controls'>
-                                <button onClick={() => setRunningNeg(true)} disabled={runningNeg}>
+                                <button className={!runningNeg ? 'active' : ''} onClick={() => setRunningNeg(true)} disabled={runningNeg}>
                                     ▶️
                                 </button>
-                                <button onClick={() => setRunningNeg(false)} disabled={!runningNeg}>
+                                <button className={runningNeg ? 'active' : ''} onClick={() => setRunningNeg(false)} disabled={!runningNeg}>
                                     ⏸️
                                 </button>
-                                <button onClick={() => {
+                                <button className={!runningNeg ? 'active' : ''} onClick={() => {
                                     setIsNegTimeUp(false);
                                     setTimeLeftNeg(debateStages[selectedStage])
                                 }} disabled={runningNeg}>
@@ -448,15 +448,15 @@ const DebateTimer = () => {
                     </div>
                 ) : (
                     <div className='timer-box'>
-                        <h1 className={isTimeUp ? 'blinking' : darkMode ? 'dark-mode' : 'light-mode'}>{formatTime(timeLeft)}</h1>
+                        <h1 className={isTimeUp ? 'blinking' : ''}>{formatTime(timeLeft)}</h1>
                         <div className='controls'>
-                            <button onClick={() => setRunning(true)} disabled={running}>
+                            <button className={!running ? 'active' : ''} onClick={() => setRunning(true)} disabled={running}>
                                 ▶️
                             </button>
-                            <button onClick={() => setRunning(false)} disabled={!running}>
+                            <button className={running ? 'active' : ''} onClick={() => setRunning(false)} disabled={!running}>
                                 ⏸️
                             </button>
-                            <button onClick={() => {
+                            <button className={!running ? 'active' : ''} onClick={() => {
                                 setIsTimeUp(false);
                                 setTimeLeft(debateStages[selectedStage])
                             }} disabled={running}>

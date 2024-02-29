@@ -6,7 +6,7 @@
 
 .blinking {
 
-  color: red !important;;
+  color: red !important;
   animation: blink 1s step-start 0s infinite;
 }
 
@@ -162,22 +162,30 @@ button:not(:disabled):hover {
   border: 1px solid #555;
 }
 
+/* 黑暗模式下的按钮样式 */
 .dark-mode button {
   background-color: #4c4c4c;
   color: #f7f7f7;
+  border: 2px solid transparent; /* 添加透明边框，以便在激活状态下更改 */
 }
 
+/* 黑暗模式下按钮激活状态的样式 */
+.dark-mode button.active {
+  border-color: #f7f7f7; /* 激活状态的边框颜色 */
+  background-color: #666; /* 激活状态的背景颜色 */
+  color: #fff; /* 可以调整文本颜色以提高对比度 */
+}
+
+/* 黑暗模式下按钮不可用状态的样式 */
+.dark-mode button:disabled {
+  background-color: #3c3c3c;
+  color: #555;
+}
+
+/* 黑暗模式下按钮悬停状态的样式 */
 .dark-mode button:not(:disabled):hover {
   background-color: #5c5c5c;
-}
-
-/* 深色模式下切换按钮的样式 */
-.dark-mode .toggle-mode-btn {
-  border: 1px solid #555;
-}
-
-.dark-mode .toggle-mode-btn:hover {
-  background-color: #3c3c3c;
+  border-color: #f7f7f7; /* 悬停状态下的边框颜色 */
 }
 
 /* 深色模式下的计时器样式 */

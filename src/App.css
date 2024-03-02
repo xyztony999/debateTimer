@@ -10,6 +10,10 @@
   animation: blink 1s step-start 0s infinite;
 }
 
+.time-30s-blinking {
+  animation: blink 1.5s step-start 0s infinite;
+}
+
 body {
   font-family: 'Arial', sans-serif;
   background-color: #f7f7f7;

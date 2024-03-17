@@ -66,6 +66,7 @@ const DebateTimer = () => {
         '反方四辩总结陈词': 210,
         '正方四辩总结陈词': 210
     };
+
     useEffect(() => {
         const keys = Object.keys(debateStages);
         setSelectedStage(keys[0]);
@@ -208,53 +209,6 @@ const DebateTimer = () => {
         return () => clearInterval(interval);
     }, [runningNeg, timeLeftNeg]);
 
-//    useEffect(() => {
-//        let interval;
-//        if (selectedStage !== '自由辩论' && selectedStage !== '正方二辩对辩反方二辩') {
-//            if (running && timeLeft > 30) {
-//                document.getElementById('clock').classList.remove('time-30s-blinking');
-//            }
-//            if (running && timeLeft <= 30) {
-//                interval = setInterval(() => {
-//                    if (timeLeft === 30) {
-//                        document.getElementById('clock').classList.add('time-30s-blinking');
-//                    }
-//                    if (timeLeft < 27) {
-//                        document.getElementById('clock').classList.remove('time-30s-blinking');
-//                    }
-//                }, 100);
-//            }
-//        }
-//        else {
-//            if (runningAff && timeLeftAff > 30) {
-//                document.getElementById('clockAff').classList.remove('time-30s-blinking');
-//            }
-//            if (runningAff && timeLeftAff <= 30) {
-//                interval = setInterval(() => {
-//                    if (timeLeftAff === 30) {
-//                        document.getElementById('clockAff').classList.add('time-30s-blinking');
-//                    }
-//                    if (timeLeftAff < 27) {
-//                        document.getElementById('clockAff').classList.remove('time-30s-blinking');
-//                    }
-//                }, 100);
-//            }
-//            if (runningNeg && timeLeftNeg > 30) {
-//                document.getElementById('clockNeg').classList.remove('time-30s-blinking');
-//            }
-//            if (runningNeg && timeLeftNeg <= 30) {
-//                interval = setInterval(() => {
-//                    if (timeLeftNeg === 30) {
-//                        document.getElementById('clockNeg').classList.add('time-30s-blinking');
-//                    }
-//                    if (timeLeftNeg < 27) {
-//                        document.getElementById('clockNeg').classList.remove('time-30s-blinking');
-//                    }
-//                }, 100);
-//            }
-//        }
-//        return () => clearInterval(interval);
-//    }, [running, runningAff, runningNeg, timeLeft, timeLeftAff, timeLeftNeg]);
 
     const playSound = (mode) => {
         if(mode === 'end') {

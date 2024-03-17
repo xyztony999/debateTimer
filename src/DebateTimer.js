@@ -1,6 +1,7 @@
 import React, {useState, useEffect, Fragment} from 'react';
-import end_sound from './notify.wav';
-import r30_sound from './split.wav';
+import end_sound from './resources/notify.wav';
+import r30_sound from './resources/split.wav';
+import {TimerSetting} from './schema/TimerSetting';
 
 const DebateTimer = () => {
     const [timeLeft, setTimeLeft] = useState(0);
@@ -66,6 +67,25 @@ const DebateTimer = () => {
         '反方四辩总结陈词': 210,
         '正方四辩总结陈词': 210
     };
+
+    const debateSingleDoubleTimerSettings = {
+        '测试声音': TimerSetting.single,
+        '正方一辩发言': TimerSetting.single,
+        '反方四辩盘问正方一辩': TimerSetting.single,
+        '反方一辩发言': TimerSetting.single,
+        '正方四辩盘问反方一辩': TimerSetting.single,
+        '正方二辩作驳论': TimerSetting.single,
+        '反方二辩作驳论': TimerSetting.single,
+        '正方二辩对辩反方二辩': TimerSetting.double,
+        '正方三辩盘问': TimerSetting.single,
+        '反方三辩盘问': TimerSetting.single,
+        '正方三辩质询小结': TimerSetting.single,
+        '反方三辩质询小结': TimerSetting.single,
+        '战术暂停': TimerSetting.single,
+        '自由辩论': TimerSetting.double,
+        '反方四辩总结陈词': TimerSetting.single,
+        '正方四辩总结陈词': TimerSetting.single
+    }
 
     useEffect(() => {
         const keys = Object.keys(debateStages);
@@ -224,23 +244,23 @@ const DebateTimer = () => {
     useEffect(() => {
         const handleKeyPress = (event) => {
             if (event.key === 's' || event.key === 'S') {
-                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
                     !runningAff && setRunningAff(true);
                 } else {
                     !running && setRunning(true);
                 }
             } else if (event.key === 'p' || event.key === 'P') {
-                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
                     runningAff && setRunningAff(false);
                 } else {
                     running && setRunning(false);
                 }
             } else if (event.key === 'r' || event.key === 'R') {
-                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
                     !runningAff && setTimeLeftAff(debateStages[selectedStage]);
                     setIsAffTimeUp(false);
                 }
-                else if (selectedStage === '请选择辩论环节') {
+                else if (selectedStage === '测试声音') {
                     !running && setTimeLeft(0);
                     setIsTimeUp(false);
                 }
@@ -249,15 +269,15 @@ const DebateTimer = () => {
                     setIsTimeUp(false);
                 }
             } else if (event.key === 'd' || event.key === 'D') {
-                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
                     !runningNeg && setRunningNeg(true);
                 }
             } else if (event.key === '[' || event.key === '{') {
-                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
                     runningNeg && setRunningNeg(false);
                 }
             } else if (event.key ==='t' || event.key === 'T') {
-                if (selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') {
+                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
                     !runningNeg && setTimeLeftNeg(debateStages[selectedStage]);
                     setIsNegTimeUp(false);
                 }
@@ -510,7 +530,7 @@ const DebateTimer = () => {
                 )}
 
                 {/* 根据选定的阶段显示不同的计时器和控制按钮 */}
-                {(selectedStage === '正方二辩对辩反方二辩' || selectedStage === '自由辩论') ? (
+                {(debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) ? (
                     <div className='debate-timers-container'>
                         <div className='timer-box'>
                             <h3>正方</h3>

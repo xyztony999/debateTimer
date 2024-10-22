@@ -1,6 +1,8 @@
 import React, {useState, useEffect, Fragment} from 'react';
 import end_sound from './resources/notify.wav';
 import r30_sound from './resources/split.wav';
+import debateStagesData from './resources/debateTimeSettings.json';
+import timerSettingsData from './resources/debateTimerSettings.json';
 import {TimerSetting} from './schema/TimerSetting';
 
 const DebateTimer = () => {
@@ -49,7 +51,7 @@ const DebateTimer = () => {
 
 
 
-    const debateStages = {
+    /*const debateStages = {
         '测试声音': 31,
         '正方一辩发言': 210,
         '反方四辩盘问正方一辩': 90,
@@ -85,7 +87,19 @@ const DebateTimer = () => {
         '自由辩论': TimerSetting.double,
         '反方四辩总结陈词': TimerSetting.single,
         '正方四辩总结陈词': TimerSetting.single
+    }*/
+
+    const formatTimerSettings = (timerSettings) => {
+        const result = {};
+        for (const key in timerSettings) {
+            result[key] = TimerSetting[timerSettings[key]];
+        }
+        return result;
     }
+
+    const debateStages = debateStagesData;
+    const debateSingleDoubleTimerSettings = formatTimerSettings(timerSettingsData);
+
 
     useEffect(() => {
         const keys = Object.keys(debateStages);
@@ -175,7 +189,7 @@ const DebateTimer = () => {
 
     useEffect(() => {
         let interval;
-        if (selectedStage !== '自由辩论' && selectedStage !== '正方二辩对辩反方二辩') {
+        if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.single) {
             if (running && timeLeft > 30) {
                 document.getElementById('clock').classList.remove('time-30s-blinking');
             }

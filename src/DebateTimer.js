@@ -6,6 +6,8 @@ import timerSettingsData from './resources/debateTimerSettings.json';
 import {TimerSetting} from './schema/TimerSetting';
 
 const DebateTimer = () => {
+    const [debateStages, setDebateStages] = useState({});
+    const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
     const [timeLeft, setTimeLeft] = useState(0);
     const [timeLeftAff, setTimeLeftAff] = useState(0);
     const [timeLeftNeg, setTimeLeftNeg] = useState(0);
@@ -97,11 +99,29 @@ const DebateTimer = () => {
         return result;
     }
 
-    const debateStages = debateStagesData;
-    const debateSingleDoubleTimerSettings = formatTimerSettings(timerSettingsData);
+    //const debateStages = debateStagesData;
+    //const debateSingleDoubleTimerSettings = formatTimerSettings(timerSettingsData);
 
+
+    /*useEffect(() => {
+        const keys = Object.keys(debateStages);
+        setSelectedStage(keys[0]);
+        setTimerTitle(keys[0]);
+        setTimeLeft(debateStages[keys[0]]);
+        setTimeLeftAff(debateStages[keys[0]]);
+        setTimeLeftNeg(debateStages[keys[0]]);
+    }, []);*/
 
     useEffect(() => {
+        const savedDebateStages = localStorage.getItem('debateStages');
+        const savedTimerSettings = localStorage.getItem('timerSettings');
+
+        if (savedDebateStages) setDebateStages(JSON.parse(savedDebateStages));
+        else setDebateStages(debateStagesData);
+
+        if (savedTimerSettings) setDebateSingleDoubleTimerSettings(formatTimerSettings(JSON.parse(savedTimerSettings)));
+        else setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
+
         const keys = Object.keys(debateStages);
         setSelectedStage(keys[0]);
         setTimerTitle(keys[0]);
@@ -306,7 +326,7 @@ const DebateTimer = () => {
         };
     }, [selectedStage, running, runningAff, runningNeg]);
 
-    useEffect(() => {
+    /*useEffect(() => {
         const handleKeyDown = (event) => {
             if (event.key === '1') {
                 setSelectedStage('正方一辩发言');
@@ -505,7 +525,7 @@ const DebateTimer = () => {
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [selectedStage, running, runningAff, runningNeg]);
+    }, [selectedStage, running, runningAff, runningNeg]);*/
 
 
     return (

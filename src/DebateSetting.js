@@ -8,9 +8,33 @@ const DebateSetting = () => {
     const navigate = useNavigate();
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
+    const [stageOrder, setStageOrder] = useState([]);
     const [newItemName, setNewItemName] = useState('');
     const [newItemTime, setNewItemTime] = useState(60);
     const [newItemMode, setNewItemMode] = useState('single');
+
+    // 获取按顺序排列的计时器项目
+    const getOrderedStages = () => {
+        // 如果有自定义顺序，使用自定义顺序
+        if (stageOrder.length > 0) {
+            const orderedStages = [];
+            // 按顺序添加存在的项目
+            stageOrder.forEach(stage => {
+                if (debateStages.hasOwnProperty(stage)) {
+                    orderedStages.push(stage);
+                }
+            });
+            // 添加新增的项目（不在顺序列表中的）
+            Object.keys(debateStages).forEach(stage => {
+                if (!stageOrder.includes(stage)) {
+                    orderedStages.push(stage);
+                }
+            });
+            return orderedStages;
+        }
+        // 如果没有自定义顺序，直接返回对象的键
+        return Object.keys(debateStages);
+    };
 
     useEffect(() => {
         // 为设置页面添加body类名，确保正确的滚动行为
@@ -33,10 +57,20 @@ const DebateSetting = () => {
                 if (defaultConfig.success) {
                     setDebateStages(defaultConfig.data.debateStages);
                     setTimerSettings(defaultConfig.data.timerSettings);
+                    // 加载顺序信息（如果存在）
+                    if (defaultConfig.data.stageOrder) {
+                        setStageOrder(defaultConfig.data.stageOrder);
+                    } else {
+                        // 如果没有顺序信息，使用对象键的顺序并保存
+                        const order = Object.keys(defaultConfig.data.debateStages);
+                        setStageOrder(order);
+                    }
                 } else {
                     // Fallback to local files
                     setDebateStages(debateStagesData);
                     setTimerSettings(timerSettingsData);
+                    // 为本地数据创建默认顺序
+                    setStageOrder(Object.keys(debateStagesData));
                 }
 
             } catch (error) {
@@ -44,6 +78,7 @@ const DebateSetting = () => {
                 // Fallback to local files
                 setDebateStages(debateStagesData);
                 setTimerSettings(timerSettingsData);
+                setStageOrder(Object.keys(debateStagesData));
             }
         };
 
@@ -66,7 +101,8 @@ const DebateSetting = () => {
             const result = await ConfigurationService.saveConfiguration(
                 '默认配置',
                 debateStages,
-                timerSettings
+                timerSettings,
+                stageOrder
             );
 
             if (result.success) {
@@ -85,6 +121,7 @@ const DebateSetting = () => {
     function loadLocalSettings() {
         setDebateStages(debateStagesData);
         setTimerSettings(timerSettingsData);
+        setStageOrder(Object.keys(debateStagesData));
     }
 
     // 添加新的计时项目
@@ -99,8 +136,12 @@ const DebateSetting = () => {
             return;
         }
 
-        setDebateStages({ ...debateStages, [newItemName]: newItemTime });
-        setTimerSettings({ ...timerSettings, [newItemName]: newItemMode });
+        // 添加到两个配置对象中
+        setDebateStages(prev => ({ ...prev, [newItemName]: newItemTime }));
+        setTimerSettings(prev => ({ ...prev, [newItemName]: newItemMode }));
+
+        // 添加到顺序列表的末尾
+        setStageOrder(prev => [...prev, newItemName]);
 
         // 重置输入框
         setNewItemName('');
@@ -119,6 +160,9 @@ const DebateSetting = () => {
 
             setDebateStages(newDebateStages);
             setTimerSettings(newTimerSettings);
+
+            // 从顺序列表中移除
+            setStageOrder(prev => prev.filter(stage => stage !== itemName));
         }
     };
 
@@ -173,7 +217,7 @@ const DebateSetting = () => {
                     </div>
                     <div className="card-content">
                         <div className="settings-grid">
-                            {Object.keys(debateStages).map((stage, index) => {
+                            {getOrderedStages().map((stage, index) => {
                                 const minutes = Math.floor(debateStages[stage] / 60);
                                 const seconds = debateStages[stage] % 60;
                                 const timeDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -211,7 +255,7 @@ const DebateSetting = () => {
                     </div>
                     <div className="card-content">
                         <div className="settings-grid">
-                            {Object.keys(timerSettings).map((stage, index) => (
+                            {getOrderedStages().map((stage, index) => (
                                 <div key={index} className="setting-item">
                                     <label className="setting-label">{stage}</label>
                                     <div className="input-group">

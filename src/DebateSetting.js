@@ -8,6 +8,9 @@ const DebateSetting = () => {
     const navigate = useNavigate();
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemTime, setNewItemTime] = useState(60);
+    const [newItemMode, setNewItemMode] = useState('single');
 
     useEffect(() => {
         // 为设置页面添加body类名，确保正确的滚动行为
@@ -83,6 +86,41 @@ const DebateSetting = () => {
         setDebateStages(debateStagesData);
         setTimerSettings(timerSettingsData);
     }
+
+    // 添加新的计时项目
+    const addTimerItem = () => {
+        if (!newItemName.trim()) {
+            alert('请输入计时项目名称');
+            return;
+        }
+
+        if (debateStages.hasOwnProperty(newItemName)) {
+            alert('该计时项目已存在');
+            return;
+        }
+
+        setDebateStages({ ...debateStages, [newItemName]: newItemTime });
+        setTimerSettings({ ...timerSettings, [newItemName]: newItemMode });
+
+        // 重置输入框
+        setNewItemName('');
+        setNewItemTime(60);
+        setNewItemMode('single');
+    };
+
+    // 删除计时项目
+    const deleteTimerItem = (itemName) => {
+        if (window.confirm(`确定要删除计时项目"${itemName}"吗？`)) {
+            const newDebateStages = { ...debateStages };
+            const newTimerSettings = { ...timerSettings };
+
+            delete newDebateStages[itemName];
+            delete newTimerSettings[itemName];
+
+            setDebateStages(newDebateStages);
+            setTimerSettings(newTimerSettings);
+        }
+    };
 
     return (
         <div className="modern-settings-container">
@@ -176,16 +214,81 @@ const DebateSetting = () => {
                             {Object.keys(timerSettings).map((stage, index) => (
                                 <div key={index} className="setting-item">
                                     <label className="setting-label">{stage}</label>
+                                    <div className="input-group">
+                                        <select
+                                            className="modern-select"
+                                            value={timerSettings[stage]}
+                                            onChange={(e) => handleTimerSettingChange(stage, e.target.value)}
+                                        >
+                                            <option value="single">🎯 单计时器</option>
+                                            <option value="double">⚖️ 双计时器</option>
+                                        </select>
+                                        <button
+                                            className="btn btn-danger btn-small"
+                                            onClick={() => deleteTimerItem(stage)}
+                                            title="删除此项目"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Add New Timer Item Card */}
+                <div className="settings-card">
+                    <div className="card-header">
+                        <h2 className="card-title">➕ 添加计时项目</h2>
+                        <p className="card-description">添加新的辩论阶段计时项目</p>
+                    </div>
+                    <div className="card-content">
+                        <div className="add-item-form">
+                            <div className="form-row">
+                                <div className="form-field">
+                                    <label className="setting-label">项目名称</label>
+                                    <input
+                                        type="text"
+                                        className="modern-input"
+                                        value={newItemName}
+                                        onChange={(e) => setNewItemName(e.target.value)}
+                                        placeholder="例如：自由辩论准备"
+                                        maxLength="20"
+                                    />
+                                </div>
+                                <div className="form-field">
+                                    <label className="setting-label">时间长度（秒）</label>
+                                    <input
+                                        type="number"
+                                        className="modern-input"
+                                        value={newItemTime}
+                                        onChange={(e) => setNewItemTime(parseInt(e.target.value) || 0)}
+                                        min="1"
+                                        max="3600"
+                                        placeholder="60"
+                                    />
+                                </div>
+                                <div className="form-field">
+                                    <label className="setting-label">计时模式</label>
                                     <select
                                         className="modern-select"
-                                        value={timerSettings[stage]}
-                                        onChange={(e) => handleTimerSettingChange(stage, e.target.value)}
+                                        value={newItemMode}
+                                        onChange={(e) => setNewItemMode(e.target.value)}
                                     >
                                         <option value="single">🎯 单计时器</option>
                                         <option value="double">⚖️ 双计时器</option>
                                     </select>
                                 </div>
-                            ))}
+                                <div className="form-field">
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={addTimerItem}
+                                    >
+                                        ➕ 添加项目
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -202,7 +305,7 @@ const DebateSetting = () => {
                         className="btn btn-success"
                         onClick={saveChanges}
                     >
-                        💾 保存到 Firestore
+                        💾 保存
                     </button>
                 </div>
 

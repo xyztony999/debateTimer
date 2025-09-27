@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import ConfigurationService from './services/ConfigurationService';
 
 const DebateSetting = () => {
+    const navigate = useNavigate();
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
 
@@ -92,7 +94,7 @@ const DebateSetting = () => {
                         <div className="nav-left">
                             <button
                                 className="nav-back-btn"
-                                onClick={() => window.history.back()}
+                                onClick={() => navigate('/')}
                             >
                                 ← 返回计时器
                             </button>

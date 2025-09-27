@@ -1,4 +1,5 @@
 import React, {useState, useEffect, Fragment} from 'react';
+import { useNavigate } from 'react-router-dom';
 import end_sound from './resources/notify.wav';
 import r30_sound from './resources/split.wav';
 import debateStagesData from './resources/debateTimeSettings.json';
@@ -7,6 +8,7 @@ import {TimerSetting} from './schema/TimerSetting';
 import ConfigurationService from './services/ConfigurationService';
 
 const DebateTimer = () => {
+    const navigate = useNavigate();
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
     const [timeLeft, setTimeLeft] = useState(0);
@@ -596,7 +598,7 @@ const DebateTimer = () => {
                     <div className="nav-right">
                         <button
                             className="nav-btn"
-                            onClick={() => window.location.href = '/settings'}
+                            onClick={() => navigate('/settings')}
                             title="打开设置"
                         >
                             ⚙️ 设置

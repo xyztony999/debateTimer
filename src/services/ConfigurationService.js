@@ -7,12 +7,13 @@ class ConfigurationService {
     }
 
     // Save a configuration to Firestore
-    async saveConfiguration(name, debateStages, timerSettings) {
+    async saveConfiguration(name, debateStages, timerSettings, stageOrder = null) {
         try {
             const configData = {
                 name,
                 debateStages,
                 timerSettings,
+                stageOrder: stageOrder || Object.keys(debateStages),
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             };
@@ -41,7 +42,8 @@ class ConfigurationService {
                     success: true,
                     data: {
                         debateStages: configData.debateStages,
-                        timerSettings: configData.timerSettings
+                        timerSettings: configData.timerSettings,
+                        stageOrder: configData.stageOrder
                     }
                 };
             } else {
@@ -159,7 +161,26 @@ class ConfigurationService {
                     "正方四辩总结陈词": "single"
                 };
 
-                await this.saveConfiguration('默认配置', defaultDebateStages, defaultTimerSettings);
+                const defaultStageOrder = [
+                    "测试声音",
+                    "正方一辩发言",
+                    "反方四辩盘问正方一辩",
+                    "反方一辩发言",
+                    "正方四辩盘问反方一辩",
+                    "正方二辩作驳论",
+                    "反方二辩作驳论",
+                    "正方二辩对辩反方二辩",
+                    "正方三辩盘问",
+                    "反方三辩盘问",
+                    "正方三辩质询小结",
+                    "反方三辩质询小结",
+                    "战术暂停",
+                    "自由辩论",
+                    "反方四辩总结陈词",
+                    "正方四辩总结陈词"
+                ];
+
+                await this.saveConfiguration('默认配置', defaultDebateStages, defaultTimerSettings, defaultStageOrder);
                 console.log('Default configuration initialized');
             }
         } catch (error) {

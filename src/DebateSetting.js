@@ -12,6 +12,8 @@ const DebateSetting = () => {
     const [newItemName, setNewItemName] = useState('');
     const [newItemTime, setNewItemTime] = useState(60);
     const [newItemMode, setNewItemMode] = useState('single');
+    const [draggedItem, setDraggedItem] = useState(null);
+    const [dragOverItem, setDragOverItem] = useState(null);
 
     // 获取按顺序排列的计时器项目
     const getOrderedStages = () => {
@@ -163,6 +165,70 @@ const DebateSetting = () => {
 
             // 从顺序列表中移除
             setStageOrder(prev => prev.filter(stage => stage !== itemName));
+        }
+    };
+
+    // 拖拽排序功能
+    const handleDragStart = (e, itemName) => {
+        setDraggedItem(itemName);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e, itemName) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOverItem(itemName);
+    };
+
+    const handleDragLeave = () => {
+        setDragOverItem(null);
+    };
+
+    const handleDrop = (e, dropTargetItem) => {
+        e.preventDefault();
+
+        if (!draggedItem || draggedItem === dropTargetItem) {
+            setDraggedItem(null);
+            setDragOverItem(null);
+            return;
+        }
+
+        const currentOrder = [...stageOrder];
+        const draggedIndex = currentOrder.indexOf(draggedItem);
+        const targetIndex = currentOrder.indexOf(dropTargetItem);
+
+        // 移除拖拽的项目
+        currentOrder.splice(draggedIndex, 1);
+        // 插入到目标位置
+        currentOrder.splice(targetIndex, 0, draggedItem);
+
+        setStageOrder(currentOrder);
+        setDraggedItem(null);
+        setDragOverItem(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedItem(null);
+        setDragOverItem(null);
+    };
+
+    // 移动项目到上一位
+    const moveItemUp = (itemName) => {
+        const currentOrder = [...stageOrder];
+        const index = currentOrder.indexOf(itemName);
+        if (index > 0) {
+            [currentOrder[index], currentOrder[index - 1]] = [currentOrder[index - 1], currentOrder[index]];
+            setStageOrder(currentOrder);
+        }
+    };
+
+    // 移动项目到下一位
+    const moveItemDown = (itemName) => {
+        const currentOrder = [...stageOrder];
+        const index = currentOrder.indexOf(itemName);
+        if (index < currentOrder.length - 1) {
+            [currentOrder[index], currentOrder[index + 1]] = [currentOrder[index + 1], currentOrder[index]];
+            setStageOrder(currentOrder);
         }
     };
 
@@ -333,6 +399,63 @@ const DebateSetting = () => {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Timer Order Management Card */}
+                <div className="settings-card">
+                    <div className="card-header">
+                        <h2 className="card-title">🔀 调整顺序</h2>
+                        <p className="card-description">拖拽项目或使用箭头按钮调整计时器的执行顺序</p>
+                    </div>
+                    <div className="card-content">
+                        <div className="order-list">
+                            {getOrderedStages().map((stage, index) => (
+                                <div
+                                    key={stage}
+                                    className={`order-item ${draggedItem === stage ? 'dragging' : ''} ${dragOverItem === stage ? 'drag-over' : ''}`}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, stage)}
+                                    onDragOver={(e) => handleDragOver(e, stage)}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={(e) => handleDrop(e, stage)}
+                                    onDragEnd={handleDragEnd}
+                                >
+                                    <div className="order-number">{index + 1}</div>
+                                    <div className="drag-handle">⋮⋮</div>
+                                    <div className="stage-name">{stage}</div>
+                                    <div className="stage-info">
+                                        <span className="time-info">
+                                            {Math.floor(debateStages[stage] / 60)}:{(debateStages[stage] % 60).toString().padStart(2, '0')}
+                                        </span>
+                                        <span className="mode-info">
+                                            {timerSettings[stage] === 'single' ? '🎯' : '⚖️'}
+                                        </span>
+                                    </div>
+                                    <div className="order-controls">
+                                        <button
+                                            className="btn btn-small btn-outline"
+                                            onClick={() => moveItemUp(stage)}
+                                            disabled={index === 0}
+                                            title="上移"
+                                        >
+                                            ↑
+                                        </button>
+                                        <button
+                                            className="btn btn-small btn-outline"
+                                            onClick={() => moveItemDown(stage)}
+                                            disabled={index === getOrderedStages().length - 1}
+                                            title="下移"
+                                        >
+                                            ↓
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="order-help">
+                            <p>💡 提示：拖拽项目可以快速调整顺序，或使用箭头按钮精确移动</p>
                         </div>
                     </div>
                 </div>

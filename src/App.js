@@ -8,11 +8,6 @@ function App() {
     return (
         <Router>
             <div className="App">
-                {/* 导航栏 */}
-                <nav>
-                    <Link to="/">Debate Timer</Link> |
-                    <Link to="/settings">Settings</Link>
-                </nav>
 
                 {/* 路由配置 */}
                 <Routes>

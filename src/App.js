@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './styles/App.css';
 import DebateTimer from './DebateTimer';
 import SettingsPage from './DebateSetting'; // 新增的设置页面组件

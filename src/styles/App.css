@@ -706,6 +706,163 @@ button:not(:disabled):hover {
   }
 }
 
+/* Order Management Styles */
+.order-list {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.order-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto auto;
+  gap: 1rem;
+  align-items: center;
+  background: white;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: grab;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.order-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.order-item.dragging {
+  opacity: 0.6;
+  transform: rotate(2deg);
+  cursor: grabbing;
+  z-index: 1000;
+}
+
+.order-item.drag-over {
+  border-color: #28a745;
+  background: #f8fff9;
+  transform: scale(1.02);
+}
+
+.order-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.drag-handle {
+  color: #6c757d;
+  font-size: 1.2rem;
+  cursor: grab;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.drag-handle:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.order-item.dragging .drag-handle {
+  cursor: grabbing;
+}
+
+.stage-name {
+  font-weight: 500;
+  color: #495057;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-info {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.time-info {
+  background: #e9ecef;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-family: monospace;
+}
+
+.mode-info {
+  font-size: 1.2rem;
+}
+
+.order-controls {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.order-controls .btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  min-width: auto;
+}
+
+.order-help {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.order-help p {
+  margin: 0;
+  color: #856404;
+  font-size: 0.875rem;
+}
+
+/* Responsive adjustments for order management */
+@media (max-width: 768px) {
+  .order-item {
+    grid-template-columns: auto 1fr auto;
+    gap: 0.5rem;
+  }
+
+  .drag-handle,
+  .stage-info {
+    display: none;
+  }
+
+  .order-controls {
+    grid-column: span 1;
+  }
+
+  .stage-name {
+    grid-column: span 1;
+  }
+}
+
 /* Action Buttons Container */
 .settings-actions {
   display: flex;

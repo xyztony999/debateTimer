@@ -2,9 +2,9 @@ name: Deploy React App to GitHub Pages
 
 on:
   push:
-    branches: [ master ]
+    branches: [ deploy/production ]
   pull_request:
-    branches: [ master ]
+    branches: [ deploy/production ]
 
 permissions:
   contents: read

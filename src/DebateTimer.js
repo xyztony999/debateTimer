@@ -4,6 +4,7 @@ import r30_sound from './resources/split.wav';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import {TimerSetting} from './schema/TimerSetting';
+import ConfigurationService from './services/ConfigurationService';
 
 const DebateTimer = () => {
     const [debateStages, setDebateStages] = useState({});
@@ -24,6 +25,16 @@ const DebateTimer = () => {
     const toggleDarkMode = () => {
         setDarkMode(!darkMode);
     };
+
+    useEffect(() => {
+        // 为计时器页面添加body类名
+        document.body.className = 'timer-body';
+
+        // 清理函数，当组件卸载时移除类名
+        return () => {
+            document.body.className = '';
+        };
+    }, []);
 
     useEffect(() => {
         const matchDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
@@ -99,6 +110,39 @@ const DebateTimer = () => {
         return result;
     }
 
+    // Load configuration from Firebase
+    const loadConfiguration = async (configName) => {
+        try {
+            const result = await ConfigurationService.loadConfiguration(configName);
+            if (result.success) {
+                const newDebateStages = result.data.debateStages;
+                const newTimerSettings = formatTimerSettings(result.data.timerSettings);
+
+                setDebateStages(newDebateStages);
+                setDebateSingleDoubleTimerSettings(newTimerSettings);
+
+                // Set initial stage
+                const keys = Object.keys(newDebateStages);
+                if (keys.length > 0) {
+                    setSelectedStage(keys[0]);
+                    setTimerTitle(keys[0]);
+                    setTimeLeft(newDebateStages[keys[0]]);
+                    setTimeLeftAff(newDebateStages[keys[0]]);
+                    setTimeLeftNeg(newDebateStages[keys[0]]);
+                }
+
+                return true;
+            } else {
+                console.error('Failed to load configuration:', result.message);
+                return false;
+            }
+        } catch (error) {
+            console.error('Error loading configuration:', error);
+            return false;
+        }
+    };
+
+
     //const debateStages = debateStagesData;
     //const debateSingleDoubleTimerSettings = formatTimerSettings(timerSettingsData);
 
@@ -113,21 +157,34 @@ const DebateTimer = () => {
     }, []);*/
 
     useEffect(() => {
-        const savedDebateStages = localStorage.getItem('debateStages');
-        const savedTimerSettings = localStorage.getItem('timerSettings');
+        const initializeConfiguration = async () => {
+            try {
+                // Initialize default configurations in Firebase
+                await ConfigurationService.initializeDefaultConfigurations();
 
-        if (savedDebateStages) setDebateStages(JSON.parse(savedDebateStages));
-        else setDebateStages(debateStagesData);
+                // Load default configuration from Firestore
+                await loadConfiguration('默认配置');
 
-        if (savedTimerSettings) setDebateSingleDoubleTimerSettings(formatTimerSettings(JSON.parse(savedTimerSettings)));
-        else setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
+                // Set up real-time listener for configuration changes
+                const unsubscribe = ConfigurationService.onConfigurationsChange(() => {
+                    // Reload configuration when it changes
+                    loadConfiguration('默认配置');
+                });
 
-        const keys = Object.keys(debateStages);
-        setSelectedStage(keys[0]);
-        setTimerTitle(keys[0]);
-        setTimeLeft(debateStages[keys[0]]);
-        setTimeLeftAff(debateStages[keys[0]]);
-        setTimeLeftNeg(debateStages[keys[0]]);
+                // Clean up listener on component unmount
+                return () => {
+                    if (unsubscribe) unsubscribe();
+                };
+
+            } catch (error) {
+                console.error('Error initializing configuration:', error);
+                // Fallback to local JSON files
+                setDebateStages(debateStagesData);
+                setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
+            }
+        };
+
+        initializeConfiguration();
     }, []);
 
     useEffect(() => {
@@ -531,9 +588,30 @@ const DebateTimer = () => {
     return (
         <Fragment>
             <div id="timer" className={darkMode ? 'dark-mode' : 'light-mode'}>
-                <button type='button' onClick={toggleDarkMode}>
-                    {darkMode ? '☀' : '🌙'}
-                </button>
+                {/* Navigation Bar */}
+                <div className="timer-nav">
+                    <div className="nav-left">
+                        <h2 className="app-title">🎯 辩论计时器</h2>
+                    </div>
+                    <div className="nav-right">
+                        <button
+                            className="nav-btn"
+                            onClick={() => window.location.href = '/settings'}
+                            title="打开设置"
+                        >
+                            ⚙️ 设置
+                        </button>
+                        <button
+                            className="nav-btn dark-mode-btn"
+                            onClick={toggleDarkMode}
+                            title={darkMode ? '切换到浅色模式' : '切换到深色模式'}
+                        >
+                            {darkMode ? '☀️' : '🌙'}
+                        </button>
+                    </div>
+                </div>
+
+
                 <select value={selectedStage} onChange={handleStageSelect}>
                     {Object.keys(debateStages).map((stage) => (
                         <option key={stage} value={stage} title={stage}>
@@ -622,6 +700,7 @@ const DebateTimer = () => {
                         </div>
                     </div>
                 )}
+
             </div>
         </Fragment>
     );

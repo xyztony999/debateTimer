@@ -11,6 +11,7 @@ const DebateTimer = () => {
     const navigate = useNavigate();
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
+    const [stageOrder, setStageOrder] = useState([]);
     const [timeLeft, setTimeLeft] = useState(0);
     const [timeLeftAff, setTimeLeftAff] = useState(0);
     const [timeLeftNeg, setTimeLeftNeg] = useState(0);
@@ -26,6 +27,29 @@ const DebateTimer = () => {
 
     const toggleDarkMode = () => {
         setDarkMode(!darkMode);
+    };
+
+    // 获取按顺序排列的计时器项目
+    const getOrderedStages = () => {
+        // 如果有自定义顺序，使用自定义顺序
+        if (stageOrder.length > 0) {
+            const orderedStages = [];
+            // 按顺序添加存在的项目
+            stageOrder.forEach(stage => {
+                if (debateStages.hasOwnProperty(stage)) {
+                    orderedStages.push(stage);
+                }
+            });
+            // 添加新增的项目（不在顺序列表中的）
+            Object.keys(debateStages).forEach(stage => {
+                if (!stageOrder.includes(stage)) {
+                    orderedStages.push(stage);
+                }
+            });
+            return orderedStages;
+        }
+        // 如果没有自定义顺序，直接返回对象的键
+        return Object.keys(debateStages);
     };
 
     useEffect(() => {
@@ -123,14 +147,31 @@ const DebateTimer = () => {
                 setDebateStages(newDebateStages);
                 setDebateSingleDoubleTimerSettings(newTimerSettings);
 
-                // Set initial stage
-                const keys = Object.keys(newDebateStages);
-                if (keys.length > 0) {
-                    setSelectedStage(keys[0]);
-                    setTimerTitle(keys[0]);
-                    setTimeLeft(newDebateStages[keys[0]]);
-                    setTimeLeftAff(newDebateStages[keys[0]]);
-                    setTimeLeftNeg(newDebateStages[keys[0]]);
+                // 加载顺序信息（如果存在）
+                if (result.data.stageOrder) {
+                    setStageOrder(result.data.stageOrder);
+                    // 使用有序的第一个项目作为默认选择
+                    if (result.data.stageOrder.length > 0) {
+                        const firstStage = result.data.stageOrder[0];
+                        if (newDebateStages[firstStage]) {
+                            setSelectedStage(firstStage);
+                            setTimerTitle(firstStage);
+                            setTimeLeft(newDebateStages[firstStage]);
+                            setTimeLeftAff(newDebateStages[firstStage]);
+                            setTimeLeftNeg(newDebateStages[firstStage]);
+                        }
+                    }
+                } else {
+                    // 如果没有顺序信息，使用对象键的顺序并设置默认项目
+                    const keys = Object.keys(newDebateStages);
+                    setStageOrder(keys);
+                    if (keys.length > 0) {
+                        setSelectedStage(keys[0]);
+                        setTimerTitle(keys[0]);
+                        setTimeLeft(newDebateStages[keys[0]]);
+                        setTimeLeftAff(newDebateStages[keys[0]]);
+                        setTimeLeftNeg(newDebateStages[keys[0]]);
+                    }
                 }
 
                 return true;
@@ -183,6 +224,17 @@ const DebateTimer = () => {
                 // Fallback to local JSON files
                 setDebateStages(debateStagesData);
                 setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
+                // 为本地数据创建默认顺序
+                const localStageKeys = Object.keys(debateStagesData);
+                setStageOrder(localStageKeys);
+                // 设置默认选择
+                if (localStageKeys.length > 0) {
+                    setSelectedStage(localStageKeys[0]);
+                    setTimerTitle(localStageKeys[0]);
+                    setTimeLeft(debateStagesData[localStageKeys[0]]);
+                    setTimeLeftAff(debateStagesData[localStageKeys[0]]);
+                    setTimeLeftNeg(debateStagesData[localStageKeys[0]]);
+                }
             }
         };
 
@@ -615,7 +667,7 @@ const DebateTimer = () => {
 
 
                 <select value={selectedStage} onChange={handleStageSelect}>
-                    {Object.keys(debateStages).map((stage) => (
+                    {getOrderedStages().map((stage) => (
                         <option key={stage} value={stage} title={stage}>
                             {stage}
                         </option>

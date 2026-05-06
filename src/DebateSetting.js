@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import ConfigurationService from './services/ConfigurationService';
+import { DEFAULT_CONFIGURATION_NAME } from './config/configConstants';
+import LanguageSwitcher from './components/LanguageSwitcher';
+import { stageDisplayName } from './utils/stageDisplayName';
 
 const DebateSetting = () => {
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
     const [stageOrder, setStageOrder] = useState([]);
@@ -55,7 +60,7 @@ const DebateSetting = () => {
                 await ConfigurationService.initializeDefaultConfigurations();
 
                 // Load default configuration
-                const defaultConfig = await ConfigurationService.loadConfiguration('默认配置');
+                const defaultConfig = await ConfigurationService.loadConfiguration(DEFAULT_CONFIGURATION_NAME);
                 if (defaultConfig.success) {
                     setDebateStages(defaultConfig.data.debateStages);
                     setTimerSettings(defaultConfig.data.timerSettings);
@@ -101,20 +106,20 @@ const DebateSetting = () => {
     const saveChanges = async () => {
         try {
             const result = await ConfigurationService.saveConfiguration(
-                '默认配置',
+                DEFAULT_CONFIGURATION_NAME,
                 debateStages,
                 timerSettings,
                 stageOrder
             );
 
             if (result.success) {
-                alert('设置已保存到 Firestore!');
+                alert(t('settings.savedSuccess'));
             } else {
-                alert(`保存失败: ${result.message}`);
+                alert(t('settings.saveFailed', { message: result.message }));
             }
         } catch (error) {
             console.error('Error saving to Firebase:', error);
-            alert('保存设置失败，请重试。');
+            alert(t('settings.saveRetry'));
         }
     };
 
@@ -129,12 +134,12 @@ const DebateSetting = () => {
     // 添加新的计时项目
     const addTimerItem = () => {
         if (!newItemName.trim()) {
-            alert('请输入计时项目名称');
+            alert(t('settings.enterItemName'));
             return;
         }
 
         if (debateStages.hasOwnProperty(newItemName)) {
-            alert('该计时项目已存在');
+            alert(t('settings.itemExists'));
             return;
         }
 
@@ -153,7 +158,7 @@ const DebateSetting = () => {
 
     // 删除计时项目
     const deleteTimerItem = (itemName) => {
-        if (window.confirm(`确定要删除计时项目"${itemName}"吗？`)) {
+        if (window.confirm(t('settings.confirmDelete', { name: stageDisplayName(t, itemName) }))) {
             const newDebateStages = { ...debateStages };
             const newTimerSettings = { ...timerSettings };
 
@@ -244,30 +249,31 @@ const DebateSetting = () => {
                                 className="nav-back-btn"
                                 onClick={() => navigate('/')}
                             >
-                                ← 返回计时器
+                                {t('settings.backToTimer')}
                             </button>
                         </div>
                         <div className="nav-center">
                             <div className="breadcrumb">
-                                <span className="breadcrumb-item">🎯 计时器</span>
+                                <span className="breadcrumb-item">🎯 {t('settings.breadcrumbTimer')}</span>
                                 <span className="breadcrumb-separator">›</span>
-                                <span className="breadcrumb-item current">⚙️ 设置</span>
+                                <span className="breadcrumb-item current">⚙️ {t('settings.breadcrumbSettings')}</span>
                             </div>
                         </div>
-                        <div className="nav-right">
+                        <div className="nav-right settings-nav-actions">
+                            <LanguageSwitcher className="lang-switcher--settings" />
                             <button
                                 className="nav-help-btn"
-                                onClick={() => alert('提示：修改设置后点击"保存到 Firestore"按钮保存配置。计时器页面会自动更新。')}
-                                title="查看帮助"
+                                onClick={() => alert(t('settings.helpAlert'))}
+                                title={t('settings.helpTitle')}
                             >
-                                ❓ 帮助
+                                ❓ {t('settings.help')}
                             </button>
                         </div>
                     </div>
 
                     <div className="header-main">
-                        <h1 className="settings-title">⚙️ 辩论计时器设置</h1>
-                        <p className="settings-subtitle">自定义您的辩论比赛时间和计时器配置</p>
+                        <h1 className="settings-title">⚙️ {t('settings.pageTitle')}</h1>
+                        <p className="settings-subtitle">{t('settings.pageSubtitle')}</p>
                     </div>
                 </div>
             </div>
@@ -278,8 +284,8 @@ const DebateSetting = () => {
                 {/* Time Settings Card */}
                 <div className="settings-card">
                     <div className="card-header">
-                        <h2 className="card-title">⏱️ 时长设置</h2>
-                        <p className="card-description">设置每个辩论阶段的时间长度（单位：秒）</p>
+                        <h2 className="card-title">⏱️ {t('settings.durationTitle')}</h2>
+                        <p className="card-description">{t('settings.durationDesc')}</p>
                     </div>
                     <div className="card-content">
                         <div className="settings-grid">
@@ -291,7 +297,7 @@ const DebateSetting = () => {
                                 return (
                                     <div key={index} className="setting-item">
                                         <label className="setting-label">
-                                            {stage}
+                                            {stageDisplayName(t, stage)}
                                             <span className="time-preview">{timeDisplay}</span>
                                         </label>
                                         <div className="input-group">
@@ -302,9 +308,9 @@ const DebateSetting = () => {
                                                 onChange={(e) => handleDebateStageChange(stage, parseInt(e.target.value) || 0)}
                                                 min="0"
                                                 max="3600"
-                                                placeholder="秒数"
+                                                placeholder={t('settings.secondsPlaceholder')}
                                             />
-                                            <span className="input-suffix">秒</span>
+                                            <span className="input-suffix">{t('settings.secondsSuffix')}</span>
                                         </div>
                                     </div>
                                 );
@@ -316,27 +322,27 @@ const DebateSetting = () => {
                 {/* Timer Mode Settings Card */}
                 <div className="settings-card">
                     <div className="card-header">
-                        <h2 className="card-title">🎛️ 计时模式</h2>
-                        <p className="card-description">设置每个阶段使用单计时器还是双计时器</p>
+                        <h2 className="card-title">🎛️ {t('settings.modeTitle')}</h2>
+                        <p className="card-description">{t('settings.modeDesc')}</p>
                     </div>
                     <div className="card-content">
                         <div className="settings-grid">
                             {getOrderedStages().map((stage, index) => (
                                 <div key={index} className="setting-item">
-                                    <label className="setting-label">{stage}</label>
+                                    <label className="setting-label">{stageDisplayName(t, stage)}</label>
                                     <div className="input-group">
                                         <select
                                             className="modern-select"
                                             value={timerSettings[stage]}
                                             onChange={(e) => handleTimerSettingChange(stage, e.target.value)}
                                         >
-                                            <option value="single">🎯 单计时器</option>
-                                            <option value="double">⚖️ 双计时器</option>
+                                            <option value="single">🎯 {t('settings.singleTimer')}</option>
+                                            <option value="double">⚖️ {t('settings.doubleTimer')}</option>
                                         </select>
                                         <button
                                             className="btn btn-danger btn-small"
                                             onClick={() => deleteTimerItem(stage)}
-                                            title="删除此项目"
+                                            title={t('settings.deleteItemTitle')}
                                         >
                                             🗑️
                                         </button>
@@ -350,25 +356,25 @@ const DebateSetting = () => {
                 {/* Add New Timer Item Card */}
                 <div className="settings-card">
                     <div className="card-header">
-                        <h2 className="card-title">➕ 添加计时项目</h2>
-                        <p className="card-description">添加新的辩论阶段计时项目</p>
+                        <h2 className="card-title">➕ {t('settings.addTitle')}</h2>
+                        <p className="card-description">{t('settings.addDesc')}</p>
                     </div>
                     <div className="card-content">
                         <div className="add-item-form">
                             <div className="form-row">
                                 <div className="form-field">
-                                    <label className="setting-label">项目名称</label>
+                                    <label className="setting-label">{t('settings.itemName')}</label>
                                     <input
                                         type="text"
                                         className="modern-input"
                                         value={newItemName}
                                         onChange={(e) => setNewItemName(e.target.value)}
-                                        placeholder="例如：自由辩论准备"
+                                        placeholder={t('settings.placeholderItemName')}
                                         maxLength="20"
                                     />
                                 </div>
                                 <div className="form-field">
-                                    <label className="setting-label">时间长度（秒）</label>
+                                    <label className="setting-label">{t('settings.durationSeconds')}</label>
                                     <input
                                         type="number"
                                         className="modern-input"
@@ -376,18 +382,18 @@ const DebateSetting = () => {
                                         onChange={(e) => setNewItemTime(parseInt(e.target.value) || 0)}
                                         min="1"
                                         max="3600"
-                                        placeholder="60"
+                                        placeholder={t('settings.placeholderSeconds')}
                                     />
                                 </div>
                                 <div className="form-field">
-                                    <label className="setting-label">计时模式</label>
+                                    <label className="setting-label">{t('settings.timerMode')}</label>
                                     <select
                                         className="modern-select"
                                         value={newItemMode}
                                         onChange={(e) => setNewItemMode(e.target.value)}
                                     >
-                                        <option value="single">🎯 单计时器</option>
-                                        <option value="double">⚖️ 双计时器</option>
+                                        <option value="single">🎯 {t('settings.singleTimer')}</option>
+                                        <option value="double">⚖️ {t('settings.doubleTimer')}</option>
                                     </select>
                                 </div>
                                 <div className="form-field">
@@ -395,7 +401,7 @@ const DebateSetting = () => {
                                         className="btn btn-primary"
                                         onClick={addTimerItem}
                                     >
-                                        ➕ 添加项目
+                                        ➕ {t('settings.addButton')}
                                     </button>
                                 </div>
                             </div>
@@ -406,8 +412,8 @@ const DebateSetting = () => {
                 {/* Timer Order Management Card */}
                 <div className="settings-card">
                     <div className="card-header">
-                        <h2 className="card-title">🔀 调整顺序</h2>
-                        <p className="card-description">拖拽项目或使用箭头按钮调整计时器的执行顺序</p>
+                        <h2 className="card-title">🔀 {t('settings.orderTitle')}</h2>
+                        <p className="card-description">{t('settings.orderDesc')}</p>
                     </div>
                     <div className="card-content">
                         <div className="order-list">
@@ -424,7 +430,7 @@ const DebateSetting = () => {
                                 >
                                     <div className="order-number">{index + 1}</div>
                                     <div className="drag-handle">⋮⋮</div>
-                                    <div className="stage-name">{stage}</div>
+                                    <div className="stage-name">{stageDisplayName(t, stage)}</div>
                                     <div className="stage-info">
                                         <span className="time-info">
                                             {Math.floor(debateStages[stage] / 60)}:{(debateStages[stage] % 60).toString().padStart(2, '0')}
@@ -438,7 +444,7 @@ const DebateSetting = () => {
                                             className="btn btn-small btn-outline"
                                             onClick={() => moveItemUp(stage)}
                                             disabled={index === 0}
-                                            title="上移"
+                                            title={t('settings.moveUp')}
                                         >
                                             ↑
                                         </button>
@@ -446,7 +452,7 @@ const DebateSetting = () => {
                                             className="btn btn-small btn-outline"
                                             onClick={() => moveItemDown(stage)}
                                             disabled={index === getOrderedStages().length - 1}
-                                            title="下移"
+                                            title={t('settings.moveDown')}
                                         >
                                             ↓
                                         </button>
@@ -455,7 +461,7 @@ const DebateSetting = () => {
                             ))}
                         </div>
                         <div className="order-help">
-                            <p>💡 提示：拖拽项目可以快速调整顺序，或使用箭头按钮精确移动</p>
+                            <p>💡 {t('settings.orderHint')}</p>
                         </div>
                     </div>
                 </div>
@@ -466,13 +472,13 @@ const DebateSetting = () => {
                         className="btn btn-outline"
                         onClick={loadLocalSettings}
                     >
-                        🔄 重置为默认
+                        🔄 {t('settings.resetDefault')}
                     </button>
                     <button
                         className="btn btn-success"
                         onClick={saveChanges}
                     >
-                        💾 保存
+                        💾 {t('settings.save')}
                     </button>
                 </div>
             </div>

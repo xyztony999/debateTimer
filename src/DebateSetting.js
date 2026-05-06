@@ -475,11 +475,6 @@ const DebateSetting = () => {
                         💾 保存
                     </button>
                 </div>
-
-                {/* Scroll indicator for long content */}
-                <div className="scroll-indicator">
-                    <p>页面内容较长，可以向下滚动查看更多设置选项</p>
-                </div>
             </div>
         </div>
     );

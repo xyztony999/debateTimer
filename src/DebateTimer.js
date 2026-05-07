@@ -648,21 +648,29 @@ const DebateTimer = () => {
                         <h2 className="app-title">🎯 {t('timer.title')}</h2>
                     </div>
                     <div className="nav-right">
-                        <LanguageSwitcher className="lang-switcher--timer" />
-                        <button
-                            className="nav-btn"
-                            onClick={() => navigate('/settings')}
-                            title={t('timer.settingsAria')}
+                        <div
+                            className="nav-actions-group nav-actions-group--timer"
+                            role="toolbar"
+                            aria-label={t('timer.toolbar')}
                         >
-                            ⚙️ {t('timer.settings')}
-                        </button>
-                        <button
-                            className="nav-btn dark-mode-btn"
-                            onClick={toggleDarkMode}
-                            title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}
-                        >
-                            {darkMode ? '☀️' : '🌙'}
-                        </button>
+                            <LanguageSwitcher className="lang-switcher--timer" />
+                            <button
+                                type="button"
+                                className="nav-btn"
+                                onClick={() => navigate('/settings')}
+                                title={t('timer.settingsAria')}
+                            >
+                                ⚙️ {t('timer.settings')}
+                            </button>
+                            <button
+                                type="button"
+                                className="nav-btn dark-mode-btn"
+                                onClick={toggleDarkMode}
+                                title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}
+                            >
+                                {darkMode ? '☀️' : '🌙'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

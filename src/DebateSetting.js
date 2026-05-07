@@ -260,14 +260,21 @@ const DebateSetting = () => {
                             </div>
                         </div>
                         <div className="nav-right settings-nav-actions">
-                            <LanguageSwitcher className="lang-switcher--settings" />
-                            <button
-                                className="nav-help-btn"
-                                onClick={() => alert(t('settings.helpAlert'))}
-                                title={t('settings.helpTitle')}
+                            <div
+                                className="nav-actions-group nav-actions-group--settings"
+                                role="toolbar"
+                                aria-label={t('settings.toolbar')}
                             >
-                                ❓ {t('settings.help')}
-                            </button>
+                                <LanguageSwitcher className="lang-switcher--settings" />
+                                <button
+                                    type="button"
+                                    className="nav-help-btn"
+                                    onClick={() => alert(t('settings.helpAlert'))}
+                                    title={t('settings.helpTitle')}
+                                >
+                                    ❓ {t('settings.help')}
+                                </button>
+                            </div>
                         </div>
                     </div>
 

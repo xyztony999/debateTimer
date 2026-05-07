@@ -9,7 +9,8 @@
         "negative": "反方",
         "test30sSound": "测试30秒声音",
         "testEndSound": "测试结束声音",
-        "language": "语言"
+        "language": "语言",
+        "toolbar": "计时器操作"
     },
     "settings": {
         "backToTimer": "← 返回计时器",
@@ -18,6 +19,7 @@
         "help": "帮助",
         "helpTitle": "查看帮助",
         "helpAlert": "提示：修改设置后点击“保存”按钮保存配置。计时器页面会自动更新。",
+        "toolbar": "设置栏",
         "pageTitle": "辩论计时器设置",
         "pageSubtitle": "自定义您的辩论比赛时间和计时器配置",
         "durationTitle": "时长设置",

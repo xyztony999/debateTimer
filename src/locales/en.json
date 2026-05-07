@@ -9,7 +9,8 @@
         "negative": "Negative",
         "test30sSound": "Test 30s cue",
         "testEndSound": "Test end cue",
-        "language": "Language"
+        "language": "Language",
+        "toolbar": "Timer actions"
     },
     "settings": {
         "backToTimer": "← Back to timer",
@@ -18,6 +19,7 @@
         "help": "Help",
         "helpTitle": "Help",
         "helpAlert": "Tip: After editing, click “Save” to store your configuration in Firestore. The timer page updates automatically.",
+        "toolbar": "Settings bar",
         "pageTitle": "Debate timer settings",
         "pageSubtitle": "Customize debate stages, durations, and timer modes",
         "durationTitle": "Durations",

@@ -9,7 +9,8 @@
         "negative": "Contre",
         "test30sSound": "Tester le signal 30 s",
         "testEndSound": "Tester le signal de fin",
-        "language": "Langue"
+        "language": "Langue",
+        "toolbar": "Actions du chronomètre"
     },
     "settings": {
         "backToTimer": "← Retour au chronomètre",
@@ -18,6 +19,7 @@
         "help": "Aide",
         "helpTitle": "Aide",
         "helpAlert": "Astuce : après vos modifications, cliquez sur « Enregistrer » pour sauvegarder la configuration dans Firestore. La page du chronomètre se met à jour automatiquement.",
+        "toolbar": "Barre de réglages",
         "pageTitle": "Réglages du chronomètre de débat",
         "pageSubtitle": "Personnalisez les phases, durées et modes du chronomètre",
         "durationTitle": "Durées",

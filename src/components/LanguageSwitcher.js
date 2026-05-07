@@ -1,10 +1,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
+/** Short labels so the control stays one compact row in the nav bar. */
 const OPTIONS = [
     { value: 'en', label: 'English' },
-    { value: 'fr-CA', label: 'Français (Canada)' },
-    { value: 'zh-Hans', label: '简体中文' },
+    { value: 'fr-CA', label: 'Français' },
+    { value: 'zh-Hans', label: '中文' },
 ];
 
 function resolveUiLanguage(i18n) {
@@ -17,14 +18,20 @@ function resolveUiLanguage(i18n) {
 export default function LanguageSwitcher({ className = '' }) {
     const { i18n, t } = useTranslation();
 
+    const rootClass = ['lang-switcher', className].filter(Boolean).join(' ');
+
     return (
-        <label className={className ? `lang-switcher ${className}` : 'lang-switcher'}>
-            <span className="lang-switcher-label">{t('timer.language')}</span>
+        <div className={rootClass}>
+            <span className="lang-switcher-icon" aria-hidden>
+                🌐
+            </span>
+            <span className="sr-only">{t('timer.language')}</span>
             <select
                 className="lang-switcher-select"
                 value={resolveUiLanguage(i18n)}
                 onChange={(e) => i18n.changeLanguage(e.target.value)}
                 aria-label={t('timer.language')}
+                title={t('timer.language')}
             >
                 {OPTIONS.map(({ value, label }) => (
                     <option key={value} value={value}>
@@ -32,6 +39,6 @@ export default function LanguageSwitcher({ className = '' }) {
                     </option>
                 ))}
             </select>
-        </label>
+        </div>
     );
 }

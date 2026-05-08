@@ -13,9 +13,10 @@ import { stageDisplayName } from './utils/stageDisplayName';
 
 const DebateTimer = () => {
     const navigate = useNavigate();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
+    const [stageLabels, setStageLabels] = useState({});    // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
     const [stageOrder, setStageOrder] = useState([]);
     const [timeLeft, setTimeLeft] = useState(0);
     const [timeLeftAff, setTimeLeftAff] = useState(0);
@@ -150,6 +151,7 @@ const DebateTimer = () => {
 
                 setDebateStages(newDebateStages);
                 setDebateSingleDoubleTimerSettings(newTimerSettings);
+                setStageLabels(result.data.stageLabels || {});
 
                 // 加载顺序信息（如果存在）
                 if (result.data.stageOrder) {
@@ -226,6 +228,7 @@ const DebateTimer = () => {
                 // Fallback to local JSON files
                 setDebateStages(debateStagesData);
                 setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
+                setStageLabels({});
                 // 为本地数据创建默认顺序
                 const localStageKeys = Object.keys(debateStagesData);
                 setStageOrder(localStageKeys);
@@ -680,13 +683,13 @@ const DebateTimer = () => {
                         <option
                             key={stage}
                             value={stage}
-                            title={stageDisplayName(t, stage)}
+                            title={stageDisplayName(t, stage, stageLabels, i18n.language)}
                         >
-                            {stageDisplayName(t, stage)}
+                            {stageDisplayName(t, stage, stageLabels, i18n.language)}
                         </option>
                     ))}
                 </select>
-                <h2>{stageDisplayName(t, selectedStage)}</h2>
+                <h2>{stageDisplayName(t, selectedStage, stageLabels, i18n.language)}</h2>
                 {(selectedStage === 'sound_check') ? (
                     <div>
                         <button onClick={() => {

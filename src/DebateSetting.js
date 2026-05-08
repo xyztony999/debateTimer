@@ -8,110 +8,97 @@ import { DEFAULT_CONFIGURATION_NAME } from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
 
+/** Generate a short unique ID for custom stages. */
+function generateCustomId() {
+    return `custom_${Date.now().toString(36)}`;
+}
+
+const EMPTY_LABELS = { 'zh-Hans': '', 'en': '', 'fr-CA': '' };
+
 const DebateSetting = () => {
     const navigate = useNavigate();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
+    const [stageLabels, setStageLabels] = useState({});     // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
     const [stageOrder, setStageOrder] = useState([]);
-    const [newItemName, setNewItemName] = useState('');
+
+    // Add-stage form state
+    const [newItemLabels, setNewItemLabels] = useState({ ...EMPTY_LABELS });
     const [newItemTime, setNewItemTime] = useState(60);
     const [newItemMode, setNewItemMode] = useState('single');
+
     const [draggedItem, setDraggedItem] = useState(null);
     const [dragOverItem, setDragOverItem] = useState(null);
 
-    // 获取按顺序排列的计时器项目
     const getOrderedStages = () => {
-        // 如果有自定义顺序，使用自定义顺序
         if (stageOrder.length > 0) {
             const orderedStages = [];
-            // 按顺序添加存在的项目
             stageOrder.forEach(stage => {
-                if (debateStages.hasOwnProperty(stage)) {
-                    orderedStages.push(stage);
-                }
+                if (debateStages.hasOwnProperty(stage)) orderedStages.push(stage);
             });
-            // 添加新增的项目（不在顺序列表中的）
             Object.keys(debateStages).forEach(stage => {
-                if (!stageOrder.includes(stage)) {
-                    orderedStages.push(stage);
-                }
+                if (!stageOrder.includes(stage)) orderedStages.push(stage);
             });
             return orderedStages;
         }
-        // 如果没有自定义顺序，直接返回对象的键
         return Object.keys(debateStages);
     };
 
     useEffect(() => {
-        // 为设置页面添加body类名，确保正确的滚动行为
         document.body.className = 'settings-body';
-
-        // 清理函数，当组件卸载时移除类名
-        return () => {
-            document.body.className = '';
-        };
+        return () => { document.body.className = ''; };
     }, []);
 
     useEffect(() => {
         const initializeSettings = async () => {
             try {
-                // Initialize default configurations
                 await ConfigurationService.initializeDefaultConfigurations();
-
-                // Load default configuration
                 const defaultConfig = await ConfigurationService.loadConfiguration(DEFAULT_CONFIGURATION_NAME);
                 if (defaultConfig.success) {
                     setDebateStages(defaultConfig.data.debateStages);
                     setTimerSettings(defaultConfig.data.timerSettings);
-                    // 加载顺序信息（如果存在）
+                    setStageLabels(defaultConfig.data.stageLabels || {});
                     if (defaultConfig.data.stageOrder) {
                         setStageOrder(defaultConfig.data.stageOrder);
                     } else {
-                        // 如果没有顺序信息，使用对象键的顺序并保存
-                        const order = Object.keys(defaultConfig.data.debateStages);
-                        setStageOrder(order);
+                        setStageOrder(Object.keys(defaultConfig.data.debateStages));
                     }
                 } else {
-                    // Fallback to local files
                     setDebateStages(debateStagesData);
                     setTimerSettings(timerSettingsData);
-                    // 为本地数据创建默认顺序
+                    setStageLabels({});
                     setStageOrder(Object.keys(debateStagesData));
                 }
-
             } catch (error) {
                 console.error('Error initializing settings:', error);
-                // Fallback to local files
                 setDebateStages(debateStagesData);
                 setTimerSettings(timerSettingsData);
+                setStageLabels({});
                 setStageOrder(Object.keys(debateStagesData));
             }
         };
-
         initializeSettings();
     }, []);
 
-    // 更新辩论阶段
     const handleDebateStageChange = (key, value) => {
         setDebateStages({ ...debateStages, [key]: value });
     };
 
-    // 更新计时器设置
     const handleTimerSettingChange = (key, value) => {
         setTimerSettings({ ...timerSettings, [key]: value });
     };
 
-    // 保存更改到 Firestore
     const saveChanges = async () => {
         try {
             const result = await ConfigurationService.saveConfiguration(
                 DEFAULT_CONFIGURATION_NAME,
                 debateStages,
                 timerSettings,
-                stageOrder
+                stageOrder,
+                stageLabels,
             );
-
             if (result.success) {
                 alert(t('settings.savedSuccess'));
             } else {
@@ -123,57 +110,57 @@ const DebateSetting = () => {
         }
     };
 
-
-    // 重置为本地默认设置
-    function loadLocalSettings() {
+    const loadLocalSettings = () => {
         setDebateStages(debateStagesData);
         setTimerSettings(timerSettingsData);
+        setStageLabels({});
         setStageOrder(Object.keys(debateStagesData));
-    }
+    };
 
-    // 添加新的计时项目
     const addTimerItem = () => {
-        if (!newItemName.trim()) {
-            alert(t('settings.enterItemName'));
+        const hasAnyLabel = Object.values(newItemLabels).some(v => v.trim());
+        if (!hasAnyLabel) {
+            alert(t('settings.labelRequired'));
             return;
         }
 
-        if (debateStages.hasOwnProperty(newItemName)) {
-            alert(t('settings.itemExists'));
-            return;
-        }
+        const id = generateCustomId();
 
-        // 添加到两个配置对象中
-        setDebateStages(prev => ({ ...prev, [newItemName]: newItemTime }));
-        setTimerSettings(prev => ({ ...prev, [newItemName]: newItemMode }));
+        // Trim labels and drop empty values
+        const trimmedLabels = {};
+        Object.entries(newItemLabels).forEach(([lang, val]) => {
+            if (val.trim()) trimmedLabels[lang] = val.trim();
+        });
 
-        // 添加到顺序列表的末尾
-        setStageOrder(prev => [...prev, newItemName]);
+        setDebateStages(prev => ({ ...prev, [id]: newItemTime }));
+        setTimerSettings(prev => ({ ...prev, [id]: newItemMode }));
+        setStageLabels(prev => ({ ...prev, [id]: trimmedLabels }));
+        setStageOrder(prev => [...prev, id]);
 
-        // 重置输入框
-        setNewItemName('');
+        setNewItemLabels({ ...EMPTY_LABELS });
         setNewItemTime(60);
         setNewItemMode('single');
     };
 
-    // 删除计时项目
     const deleteTimerItem = (itemName) => {
-        if (window.confirm(t('settings.confirmDelete', { name: stageDisplayName(t, itemName) }))) {
+        if (window.confirm(t('settings.confirmDelete', {
+            name: stageDisplayName(t, itemName, stageLabels, i18n.language),
+        }))) {
             const newDebateStages = { ...debateStages };
             const newTimerSettings = { ...timerSettings };
+            const newStageLabels = { ...stageLabels };
 
             delete newDebateStages[itemName];
             delete newTimerSettings[itemName];
+            delete newStageLabels[itemName];
 
             setDebateStages(newDebateStages);
             setTimerSettings(newTimerSettings);
-
-            // 从顺序列表中移除
+            setStageLabels(newStageLabels);
             setStageOrder(prev => prev.filter(stage => stage !== itemName));
         }
     };
 
-    // 拖拽排序功能
     const handleDragStart = (e, itemName) => {
         setDraggedItem(itemName);
         e.dataTransfer.effectAllowed = 'move';
@@ -185,28 +172,20 @@ const DebateSetting = () => {
         setDragOverItem(itemName);
     };
 
-    const handleDragLeave = () => {
-        setDragOverItem(null);
-    };
+    const handleDragLeave = () => { setDragOverItem(null); };
 
     const handleDrop = (e, dropTargetItem) => {
         e.preventDefault();
-
         if (!draggedItem || draggedItem === dropTargetItem) {
             setDraggedItem(null);
             setDragOverItem(null);
             return;
         }
-
         const currentOrder = [...stageOrder];
         const draggedIndex = currentOrder.indexOf(draggedItem);
         const targetIndex = currentOrder.indexOf(dropTargetItem);
-
-        // 移除拖拽的项目
         currentOrder.splice(draggedIndex, 1);
-        // 插入到目标位置
         currentOrder.splice(targetIndex, 0, draggedItem);
-
         setStageOrder(currentOrder);
         setDraggedItem(null);
         setDragOverItem(null);
@@ -217,7 +196,6 @@ const DebateSetting = () => {
         setDragOverItem(null);
     };
 
-    // 移动项目到上一位
     const moveItemUp = (itemName) => {
         const currentOrder = [...stageOrder];
         const index = currentOrder.indexOf(itemName);
@@ -227,7 +205,6 @@ const DebateSetting = () => {
         }
     };
 
-    // 移动项目到下一位
     const moveItemDown = (itemName) => {
         const currentOrder = [...stageOrder];
         const index = currentOrder.indexOf(itemName);
@@ -237,12 +214,14 @@ const DebateSetting = () => {
         }
     };
 
+    const displayName = (stage) =>
+        stageDisplayName(t, stage, stageLabels, i18n.language);
+
     return (
         <div className="modern-settings-container">
             {/* Header */}
             <div className="settings-header">
                 <div className="header-content">
-                    {/* Navigation Bar */}
                     <div className="settings-nav">
                         <div className="nav-left">
                             <button
@@ -288,7 +267,7 @@ const DebateSetting = () => {
             {/* Main Content */}
             <div className="settings-content">
 
-                {/* Time Settings Card */}
+                {/* Duration Settings Card */}
                 <div className="settings-card">
                     <div className="card-header">
                         <h2 className="card-title">⏱️ {t('settings.durationTitle')}</h2>
@@ -300,11 +279,10 @@ const DebateSetting = () => {
                                 const minutes = Math.floor(debateStages[stage] / 60);
                                 const seconds = debateStages[stage] % 60;
                                 const timeDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
                                 return (
                                     <div key={index} className="setting-item">
                                         <label className="setting-label">
-                                            {stageDisplayName(t, stage)}
+                                            {displayName(stage)}
                                             <span className="time-preview">{timeDisplay}</span>
                                         </label>
                                         <div className="input-group">
@@ -336,7 +314,7 @@ const DebateSetting = () => {
                         <div className="settings-grid">
                             {getOrderedStages().map((stage, index) => (
                                 <div key={index} className="setting-item">
-                                    <label className="setting-label">{stageDisplayName(t, stage)}</label>
+                                    <label className="setting-label">{displayName(stage)}</label>
                                     <div className="input-group">
                                         <select
                                             className="modern-select"
@@ -368,18 +346,45 @@ const DebateSetting = () => {
                     </div>
                     <div className="card-content">
                         <div className="add-item-form">
-                            <div className="form-row">
+                            {/* Language name inputs */}
+                            <div className="form-row form-row--labels">
                                 <div className="form-field">
-                                    <label className="setting-label">{t('settings.itemName')}</label>
+                                    <label className="setting-label">🇨🇳 {t('settings.labelZh')}</label>
                                     <input
                                         type="text"
                                         className="modern-input"
-                                        value={newItemName}
-                                        onChange={(e) => setNewItemName(e.target.value)}
-                                        placeholder={t('settings.placeholderItemName')}
-                                        maxLength="20"
+                                        value={newItemLabels['zh-Hans']}
+                                        onChange={(e) => setNewItemLabels(prev => ({ ...prev, 'zh-Hans': e.target.value }))}
+                                        placeholder={t('settings.placeholderLabelZh')}
+                                        maxLength="40"
                                     />
                                 </div>
+                                <div className="form-field">
+                                    <label className="setting-label">🇨🇦 {t('settings.labelEn')}</label>
+                                    <input
+                                        type="text"
+                                        className="modern-input"
+                                        value={newItemLabels['en']}
+                                        onChange={(e) => setNewItemLabels(prev => ({ ...prev, 'en': e.target.value }))}
+                                        placeholder={t('settings.placeholderLabelEn')}
+                                        maxLength="40"
+                                    />
+                                </div>
+                                <div className="form-field">
+                                    <label className="setting-label">🇫🇷 {t('settings.labelFr')}</label>
+                                    <input
+                                        type="text"
+                                        className="modern-input"
+                                        value={newItemLabels['fr-CA']}
+                                        onChange={(e) => setNewItemLabels(prev => ({ ...prev, 'fr-CA': e.target.value }))}
+                                        placeholder={t('settings.placeholderLabelFr')}
+                                        maxLength="40"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Duration / mode / submit */}
+                            <div className="form-row">
                                 <div className="form-field">
                                     <label className="setting-label">{t('settings.durationSeconds')}</label>
                                     <input
@@ -437,7 +442,7 @@ const DebateSetting = () => {
                                 >
                                     <div className="order-number">{index + 1}</div>
                                     <div className="drag-handle">⋮⋮</div>
-                                    <div className="stage-name">{stageDisplayName(t, stage)}</div>
+                                    <div className="stage-name">{displayName(stage)}</div>
                                     <div className="stage-info">
                                         <span className="time-info">
                                             {Math.floor(debateStages[stage] / 60)}:{(debateStages[stage] % 60).toString().padStart(2, '0')}
@@ -475,16 +480,10 @@ const DebateSetting = () => {
 
                 {/* Action Buttons */}
                 <div className="settings-actions">
-                    <button
-                        className="btn btn-outline"
-                        onClick={loadLocalSettings}
-                    >
+                    <button className="btn btn-outline" onClick={loadLocalSettings}>
                         🔄 {t('settings.resetDefault')}
                     </button>
-                    <button
-                        className="btn btn-success"
-                        onClick={saveChanges}
-                    >
+                    <button className="btn btn-success" onClick={saveChanges}>
                         💾 {t('settings.save')}
                     </button>
                 </div>

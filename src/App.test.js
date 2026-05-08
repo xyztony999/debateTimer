@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import i18n from './i18n';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+beforeEach(async () => {
+    await i18n.changeLanguage('en');
+});
+
+test('i18n loads English strings for timer title', async () => {
+    expect(i18n.t('timer.title')).toMatch(/debate timer/i);
 });

@@ -1,16 +1,22 @@
 import React, {useState, useEffect, Fragment} from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import end_sound from './resources/notify.wav';
 import r30_sound from './resources/split.wav';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import {TimerSetting} from './schema/TimerSetting';
 import ConfigurationService from './services/ConfigurationService';
+import { DEFAULT_CONFIGURATION_NAME } from './config/configConstants';
+import LanguageSwitcher from './components/LanguageSwitcher';
+import { stageDisplayName } from './utils/stageDisplayName';
 
 const DebateTimer = () => {
     const navigate = useNavigate();
+    const { t, i18n } = useTranslation();
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
+    const [stageLabels, setStageLabels] = useState({});    // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
     const [stageOrder, setStageOrder] = useState([]);
     const [timeLeft, setTimeLeft] = useState(0);
     const [timeLeftAff, setTimeLeftAff] = useState(0);
@@ -19,7 +25,6 @@ const DebateTimer = () => {
     const [runningAff, setRunningAff] = useState(false);
     const [runningNeg, setRunningNeg] = useState(false);
     const [selectedStage, setSelectedStage] = useState('');
-    const [timerTitle, setTimerTitle] = useState('测试声音');
     const [isTimeUp, setIsTimeUp] = useState(false);
     const [isAffTimeUp, setIsAffTimeUp] = useState(false);
     const [isNegTimeUp, setIsNegTimeUp] = useState(false);
@@ -146,6 +151,7 @@ const DebateTimer = () => {
 
                 setDebateStages(newDebateStages);
                 setDebateSingleDoubleTimerSettings(newTimerSettings);
+                setStageLabels(result.data.stageLabels || {});
 
                 // 加载顺序信息（如果存在）
                 if (result.data.stageOrder) {
@@ -155,7 +161,6 @@ const DebateTimer = () => {
                         const firstStage = result.data.stageOrder[0];
                         if (newDebateStages[firstStage]) {
                             setSelectedStage(firstStage);
-                            setTimerTitle(firstStage);
                             setTimeLeft(newDebateStages[firstStage]);
                             setTimeLeftAff(newDebateStages[firstStage]);
                             setTimeLeftNeg(newDebateStages[firstStage]);
@@ -167,7 +172,6 @@ const DebateTimer = () => {
                     setStageOrder(keys);
                     if (keys.length > 0) {
                         setSelectedStage(keys[0]);
-                        setTimerTitle(keys[0]);
                         setTimeLeft(newDebateStages[keys[0]]);
                         setTimeLeftAff(newDebateStages[keys[0]]);
                         setTimeLeftNeg(newDebateStages[keys[0]]);
@@ -206,12 +210,12 @@ const DebateTimer = () => {
                 await ConfigurationService.initializeDefaultConfigurations();
 
                 // Load default configuration from Firestore
-                await loadConfiguration('默认配置');
+                await loadConfiguration(DEFAULT_CONFIGURATION_NAME);
 
                 // Set up real-time listener for configuration changes
                 const unsubscribe = ConfigurationService.onConfigurationsChange(() => {
                     // Reload configuration when it changes
-                    loadConfiguration('默认配置');
+                    loadConfiguration(DEFAULT_CONFIGURATION_NAME);
                 });
 
                 // Clean up listener on component unmount
@@ -224,13 +228,13 @@ const DebateTimer = () => {
                 // Fallback to local JSON files
                 setDebateStages(debateStagesData);
                 setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
+                setStageLabels({});
                 // 为本地数据创建默认顺序
                 const localStageKeys = Object.keys(debateStagesData);
                 setStageOrder(localStageKeys);
                 // 设置默认选择
                 if (localStageKeys.length > 0) {
                     setSelectedStage(localStageKeys[0]);
-                    setTimerTitle(localStageKeys[0]);
                     setTimeLeft(debateStagesData[localStageKeys[0]]);
                     setTimeLeftAff(debateStagesData[localStageKeys[0]]);
                     setTimeLeftNeg(debateStagesData[localStageKeys[0]]);
@@ -299,7 +303,6 @@ const DebateTimer = () => {
     const handleStageSelect = (event) => {
         const stage = event.target.value;
         setSelectedStage(stage);
-        setTimerTitle(stage);
         const time = debateStages[stage];
         setTimeLeft(time);
         setTimeLeftAff(time);
@@ -405,7 +408,7 @@ const DebateTimer = () => {
                     !runningAff && setTimeLeftAff(debateStages[selectedStage]);
                     setIsAffTimeUp(false);
                 }
-                else if (selectedStage === '测试声音') {
+                else if (selectedStage === 'sound_check') {
                     !running && setTimeLeft(0);
                     setIsTimeUp(false);
                 }
@@ -645,51 +648,63 @@ const DebateTimer = () => {
                 {/* Navigation Bar */}
                 <div className="timer-nav">
                     <div className="nav-left">
-                        <h2 className="app-title">🎯 辩论计时器</h2>
+                        <h2 className="app-title">🎯 {t('timer.title')}</h2>
                     </div>
                     <div className="nav-right">
-                        <button
-                            className="nav-btn"
-                            onClick={() => navigate('/settings')}
-                            title="打开设置"
+                        <div
+                            className="nav-actions-group nav-actions-group--timer"
+                            role="toolbar"
+                            aria-label={t('timer.toolbar')}
                         >
-                            ⚙️ 设置
-                        </button>
-                        <button
-                            className="nav-btn dark-mode-btn"
-                            onClick={toggleDarkMode}
-                            title={darkMode ? '切换到浅色模式' : '切换到深色模式'}
-                        >
-                            {darkMode ? '☀️' : '🌙'}
-                        </button>
+                            <LanguageSwitcher className="lang-switcher--timer" />
+                            <button
+                                type="button"
+                                className="nav-btn"
+                                onClick={() => navigate('/settings')}
+                                title={t('timer.settingsAria')}
+                            >
+                                ⚙️ {t('timer.settings')}
+                            </button>
+                            <button
+                                type="button"
+                                className="nav-btn dark-mode-btn"
+                                onClick={toggleDarkMode}
+                                title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}
+                            >
+                                {darkMode ? '☀️' : '🌙'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
 
                 <select value={selectedStage} onChange={handleStageSelect}>
                     {getOrderedStages().map((stage) => (
-                        <option key={stage} value={stage} title={stage}>
-                            {stage}
+                        <option
+                            key={stage}
+                            value={stage}
+                            title={stageDisplayName(t, stage, stageLabels, i18n.language)}
+                        >
+                            {stageDisplayName(t, stage, stageLabels, i18n.language)}
                         </option>
                     ))}
                 </select>
-                <h2>{timerTitle}</h2>
-                {/*测试声音*/}
-                {(selectedStage === '测试声音') ? (
+                <h2>{stageDisplayName(t, selectedStage, stageLabels, i18n.language)}</h2>
+                {(selectedStage === 'sound_check') ? (
                     <div>
                         <button onClick={() => {
                             setIsTimeUp(false)
                             setRunning(true)
                             //playSound('30')
                             setTimeLeft(30)
-                        }}>测试30秒声音</button>
+                        }}>{t('timer.test30sSound')}</button>
                         <button onClick={() => {
                             setRunning(true)
                             setTimeLeft(0)
                             setIsTimeUp(true)
                             //playSound('end')
 
-                        }}>测试结束声音</button>
+                        }}>{t('timer.testEndSound')}</button>
                     </div>
                 ) : (
                     <div></div>
@@ -699,7 +714,7 @@ const DebateTimer = () => {
                 {(debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) ? (
                     <div className='debate-timers-container'>
                         <div className='timer-box'>
-                            <h3>正方</h3>
+                            <h3>{t('timer.affirmative')}</h3>
                             <h1 className={isAffTimeUp ? 'blinking' : ''} id='clockAff'>{formatTime(timeLeftAff)}</h1>
                             <div className='controls'>
                                 <button className={!runningAff ? 'active' : ''} onClick={() => setRunningAff(true)} disabled={runningAff}>
@@ -717,7 +732,7 @@ const DebateTimer = () => {
                             </div>
                         </div>
                         <div className='timer-box'>
-                            <h3>反方</h3>
+                            <h3>{t('timer.negative')}</h3>
                             <h1 className={isNegTimeUp ? 'blinking' : ''} id='clockNeg'>{formatTime(timeLeftNeg)}</h1>
                             <div className='controls'>
                                 <button className={!runningNeg ? 'active' : ''} onClick={() => setRunningNeg(true)} disabled={runningNeg}>

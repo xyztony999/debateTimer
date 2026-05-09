@@ -1,6 +1,6 @@
 # 辩论赛计时器 Debate Match Timer
 
-本项目使用react构建并运行，网页使用GitHub Actions进行封装。`master`分支为主程序，`deploy/production`分支为封装的静态网页版本。
+因React的Create React App已被React官方弃用，故本项目改为Vite构建并运行，网页使用GitHub Actions进行封装。`master`分支为主程序，`deploy/production`分支为封装的静态网页版本。
 
 
 

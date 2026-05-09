@@ -1,4 +1,4 @@
-import React, {useState, useEffect, Fragment} from 'react';
+import React, {useState, useEffect, Fragment, useCallback} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import end_sound from './resources/notify.wav';
@@ -133,16 +133,16 @@ const DebateTimer = () => {
         '正方四辩总结陈词': TimerSetting.single
     }*/
 
-    const formatTimerSettings = (timerSettings) => {
+    const formatTimerSettings = useCallback((timerSettings) => {
         const result = {};
         for (const key in timerSettings) {
             result[key] = TimerSetting[timerSettings[key]];
         }
         return result;
-    }
+    }, []);
 
     // Load configuration from Firebase
-    const loadConfiguration = async (configName) => {
+    const loadConfiguration = useCallback(async (configName) => {
         try {
             const result = await ConfigurationService.loadConfiguration(configName);
             if (result.success) {
@@ -187,7 +187,7 @@ const DebateTimer = () => {
             console.error('Error loading configuration:', error);
             return false;
         }
-    };
+    }, [formatTimerSettings]);
 
 
     //const debateStages = debateStagesData;
@@ -243,7 +243,7 @@ const DebateTimer = () => {
         };
 
         initializeConfiguration();
-    }, []);
+    }, [loadConfiguration, formatTimerSettings]);
 
     useEffect(() => {
         let interval;
@@ -339,7 +339,7 @@ const DebateTimer = () => {
             }
         }
         return () => clearInterval(interval);
-    }, [running, timeLeft]);
+    }, [running, timeLeft, selectedStage, debateSingleDoubleTimerSettings]);
 
     useEffect(() => {
         let interval;
@@ -438,7 +438,7 @@ const DebateTimer = () => {
         return () => {
             window.removeEventListener('keydown', handleKeyPress);
         };
-    }, [selectedStage, running, runningAff, runningNeg]);
+    }, [selectedStage, running, runningAff, runningNeg, debateSingleDoubleTimerSettings, debateStages]);
 
     /*useEffect(() => {
         const handleKeyDown = (event) => {

@@ -154,4 +154,6 @@ class ConfigurationService {
     }
 }
 
-export default new ConfigurationService();
+const configurationService = new ConfigurationService();
+
+export default configurationService;

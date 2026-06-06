@@ -1,8 +1,6 @@
 # 辩论赛计时器 Debate Match Timer
 
-因React的Create React App已被React官方弃用，故本项目改为Vite构建并运行，网页使用GitHub Actions进行封装。`master`分支为主程序，`deploy/production`分支为封装的静态网页版本。
-
-
+因 React 的 Create React App 已被官方弃用，本项目已迁移至 **Vite** 构建，并使用 **Bun** 作为包管理器与脚本运行工具。网页通过 GitHub Actions 自动构建并部署。`master` 分支为主程序，`deploy/production` 分支为封装的静态网页版本。
 
 ## 简介
 
@@ -10,7 +8,17 @@
 
 访问地址：[https://debatetimer.tonyxyz.com](https://debatetimer.tonyxyz.com)
 
+## 开发命令
 
+需先安装 [Bun](https://bun.sh/)，然后在项目根目录执行：
+
+| 命令 | 说明 |
+|------|------|
+| `bun install` | 安装依赖 |
+| `bun start` | 启动开发服务器 |
+| `bun run lint` | 运行 ESLint 检查 |
+| `bun test` | 运行测试 |
+| `bun run build` | 构建生产版本 |
 
 ## 目前功能
 
@@ -29,9 +37,11 @@
 
 ### 操作倒计时启动、暂停、重置
 
-1. 点击每个stage中的按钮
+1. 点击每个 stage 中的按钮
 
-2. 按下S（启动）、P（暂停）、T（重置）键（在双计时器模式时：S（正方启动）、D（反方启动）；P（正方暂停）、[（反方暂停）；R（正方重置）、T（反方重置））键
+2. 键盘快捷键：
+   - **单计时器模式**：S（启动）、P（暂停）、R（重置）
+   - **双计时器模式**：S（正方启动）、D（反方启动）；P（正方暂停）、[（反方暂停）；R（正方重置）、T（反方重置）
 
 ### 在倒计时还有30秒和结束时
 
@@ -40,7 +50,12 @@
 
 ## 正在进行的功能安排
 
+- ✅ **Vite / Bun 迁移**（已完成）：构建工具由 Create React App 切换为 Vite，包管理与 CI 构建改用 Bun
+
 ## 未来计划的功能
+
+以下功能尚未实现，仍在规划中：
+
 1. 增加配置模板新建、修改、删除
 2. 适配数据库用于存放模板
 3. 自动化配置脚本

@@ -31,7 +31,11 @@ const DebateTimer = () => {
     const [darkMode, setDarkMode] = useState(false);
 
     const toggleDarkMode = () => {
-        setDarkMode(!darkMode);
+        setDarkMode(prev => {
+            const next = !prev;
+            localStorage.setItem('darkMode', String(next));
+            return next;
+        });
     };
 
     // 获取按顺序排列的计时器项目
@@ -68,20 +72,26 @@ const DebateTimer = () => {
     }, []);
 
     useEffect(() => {
+        const stored = localStorage.getItem('darkMode');
         const matchDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
-        setDarkMode(matchDarkMode.matches);
 
-        const handleChange = (e) => {
-            setDarkMode(e.matches);
-        };
+        if (stored !== null) {
+            setDarkMode(stored === 'true');
+        } else {
+            setDarkMode(matchDarkMode.matches);
+        }
 
-        // 监听系统深色模式的变化
-        matchDarkMode.addEventListener('change', handleChange);
+        if (stored === null) {
+            const handleChange = (e) => {
+                setDarkMode(e.matches);
+            };
 
-        // 组件卸载时移除监听器
-        return () => {
-            matchDarkMode.removeEventListener('change', handleChange);
-        };
+            matchDarkMode.addEventListener('change', handleChange);
+
+            return () => {
+                matchDarkMode.removeEventListener('change', handleChange);
+            };
+        }
     }, []);
 
 
@@ -93,45 +103,6 @@ const DebateTimer = () => {
         }
     }, [darkMode]);
 
-
-
-    /*const debateStages = {
-        '测试声音': 31,
-        '正方一辩发言': 210,
-        '反方四辩盘问正方一辩': 90,
-        '反方一辩发言': 210,
-        '正方四辩盘问反方一辩': 90,
-        '正方二辩作驳论': 120,
-        '反方二辩作驳论': 120,
-        '正方二辩对辩反方二辩': 90,
-        '正方三辩盘问': 120,
-        '反方三辩盘问': 120,
-        '正方三辩质询小结': 90,
-        '反方三辩质询小结': 90,
-        '战术暂停': 120,
-        '自由辩论': 240,
-        '反方四辩总结陈词': 210,
-        '正方四辩总结陈词': 210
-    };
-
-    const debateSingleDoubleTimerSettings = {
-        '测试声音': TimerSetting.single,
-        '正方一辩发言': TimerSetting.single,
-        '反方四辩盘问正方一辩': TimerSetting.single,
-        '反方一辩发言': TimerSetting.single,
-        '正方四辩盘问反方一辩': TimerSetting.single,
-        '正方二辩作驳论': TimerSetting.single,
-        '反方二辩作驳论': TimerSetting.single,
-        '正方二辩对辩反方二辩': TimerSetting.double,
-        '正方三辩盘问': TimerSetting.single,
-        '反方三辩盘问': TimerSetting.single,
-        '正方三辩质询小结': TimerSetting.single,
-        '反方三辩质询小结': TimerSetting.single,
-        '战术暂停': TimerSetting.single,
-        '自由辩论': TimerSetting.double,
-        '反方四辩总结陈词': TimerSetting.single,
-        '正方四辩总结陈词': TimerSetting.single
-    }*/
 
     const formatTimerSettings = useCallback((timerSettings) => {
         const result = {};
@@ -189,21 +160,9 @@ const DebateTimer = () => {
         }
     }, [formatTimerSettings]);
 
-
-    //const debateStages = debateStagesData;
-    //const debateSingleDoubleTimerSettings = formatTimerSettings(timerSettingsData);
-
-
-    /*useEffect(() => {
-        const keys = Object.keys(debateStages);
-        setSelectedStage(keys[0]);
-        setTimerTitle(keys[0]);
-        setTimeLeft(debateStages[keys[0]]);
-        setTimeLeftAff(debateStages[keys[0]]);
-        setTimeLeftNeg(debateStages[keys[0]]);
-    }, []);*/
-
     useEffect(() => {
+        let unsubscribe;
+
         const initializeConfiguration = async () => {
             try {
                 // Initialize default configurations in Firebase
@@ -213,15 +172,10 @@ const DebateTimer = () => {
                 await loadConfiguration(DEFAULT_CONFIGURATION_NAME);
 
                 // Set up real-time listener for configuration changes
-                const unsubscribe = ConfigurationService.onConfigurationsChange(() => {
+                unsubscribe = ConfigurationService.onConfigurationsChange(() => {
                     // Reload configuration when it changes
                     loadConfiguration(DEFAULT_CONFIGURATION_NAME);
                 });
-
-                // Clean up listener on component unmount
-                return () => {
-                    if (unsubscribe) unsubscribe();
-                };
 
             } catch (error) {
                 console.error('Error initializing configuration:', error);
@@ -243,6 +197,10 @@ const DebateTimer = () => {
         };
 
         initializeConfiguration();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, [loadConfiguration, formatTimerSettings]);
 
     useEffect(() => {
@@ -381,11 +339,11 @@ const DebateTimer = () => {
     const playSound = (mode) => {
         if(mode === 'end') {
             const audio = new Audio(end_sound);
-            audio.play().then(r => console.log(r)).catch(e => console.log(e));
+            audio.play().catch(() => {});
         }
         if(mode === '30') {
             const audio = new Audio(r30_sound);
-            audio.play().then(r => console.log(r)).catch(e => console.log(e));
+            audio.play().catch(() => {});
         }
     };
 
@@ -439,208 +397,6 @@ const DebateTimer = () => {
             window.removeEventListener('keydown', handleKeyPress);
         };
     }, [selectedStage, running, runningAff, runningNeg, debateSingleDoubleTimerSettings, debateStages]);
-
-    /*useEffect(() => {
-        const handleKeyDown = (event) => {
-            if (event.key === '1') {
-                setSelectedStage('正方一辩发言');
-                setTimerTitle('正方一辩发言');
-                const time = debateStages['正方一辩发言'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '2') {
-                setSelectedStage('反方四辩盘问正方一辩');
-                setTimerTitle('反方四辩盘问正方一辩');
-                const time = debateStages['反方四辩盘问正方一辩'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '3') {
-                setSelectedStage('反方一辩发言');
-                setTimerTitle('反方一辩发言');
-                const time = debateStages['反方一辩发言'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '4') {
-                setSelectedStage('正方四辩盘问反方一辩');
-                setTimerTitle('正方四辩盘问反方一辩');
-                const time = debateStages['正方四辩盘问反方一辩'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '5') {
-                setSelectedStage('正方二辩作驳论');
-                setTimerTitle('正方二辩作驳论');
-                const time = debateStages['正方二辩作驳论'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '6') {
-                setSelectedStage('反方二辩作驳论');
-                setTimerTitle('反方二辩作驳论');
-                const time = debateStages['反方二辩作驳论'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '7') {
-                setSelectedStage('正方二辩对辩反方二辩');
-                setTimerTitle('正方二辩对辩反方二辩');
-                const time = debateStages['正方二辩对辩反方二辩'];
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '8') {
-                setSelectedStage('正方三辩盘问');
-                setTimerTitle('正方三辩盘问');
-                const time = debateStages['正方三辩盘问'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '9') {
-                setSelectedStage('反方三辩盘问');
-                setTimerTitle('反方三辩盘问');
-                const time = debateStages['反方三辩盘问'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === '0') {
-                setSelectedStage('正方三辩质询小结');
-                setTimerTitle('正方三辩质询小结');
-                const time = debateStages['正方三辩质询小结'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === 'z' || event.key === 'Z') {
-                setSelectedStage('战术暂停');
-                setTimerTitle('战术暂停');
-                const time = debateStages['战术暂停'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === 'x' || event.key === 'X') {
-                setSelectedStage('自由辩论');
-                setTimerTitle('自由辩论');
-                const time = debateStages['自由辩论'];
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === 'c' || event.key === 'C') {
-                setSelectedStage('反方四辩总结陈词');
-                setTimerTitle('反方四辩总结陈词');
-                const time = debateStages['反方四辩总结陈词'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-            if (event.key === 'v' || event.key === 'V') {
-                setSelectedStage('正方四辩总结陈词');
-                setTimerTitle('正方四辩总结陈词');
-                const time = debateStages['正方四辩总结陈词'];
-                setTimeLeft(time);
-                setTimeLeftAff(time);
-                setTimeLeftNeg(time);
-                setIsTimeUp(false);
-                setIsAffTimeUp(false);
-                setIsNegTimeUp(false);
-                setRunning(false);
-                setRunningAff(false);
-                setRunningNeg(false);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [selectedStage, running, runningAff, runningNeg]);*/
-
 
     return (
         <Fragment>

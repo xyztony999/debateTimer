@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from 'firebase/firestore';
-import { getDatabase } from 'firebase/database';
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
@@ -9,7 +8,6 @@ import { getDatabase } from 'firebase/database';
 const firebaseConfig = {
     apiKey: "AIzaSyCOM-WSSU6b_wWYc8ubN40vN_bWAHk_Qdk",
     authDomain: "debatetimer-tonyxyz.firebaseapp.com",
-    databaseURL: "https://debatetimer-tonyxyz-default-rtdb.firebaseio.com",
     projectId: "debatetimer-tonyxyz",
     storageBucket: "debatetimer-tonyxyz.appspot.com",
     messagingSenderId: "142668218506",
@@ -22,6 +20,5 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 getAnalytics(app);
 const db = getFirestore(app);
-const database = getDatabase(app);
 
-export { db, database };
+export { db };

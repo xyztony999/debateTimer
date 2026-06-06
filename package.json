@@ -2,13 +2,12 @@
   "name": "timer",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "file-saver": "^2.0.5",
     "firebase": "^12.13.0",
-    "fs-extra": "^11.3.5",
     "i18next": "^26.0.10",
     "i18next-browser-languagedetector": "^8.2.1",
     "react": "^19.2.6",
@@ -21,12 +20,9 @@
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "react-scripts test",
+    "test": "bun test",
     "lint": "eslint \"src/**/*.{js,jsx}\"",
-    "lint:fix": "npm run lint -- --fix",
-    "eject": "react-scripts eject",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "lint:fix": "bun run lint -- --fix"
   },
   "browserslist": {
     "production": [
@@ -49,7 +45,6 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "gh-pages": "^6.1.1",
     "vite": "^6.4.2",
     "vite-plugin-svgr": "^5.2.0"
   }

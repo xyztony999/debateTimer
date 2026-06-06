@@ -3,8 +3,6 @@ name: Deploy React App to GitHub Pages
 on:
   push:
     branches: [ deploy/production ]
-  pull_request:
-    branches: [ deploy/production ]
 
 permissions:
   contents: read
@@ -23,17 +21,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
 
     - name: Install dependencies
-      run: npm ci
+      run: bun install --frozen-lockfile
 
     - name: Build
-      run: npm run build
+      run: bun run build
+      env:
+        VITE_CONFIG_BACKEND: http
+        VITE_API_BASE_URL: https://api.debatetimer.tonyxyz.com
+        VITE_API_KEY: ${{ secrets.DEBATE_API_KEY }}
 
     - name: Setup Pages
       uses: actions/configure-pages@v4

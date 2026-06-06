@@ -1,0 +1,22 @@
+{
+  "configurations": {
+    "默认配置": {
+      "schemaVersion": 2,
+      "name": "默认配置",
+      "debateStages": {
+        "sound_check": 31,
+        "aff_c1": 210,
+        "neg_c1": 210
+      },
+      "timerSettings": {
+        "sound_check": "single",
+        "aff_c1": "single",
+        "neg_c1": "single"
+      },
+      "stageOrder": ["sound_check", "aff_c1", "neg_c1"],
+      "stageLabels": {},
+      "createdAt": 1700000000000,
+      "updatedAt": 1700000000000
+    }
+  }
+}

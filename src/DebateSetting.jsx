@@ -105,7 +105,7 @@ const DebateSetting = () => {
                 alert(t('settings.saveFailed', { message: result.message }));
             }
         } catch (error) {
-            console.error('Error saving to Firebase:', error);
+            console.error('Error saving configuration:', error);
             alert(t('settings.saveRetry'));
         }
     };

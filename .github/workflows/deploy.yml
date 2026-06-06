@@ -29,7 +29,10 @@ jobs:
 
     - name: Build
       run: bun run build
-      # Optional: verify custom domain — test -f build/CNAME (copy from repo root if missing)
+      env:
+        VITE_CONFIG_BACKEND: http
+        VITE_API_BASE_URL: https://api.debatetimer.tonyxyz.com
+        VITE_API_KEY: ${{ secrets.DEBATE_API_KEY }}
 
     - name: Setup Pages
       uses: actions/configure-pages@v4

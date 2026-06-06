@@ -52,7 +52,7 @@
         "orderHint": "提示：拖拽项目可以快速调整顺序，或使用箭头按钮精确移动",
         "resetDefault": "重置为默认",
         "save": "保存",
-        "savedSuccess": "设置已保存到 Firestore！",
+        "savedSuccess": "设置已保存！",
         "saveFailed": "保存失败：{{message}}",
         "saveRetry": "保存设置失败，请重试。",
         "enterItemName": "请输入计时项目名称",

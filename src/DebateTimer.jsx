@@ -112,7 +112,7 @@ const DebateTimer = () => {
         return result;
     }, []);
 
-    // Load configuration from Firebase
+    // Load configuration from API
     const loadConfiguration = useCallback(async (configName) => {
         try {
             const result = await ConfigurationService.loadConfiguration(configName);
@@ -165,10 +165,10 @@ const DebateTimer = () => {
 
         const initializeConfiguration = async () => {
             try {
-                // Initialize default configurations in Firebase
+                // Initialize default configurations on the API
                 await ConfigurationService.initializeDefaultConfigurations();
 
-                // Load default configuration from Firestore
+                // Load default configuration
                 await loadConfiguration(DEFAULT_CONFIGURATION_NAME);
 
                 // Set up real-time listener for configuration changes

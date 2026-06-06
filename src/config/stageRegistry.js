@@ -1,4 +1,4 @@
-/** Maps legacy Chinese Firestore/JSON keys to stable preset stage IDs. */
+/** Maps legacy Chinese JSON keys to stable preset stage IDs. */
 export const LEGACY_STAGE_KEY_MAP = {
     测试声音: 'sound_check',
     正方一辩发言: 'aff_c1',

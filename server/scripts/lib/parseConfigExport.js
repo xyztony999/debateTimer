@@ -27,7 +27,7 @@ function toMillis(value) {
     return undefined;
 }
 
-function decodeFirestoreValue(value) {
+function decodeTypedValue(value) {
     if (value == null || typeof value !== 'object' || Array.isArray(value)) {
         return value;
     }
@@ -40,26 +40,26 @@ function decodeFirestoreValue(value) {
     if ('timestampValue' in value) return Date.parse(value.timestampValue);
     if ('mapValue' in value) {
         const fields = value.mapValue?.fields || {};
-        return decodeFirestoreMap(fields);
+        return decodeTypedMap(fields);
     }
     if ('arrayValue' in value) {
-        return (value.arrayValue?.values || []).map(decodeFirestoreValue);
+        return (value.arrayValue?.values || []).map(decodeTypedValue);
     }
 
     return value;
 }
 
-function decodeFirestoreMap(fields) {
+function decodeTypedMap(fields) {
     const result = {};
     for (const [key, fieldValue] of Object.entries(fields || {})) {
-        result[key] = decodeFirestoreValue(fieldValue);
+        result[key] = decodeTypedValue(fieldValue);
     }
     return result;
 }
 
-function decodeFirestoreDocument(doc) {
+function decodeDocument(doc) {
     if (doc?.fields && typeof doc.fields === 'object') {
-        return decodeFirestoreMap(doc.fields);
+        return decodeTypedMap(doc.fields);
     }
     return doc;
 }
@@ -77,7 +77,7 @@ function extractDocumentName(doc, fallbackIndex = 0) {
 }
 
 function normalizeDocument(name, rawData) {
-    const data = decodeFirestoreDocument(rawData);
+    const data = decodeDocument(rawData);
     const migrated = migrateStageConfig({
         debateStages: data.debateStages || {},
         timerSettings: data.timerSettings || {},
@@ -108,7 +108,7 @@ function parseDocumentEntry(name, rawData, index) {
     return normalizeDocument(docName, rawData);
 }
 
-export function parseFirestoreExport(raw) {
+export function parseConfigExport(raw) {
     if (Array.isArray(raw)) {
         return raw.map((item, index) => parseDocumentEntry(extractDocumentName(item, index), item, index));
     }
@@ -141,17 +141,17 @@ export function parseFirestoreExport(raw) {
         }
     }
 
-    throw new Error('Unsupported Firestore export format');
+    throw new Error('Unsupported configuration export format');
 }
 
-export function parseFirestoreExportFile(content) {
+export function parseConfigExportFile(content) {
     const trimmed = content.trim();
     if (!trimmed) {
         return [];
     }
 
     if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-        return parseFirestoreExport(JSON.parse(trimmed));
+        return parseConfigExport(JSON.parse(trimmed));
     }
 
     const docs = [];
@@ -166,7 +166,7 @@ export function parseFirestoreExportFile(content) {
             docs.push(parseDocumentEntry(extractDocumentName(parsed, index), parsed, index));
             return;
         }
-        docs.push(...parseFirestoreExport(parsed));
+        docs.push(...parseConfigExport(parsed));
     });
     return docs;
 }

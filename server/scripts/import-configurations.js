@@ -4,42 +4,36 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { MongoClient } from 'mongodb';
 import { buildMongoUri } from '../lib/mongoUri.js';
-import { parseFirestoreExportFile } from './lib/parseFirestoreExport.js';
+import { parseConfigExportFile } from './lib/parseConfigExport.js';
 
 const COLLECTION = 'configurations';
 
 function printHelp() {
     console.log(`
-Firestore → MongoDB import
+Import debate configurations from JSON into MongoDB
 
 Usage:
-  node scripts/import-from-firestore.js --file <export.json> [--dry-run] [--force]
-  node scripts/import-from-firestore.js --firestore [--dry-run] [--force]
+  node scripts/import-configurations.js --file <export.json> [--dry-run] [--force]
 
 Options:
-  --file <path>     Import from a JSON / NDJSON export file
-  --firestore       Read live data from Firestore (requires service account)
-  --dry-run         Parse and preview only, do not write to MongoDB
-  --force           Overwrite existing MongoDB documents with the same _id
+  --file <path>   Import from a JSON / NDJSON export file (required)
+  --dry-run       Parse and preview only, do not write to MongoDB
+  --force         Overwrite existing MongoDB documents with the same _id
 
 Environment (server/.env):
   MONGODB_URI / MONGODB_USER / MONGODB_PASSWORD ...
-  FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/serviceAccount.json
-  FIREBASE_PROJECT_ID=debatetimer-tonyxyz   (optional if present in service account)
 
-Export JSON formats supported:
+Supported JSON formats:
   1) { "configurations": { "默认配置": { ...fields } } }
   2) { "默认配置": { ...fields } }
   3) [ { "_id": "默认配置", ...fields } ]
   4) NDJSON (one JSON document per line)
-  5) Firestore export lines with { "name": ".../configurations/ID", "fields": {...} }
 `);
 }
 
 function parseArgs(argv) {
     const options = {
         file: null,
-        firestore: false,
         dryRun: false,
         force: false,
     };
@@ -51,8 +45,6 @@ function parseArgs(argv) {
         } else if (arg === '--file') {
             options.file = argv[i + 1];
             i += 1;
-        } else if (arg === '--firestore') {
-            options.firestore = true;
         } else if (arg === '--dry-run') {
             options.dryRun = true;
         } else if (arg === '--force') {
@@ -66,11 +58,8 @@ function parseArgs(argv) {
         return options;
     }
 
-    if (!options.file && !options.firestore) {
-        throw new Error('Provide --file <path> or --firestore');
-    }
-    if (options.file && options.firestore) {
-        throw new Error('Use either --file or --firestore, not both');
+    if (!options.file) {
+        throw new Error('Provide --file <path>');
     }
 
     return options;
@@ -79,41 +68,8 @@ function parseArgs(argv) {
 async function loadFromFile(filePath) {
     const absolutePath = resolve(process.cwd(), filePath);
     const content = await readFile(absolutePath, 'utf8');
-    const docs = parseFirestoreExportFile(content);
+    const docs = parseConfigExportFile(content);
     console.log(`Parsed ${docs.length} configuration(s) from ${absolutePath}`);
-    return docs;
-}
-
-async function loadFromFirestore() {
-    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-    if (!serviceAccountPath) {
-        throw new Error('Set FIREBASE_SERVICE_ACCOUNT_PATH in server/.env for --firestore mode');
-    }
-
-    const serviceAccount = JSON.parse(await readFile(resolve(serviceAccountPath), 'utf8'));
-    const { default: admin } = await import('firebase-admin');
-
-    if (!admin.apps.length) {
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id,
-        });
-    }
-
-    const snapshot = await admin.firestore().collection(COLLECTION).get();
-    if (snapshot.empty) {
-        console.log('No documents found in Firestore collection "configurations"');
-        return [];
-    }
-
-    const content = JSON.stringify({
-        configurations: Object.fromEntries(
-            snapshot.docs.map((doc) => [doc.id, doc.data()]),
-        ),
-    });
-
-    const docs = parseFirestoreExportFile(content);
-    console.log(`Fetched ${docs.length} configuration(s) from Firestore`);
     return docs;
 }
 
@@ -170,10 +126,7 @@ async function main() {
             return;
         }
 
-        const docs = options.file
-            ? await loadFromFile(options.file)
-            : await loadFromFirestore();
-
+        const docs = await loadFromFile(options.file);
         await importIntoMongo(docs, options);
     } catch (error) {
         console.error(`Import failed: ${error.message}`);

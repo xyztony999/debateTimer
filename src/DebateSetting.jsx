@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import ConfigurationService from './services/ConfigurationService';
-import { DEFAULT_CONFIGURATION_NAME } from './config/configConstants';
+import {
+    DEFAULT_CONFIGURATION_NAME,
+    getStoredConfigurationName,
+    setStoredConfigurationName,
+} from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
 
@@ -15,6 +19,10 @@ function generateCustomId() {
 
 const EMPTY_LABELS = { 'zh-Hans': '', 'en': '', 'fr-CA': '' };
 
+function buildConfigSnapshot(debateStages, timerSettings, stageLabels, stageOrder) {
+    return JSON.stringify({ debateStages, timerSettings, stageLabels, stageOrder });
+}
+
 const DebateSetting = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
@@ -24,6 +32,11 @@ const DebateSetting = () => {
     const [stageLabels, setStageLabels] = useState({});     // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
     const [stageOrder, setStageOrder] = useState([]);
 
+    const [configurationNames, setConfigurationNames] = useState([]);
+    const [selectedConfigName, setSelectedConfigName] = useState(DEFAULT_CONFIGURATION_NAME);
+    const [newTemplateName, setNewTemplateName] = useState('');
+    const savedSnapshotRef = useRef('');
+
     // Add-stage form state
     const [newItemLabels, setNewItemLabels] = useState({ ...EMPTY_LABELS });
     const [newItemTime, setNewItemTime] = useState(60);
@@ -31,6 +44,19 @@ const DebateSetting = () => {
 
     const [draggedItem, setDraggedItem] = useState(null);
     const [dragOverItem, setDragOverItem] = useState(null);
+
+    const markClean = useCallback((stages, settings, labels, order) => {
+        savedSnapshotRef.current = buildConfigSnapshot(stages, settings, labels, order);
+    }, []);
+
+    const isDirty = useCallback(() => (
+        savedSnapshotRef.current !== buildConfigSnapshot(
+            debateStages,
+            timerSettings,
+            stageLabels,
+            stageOrder,
+        )
+    ), [debateStages, timerSettings, stageLabels, stageOrder]);
 
     const getOrderedStages = () => {
         if (stageOrder.length > 0) {
@@ -46,6 +72,46 @@ const DebateSetting = () => {
         return Object.keys(debateStages);
     };
 
+    const applyConfigData = useCallback((data) => {
+        const labels = data.stageLabels || {};
+        const order = data.stageOrder || Object.keys(data.debateStages);
+        setDebateStages(data.debateStages);
+        setTimerSettings(data.timerSettings);
+        setStageLabels(labels);
+        setStageOrder(order);
+        markClean(data.debateStages, data.timerSettings, labels, order);
+    }, [markClean]);
+
+    const applyLocalFallback = useCallback(() => {
+        const order = Object.keys(debateStagesData);
+        setDebateStages(debateStagesData);
+        setTimerSettings(timerSettingsData);
+        setStageLabels({});
+        setStageOrder(order);
+        markClean(debateStagesData, timerSettingsData, {}, order);
+    }, [markClean]);
+
+    const refreshConfigurationList = useCallback(async () => {
+        const listResult = await ConfigurationService.getConfigurations();
+        if (listResult.success) {
+            const names = (listResult.data || []).map((item) => item.name);
+            setConfigurationNames(names);
+            return names;
+        }
+        return null;
+    }, []);
+
+    const loadConfigByName = useCallback(async (name) => {
+        const result = await ConfigurationService.loadConfiguration(name);
+        if (result.success) {
+            applyConfigData(result.data);
+            setSelectedConfigName(name);
+            setStoredConfigurationName(name);
+            return true;
+        }
+        return false;
+    }, [applyConfigData]);
+
     useEffect(() => {
         document.body.className = 'settings-body';
         return () => { document.body.className = ''; };
@@ -55,32 +121,102 @@ const DebateSetting = () => {
         const initializeSettings = async () => {
             try {
                 await ConfigurationService.initializeDefaultConfigurations();
-                const defaultConfig = await ConfigurationService.loadConfiguration(DEFAULT_CONFIGURATION_NAME);
-                if (defaultConfig.success) {
-                    setDebateStages(defaultConfig.data.debateStages);
-                    setTimerSettings(defaultConfig.data.timerSettings);
-                    setStageLabels(defaultConfig.data.stageLabels || {});
-                    if (defaultConfig.data.stageOrder) {
-                        setStageOrder(defaultConfig.data.stageOrder);
-                    } else {
-                        setStageOrder(Object.keys(defaultConfig.data.debateStages));
-                    }
-                } else {
-                    setDebateStages(debateStagesData);
-                    setTimerSettings(timerSettingsData);
-                    setStageLabels({});
-                    setStageOrder(Object.keys(debateStagesData));
+                const names = await refreshConfigurationList() || [DEFAULT_CONFIGURATION_NAME];
+                const preferred = getStoredConfigurationName();
+                const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
+                const loaded = await loadConfigByName(target);
+                if (!loaded) {
+                    applyLocalFallback();
+                    setSelectedConfigName(DEFAULT_CONFIGURATION_NAME);
                 }
             } catch (error) {
                 console.error('Error initializing settings:', error);
-                setDebateStages(debateStagesData);
-                setTimerSettings(timerSettingsData);
-                setStageLabels({});
-                setStageOrder(Object.keys(debateStagesData));
+                applyLocalFallback();
+                setSelectedConfigName(DEFAULT_CONFIGURATION_NAME);
             }
         };
         initializeSettings();
-    }, []);
+    }, [refreshConfigurationList, loadConfigByName, applyLocalFallback]);
+
+    const handleTemplateSelect = async (event) => {
+        const name = event.target.value;
+        if (name === selectedConfigName) return;
+        if (isDirty() && !window.confirm(t('settings.confirmSwitchTemplate'))) {
+            return;
+        }
+        const loaded = await loadConfigByName(name);
+        if (!loaded) {
+            alert(t('settings.templateLoadFailed', { name }));
+        }
+    };
+
+    const createTemplate = async () => {
+        const name = newTemplateName.trim();
+        if (!name) {
+            alert(t('settings.templateNameRequired'));
+            return;
+        }
+        if (configurationNames.includes(name)) {
+            alert(t('settings.templateExists'));
+            return;
+        }
+
+        try {
+            const result = await ConfigurationService.saveConfiguration(
+                name,
+                debateStages,
+                timerSettings,
+                stageOrder,
+                stageLabels,
+            );
+            if (!result.success) {
+                alert(t('settings.templateCreateFailed', { message: result.message }));
+                return;
+            }
+            setNewTemplateName('');
+            await refreshConfigurationList();
+            setSelectedConfigName(name);
+            setStoredConfigurationName(name);
+            markClean(debateStages, timerSettings, stageLabels, stageOrder);
+            alert(t('settings.templateCreated', { name }));
+        } catch (error) {
+            console.error('Error creating template:', error);
+            alert(t('settings.templateCreateRetry'));
+        }
+    };
+
+    const deleteTemplate = async () => {
+        if (selectedConfigName === DEFAULT_CONFIGURATION_NAME) {
+            alert(t('settings.templateCannotDeleteDefault'));
+            return;
+        }
+        if (!window.confirm(t('settings.confirmDeleteTemplate', { name: selectedConfigName }))) {
+            return;
+        }
+
+        const deletedName = selectedConfigName;
+        try {
+            const result = await ConfigurationService.deleteConfiguration(selectedConfigName);
+            if (!result.success) {
+                alert(t('settings.templateDeleteFailed', { message: result.message }));
+                return;
+            }
+            const names = await refreshConfigurationList() || [DEFAULT_CONFIGURATION_NAME];
+            const next = names.includes(DEFAULT_CONFIGURATION_NAME)
+                ? DEFAULT_CONFIGURATION_NAME
+                : (names[0] || DEFAULT_CONFIGURATION_NAME);
+            const loaded = await loadConfigByName(next);
+            if (!loaded) {
+                applyLocalFallback();
+                setSelectedConfigName(next);
+                setStoredConfigurationName(next);
+            }
+            alert(t('settings.templateDeleted', { name: deletedName, next }));
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            alert(t('settings.templateDeleteRetry'));
+        }
+    };
 
     const handleDebateStageChange = (key, value) => {
         setDebateStages({ ...debateStages, [key]: value });
@@ -93,14 +229,15 @@ const DebateSetting = () => {
     const saveChanges = async () => {
         try {
             const result = await ConfigurationService.saveConfiguration(
-                DEFAULT_CONFIGURATION_NAME,
+                selectedConfigName,
                 debateStages,
                 timerSettings,
                 stageOrder,
                 stageLabels,
             );
             if (result.success) {
-                alert(t('settings.savedSuccess'));
+                markClean(debateStages, timerSettings, stageLabels, stageOrder);
+                alert(t('settings.savedSuccess', { name: selectedConfigName }));
             } else {
                 alert(t('settings.saveFailed', { message: result.message }));
             }
@@ -111,6 +248,9 @@ const DebateSetting = () => {
     };
 
     const loadLocalSettings = () => {
+        if (!window.confirm(t('settings.confirmReset'))) {
+            return;
+        }
         setDebateStages(debateStagesData);
         setTimerSettings(timerSettingsData);
         setStageLabels({});
@@ -266,6 +406,79 @@ const DebateSetting = () => {
 
             {/* Main Content */}
             <div className="settings-content">
+
+                {/* Template Management Card */}
+                <div className="settings-card">
+                    <div className="card-header">
+                        <h2 className="card-title">📋 {t('settings.templateTitle')}</h2>
+                        <p className="card-description">{t('settings.templateDesc')}</p>
+                    </div>
+                    <div className="card-content">
+                        <div className="template-manager">
+                            <div className="form-row">
+                                <div className="form-field form-field--grow">
+                                    <label className="setting-label" htmlFor="template-select">
+                                        {t('settings.templateCurrent')}
+                                    </label>
+                                    <select
+                                        id="template-select"
+                                        className="modern-select"
+                                        value={selectedConfigName}
+                                        onChange={handleTemplateSelect}
+                                    >
+                                        {configurationNames.map((name) => (
+                                            <option key={name} value={name}>{name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-field">
+                                    <label className="setting-label">&nbsp;</label>
+                                    <button
+                                        type="button"
+                                        className="btn btn-danger"
+                                        onClick={deleteTemplate}
+                                        disabled={selectedConfigName === DEFAULT_CONFIGURATION_NAME}
+                                        title={
+                                            selectedConfigName === DEFAULT_CONFIGURATION_NAME
+                                                ? t('settings.templateCannotDeleteDefault')
+                                                : t('settings.templateDeleteTitle')
+                                        }
+                                    >
+                                        🗑️ {t('settings.templateDelete')}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-field form-field--grow">
+                                    <label className="setting-label" htmlFor="new-template-name">
+                                        {t('settings.templateNewName')}
+                                    </label>
+                                    <input
+                                        id="new-template-name"
+                                        type="text"
+                                        className="modern-input"
+                                        value={newTemplateName}
+                                        onChange={(e) => setNewTemplateName(e.target.value)}
+                                        placeholder={t('settings.templateNamePlaceholder')}
+                                        maxLength={60}
+                                    />
+                                </div>
+                                <div className="form-field">
+                                    <label className="setting-label">&nbsp;</label>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={createTemplate}
+                                    >
+                                        ➕ {t('settings.templateCreate')}
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="template-hint">💡 {t('settings.templateHint')}</p>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Duration Settings Card */}
                 <div className="settings-card">

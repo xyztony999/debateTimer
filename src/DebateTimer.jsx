@@ -1,4 +1,4 @@
-import React, {useState, useEffect, Fragment, useCallback} from 'react';
+import React, {useState, useEffect, Fragment, useCallback, useRef} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import end_sound from './resources/notify.wav';
@@ -7,7 +7,11 @@ import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import {TimerSetting} from './schema/TimerSetting';
 import ConfigurationService from './services/ConfigurationService';
-import { DEFAULT_CONFIGURATION_NAME } from './config/configConstants';
+import {
+    DEFAULT_CONFIGURATION_NAME,
+    getStoredConfigurationName,
+    setStoredConfigurationName,
+} from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
 
@@ -18,6 +22,7 @@ const DebateTimer = () => {
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
     const [stageLabels, setStageLabels] = useState({});    // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
     const [stageOrder, setStageOrder] = useState([]);
+    const selectedConfigNameRef = useRef(DEFAULT_CONFIGURATION_NAME);
     const [timeLeft, setTimeLeft] = useState(0);
     const [timeLeftAff, setTimeLeftAff] = useState(0);
     const [timeLeftNeg, setTimeLeftNeg] = useState(0);
@@ -112,6 +117,15 @@ const DebateTimer = () => {
         return result;
     }, []);
 
+    const resetTimerRuntime = useCallback(() => {
+        setRunning(false);
+        setRunningAff(false);
+        setRunningNeg(false);
+        setIsTimeUp(false);
+        setIsAffTimeUp(false);
+        setIsNegTimeUp(false);
+    }, []);
+
     // Load configuration from API
     const loadConfiguration = useCallback(async (configName) => {
         try {
@@ -120,9 +134,12 @@ const DebateTimer = () => {
                 const newDebateStages = result.data.debateStages;
                 const newTimerSettings = formatTimerSettings(result.data.timerSettings);
 
+                resetTimerRuntime();
                 setDebateStages(newDebateStages);
                 setDebateSingleDoubleTimerSettings(newTimerSettings);
                 setStageLabels(result.data.stageLabels || {});
+                selectedConfigNameRef.current = configName;
+                setStoredConfigurationName(configName);
 
                 // 加载顺序信息（如果存在）
                 if (result.data.stageOrder) {
@@ -158,23 +175,39 @@ const DebateTimer = () => {
             console.error('Error loading configuration:', error);
             return false;
         }
-    }, [formatTimerSettings]);
+    }, [formatTimerSettings, resetTimerRuntime]);
 
     useEffect(() => {
         let unsubscribe;
+
+        const toNames = (list) => (list || []).map((item) => item.name);
 
         const initializeConfiguration = async () => {
             try {
                 // Initialize default configurations on the API
                 await ConfigurationService.initializeDefaultConfigurations();
 
-                // Load default configuration
-                await loadConfiguration(DEFAULT_CONFIGURATION_NAME);
+                const listResult = await ConfigurationService.getConfigurations();
+                const names = listResult.success
+                    ? toNames(listResult.data)
+                    : [DEFAULT_CONFIGURATION_NAME];
+
+                const preferred = getStoredConfigurationName();
+                const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
+                await loadConfiguration(target);
 
                 // Set up real-time listener for configuration changes
-                unsubscribe = ConfigurationService.onConfigurationsChange(() => {
-                    // Reload configuration when it changes
-                    loadConfiguration(DEFAULT_CONFIGURATION_NAME);
+                unsubscribe = ConfigurationService.onConfigurationsChange(async (list) => {
+                    const nextNames = toNames(list);
+                    const current = selectedConfigNameRef.current;
+                    const stillExists = nextNames.includes(current);
+                    const nextTarget = stillExists
+                        ? current
+                        : (nextNames.includes(DEFAULT_CONFIGURATION_NAME)
+                            ? DEFAULT_CONFIGURATION_NAME
+                            : nextNames[0]);
+                    if (!nextTarget) return;
+                    await loadConfiguration(nextTarget);
                 });
 
             } catch (error) {
@@ -183,6 +216,7 @@ const DebateTimer = () => {
                 setDebateStages(debateStagesData);
                 setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
                 setStageLabels({});
+                selectedConfigNameRef.current = DEFAULT_CONFIGURATION_NAME;
                 // 为本地数据创建默认顺序
                 const localStageKeys = Object.keys(debateStagesData);
                 setStageOrder(localStageKeys);
@@ -434,7 +468,12 @@ const DebateTimer = () => {
                 </div>
 
 
-                <select value={selectedStage} onChange={handleStageSelect}>
+                <select
+                    className="timer-stage-select"
+                    value={selectedStage}
+                    onChange={handleStageSelect}
+                    aria-label={t('timer.stage')}
+                >
                     {getOrderedStages().map((stage) => (
                         <option
                             key={stage}

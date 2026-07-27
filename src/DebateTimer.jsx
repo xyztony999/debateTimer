@@ -14,10 +14,12 @@ import {
 } from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
+import { useColorMode } from './context/ColorModeContext';
 
 const DebateTimer = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
+    const { darkMode, toggleDarkMode } = useColorMode();
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
     const [stageLabels, setStageLabels] = useState({});    // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
@@ -33,15 +35,6 @@ const DebateTimer = () => {
     const [isTimeUp, setIsTimeUp] = useState(false);
     const [isAffTimeUp, setIsAffTimeUp] = useState(false);
     const [isNegTimeUp, setIsNegTimeUp] = useState(false);
-    const [darkMode, setDarkMode] = useState(false);
-
-    const toggleDarkMode = () => {
-        setDarkMode(prev => {
-            const next = !prev;
-            localStorage.setItem('darkMode', String(next));
-            return next;
-        });
-    };
 
     // 获取按顺序排列的计时器项目
     const getOrderedStages = () => {
@@ -67,46 +60,11 @@ const DebateTimer = () => {
     };
 
     useEffect(() => {
-        // 为计时器页面添加body类名
-        document.body.className = 'timer-body';
-
-        // 清理函数，当组件卸载时移除类名
+        document.body.classList.add('timer-body');
         return () => {
-            document.body.className = '';
+            document.body.classList.remove('timer-body');
         };
     }, []);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('darkMode');
-        const matchDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
-
-        if (stored !== null) {
-            setDarkMode(stored === 'true');
-        } else {
-            setDarkMode(matchDarkMode.matches);
-        }
-
-        if (stored === null) {
-            const handleChange = (e) => {
-                setDarkMode(e.matches);
-            };
-
-            matchDarkMode.addEventListener('change', handleChange);
-
-            return () => {
-                matchDarkMode.removeEventListener('change', handleChange);
-            };
-        }
-    }, []);
-
-
-    useEffect(() => {
-        if (darkMode) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
-    }, [darkMode]);
 
 
     const formatTimerSettings = useCallback((timerSettings) => {
@@ -237,6 +195,38 @@ const DebateTimer = () => {
         };
     }, [loadConfiguration, formatTimerSettings]);
 
+    const endSoundRef = useRef(null);
+    const warn30SoundRef = useRef(null);
+
+    useEffect(() => {
+        endSoundRef.current = new Audio(end_sound);
+        warn30SoundRef.current = new Audio(r30_sound);
+        endSoundRef.current.preload = 'auto';
+        warn30SoundRef.current.preload = 'auto';
+        // Warm decode so the first play is not delayed by large WAV load.
+        endSoundRef.current.load();
+        warn30SoundRef.current.load();
+    }, []);
+
+    const playSound = useCallback((mode) => {
+        const audio = mode === 'end'
+            ? endSoundRef.current
+            : mode === '30'
+                ? warn30SoundRef.current
+                : null;
+        if (!audio) return;
+        try {
+            audio.pause();
+            audio.currentTime = 0;
+            const playPromise = audio.play();
+            if (playPromise?.catch) {
+                playPromise.catch(() => {});
+            }
+        } catch {
+            // Ignore autoplay / decode errors during local testing.
+        }
+    }, []);
+
     useEffect(() => {
         let interval;
         if (!runningAff && !runningNeg && running && timeLeft > 0) {
@@ -254,7 +244,7 @@ const DebateTimer = () => {
             //alert('时间到！');
         }
         return () => clearInterval(interval);
-    }, [running, timeLeft, runningAff, runningNeg]);
+    }, [running, timeLeft, runningAff, runningNeg, playSound]);
 
     useEffect(() => {
         let interval;
@@ -272,7 +262,7 @@ const DebateTimer = () => {
             playSound('end');
         }
         return () => clearInterval(interval);
-    }, [runningAff, timeLeftAff]);
+    }, [runningAff, timeLeftAff, playSound]);
 
     useEffect(() => {
         let interval;
@@ -290,7 +280,13 @@ const DebateTimer = () => {
             playSound('end');
         }
         return () => clearInterval(interval);
-    }, [runningNeg, timeLeftNeg]);
+    }, [runningNeg, timeLeftNeg, playSound]);
+
+    const clearClockBlink = useCallback(() => {
+        ['clock', 'clockAff', 'clockNeg'].forEach((id) => {
+            document.getElementById(id)?.classList.remove('time-30s-blinking');
+        });
+    }, []);
 
     const handleStageSelect = (event) => {
         const stage = event.target.value;
@@ -305,6 +301,28 @@ const DebateTimer = () => {
         setRunning(false);
         setRunningAff(false);
         setRunningNeg(false);
+        clearClockBlink();
+    };
+
+    const resetSingleTimer = () => {
+        setRunning(false);
+        setIsTimeUp(false);
+        setTimeLeft(debateStages[selectedStage]);
+        clearClockBlink();
+    };
+
+    const resetAffTimer = () => {
+        setRunningAff(false);
+        setIsAffTimeUp(false);
+        setTimeLeftAff(debateStages[selectedStage]);
+        document.getElementById('clockAff')?.classList.remove('time-30s-blinking');
+    };
+
+    const resetNegTimer = () => {
+        setRunningNeg(false);
+        setIsNegTimeUp(false);
+        setTimeLeftNeg(debateStages[selectedStage]);
+        document.getElementById('clockNeg')?.classList.remove('time-30s-blinking');
     };
 
     const formatTime = (seconds) => {
@@ -369,18 +387,6 @@ const DebateTimer = () => {
         return () => clearInterval(interval);
     }, [runningNeg, timeLeftNeg]);
 
-
-    const playSound = (mode) => {
-        if(mode === 'end') {
-            const audio = new Audio(end_sound);
-            audio.play().catch(() => {});
-        }
-        if(mode === '30') {
-            const audio = new Audio(r30_sound);
-            audio.play().catch(() => {});
-        }
-    };
-
     useEffect(() => {
         const handleKeyPress = (event) => {
             if (event.key === 's' || event.key === 'S') {
@@ -397,16 +403,23 @@ const DebateTimer = () => {
                 }
             } else if (event.key === 'r' || event.key === 'R') {
                 if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
-                    !runningAff && setTimeLeftAff(debateStages[selectedStage]);
-                    setIsAffTimeUp(false);
+                    if (!runningAff) {
+                        setTimeLeftAff(debateStages[selectedStage]);
+                        setIsAffTimeUp(false);
+                        document.getElementById('clockAff')?.classList.remove('time-30s-blinking');
+                    }
                 }
                 else if (selectedStage === 'sound_check') {
-                    !running && setTimeLeft(0);
-                    setIsTimeUp(false);
+                    if (!running) {
+                        setTimeLeft(0);
+                        setIsTimeUp(false);
+                        clearClockBlink();
+                    }
                 }
-                else {
-                    !running && setTimeLeft(debateStages[selectedStage]);
+                else if (!running) {
+                    setTimeLeft(debateStages[selectedStage]);
                     setIsTimeUp(false);
+                    clearClockBlink();
                 }
             } else if (event.key === 'd' || event.key === 'D') {
                 if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
@@ -418,8 +431,11 @@ const DebateTimer = () => {
                 }
             } else if (event.key ==='t' || event.key === 'T') {
                 if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
-                    !runningNeg && setTimeLeftNeg(debateStages[selectedStage]);
-                    setIsNegTimeUp(false);
+                    if (!runningNeg) {
+                        setTimeLeftNeg(debateStages[selectedStage]);
+                        setIsNegTimeUp(false);
+                        document.getElementById('clockNeg')?.classList.remove('time-30s-blinking');
+                    }
                 }
             }
         };
@@ -430,7 +446,7 @@ const DebateTimer = () => {
         return () => {
             window.removeEventListener('keydown', handleKeyPress);
         };
-    }, [selectedStage, running, runningAff, runningNeg, debateSingleDoubleTimerSettings, debateStages]);
+    }, [selectedStage, running, runningAff, runningNeg, debateSingleDoubleTimerSettings, debateStages, clearClockBlink]);
 
     return (
         <Fragment>
@@ -487,18 +503,20 @@ const DebateTimer = () => {
                 <h2>{stageDisplayName(t, selectedStage, stageLabels, i18n.language)}</h2>
                 {(selectedStage === 'sound_check') ? (
                     <div>
-                        <button onClick={() => {
-                            setIsTimeUp(false)
-                            setRunning(true)
-                            //playSound('30')
-                            setTimeLeft(30)
+                        <button type="button" onClick={() => {
+                            setRunning(false);
+                            setIsTimeUp(false);
+                            setTimeLeft(30);
+                            clearClockBlink();
+                            document.getElementById('clock')?.classList.add('time-30s-blinking');
+                            playSound('30');
                         }}>{t('timer.test30sSound')}</button>
-                        <button onClick={() => {
-                            setRunning(true)
-                            setTimeLeft(0)
-                            setIsTimeUp(true)
-                            //playSound('end')
-
+                        <button type="button" onClick={() => {
+                            setRunning(false);
+                            setTimeLeft(0);
+                            setIsTimeUp(true);
+                            clearClockBlink();
+                            playSound('end');
                         }}>{t('timer.testEndSound')}</button>
                     </div>
                 ) : (
@@ -518,10 +536,7 @@ const DebateTimer = () => {
                                 <button className={runningAff ? 'active' : ''} onClick={() => setRunningAff(false)} disabled={!runningAff}>
                                     ⏸️
                                 </button>
-                                <button className={!runningAff ? 'active' : ''} onClick={() => {
-                                    setIsAffTimeUp(false);
-                                    setTimeLeftAff(debateStages[selectedStage])
-                                }} disabled={runningAff}>
+                                <button className={!runningAff ? 'active' : ''} onClick={resetAffTimer} disabled={runningAff}>
                                     🔃
                                 </button>
                             </div>
@@ -536,10 +551,7 @@ const DebateTimer = () => {
                                 <button className={runningNeg ? 'active' : ''} onClick={() => setRunningNeg(false)} disabled={!runningNeg}>
                                     ⏸️
                                 </button>
-                                <button className={!runningNeg ? 'active' : ''} onClick={() => {
-                                    setIsNegTimeUp(false);
-                                    setTimeLeftNeg(debateStages[selectedStage]);
-                                }} disabled={runningNeg}>
+                                <button className={!runningNeg ? 'active' : ''} onClick={resetNegTimer} disabled={runningNeg}>
                                     🔃
                                 </button>
                             </div>
@@ -555,10 +567,7 @@ const DebateTimer = () => {
                             <button className={running ? 'active' : ''} onClick={() => setRunning(false)} disabled={!running}>
                                 ⏸️
                             </button>
-                            <button className={!running ? 'active' : ''} onClick={() => {
-                                setIsTimeUp(false);
-                                setTimeLeft(debateStages[selectedStage])
-                            }} disabled={running}>
+                            <button className={!running ? 'active' : ''} onClick={resetSingleTimer} disabled={running}>
                                 🔃
                             </button>
                         </div>

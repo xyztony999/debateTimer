@@ -1,12 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardHeader from '@mui/material/CardHeader';
+import CardContent from '@mui/material/CardContent';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/material/Stack';
+import Grid from '@mui/material/Grid';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import InputAdornment from '@mui/material/InputAdornment';
+import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import AddIcon from '@mui/icons-material/Add';
+import SaveIcon from '@mui/icons-material/Save';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import TuneIcon from '@mui/icons-material/Tune';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import ReorderIcon from '@mui/icons-material/Reorder';
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import ConfigurationService from './services/ConfigurationService';
-import { DEFAULT_CONFIGURATION_NAME } from './config/configConstants';
+import {
+    DEFAULT_CONFIGURATION_NAME,
+    getStoredConfigurationName,
+    setStoredConfigurationName,
+} from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
+import { useColorMode } from './context/ColorModeContext';
 
 /** Generate a short unique ID for custom stages. */
 function generateCustomId() {
@@ -15,16 +61,31 @@ function generateCustomId() {
 
 const EMPTY_LABELS = { 'zh-Hans': '', 'en': '', 'fr-CA': '' };
 
+function buildConfigSnapshot(debateStages, timerSettings, stageLabels, stageOrder) {
+    return JSON.stringify({ debateStages, timerSettings, stageLabels, stageOrder });
+}
+
+function formatStageTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const rem = seconds % 60;
+    return `${minutes}:${rem.toString().padStart(2, '0')}`;
+}
+
 const DebateSetting = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
+    const { darkMode, toggleDarkMode } = useColorMode();
 
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
-    const [stageLabels, setStageLabels] = useState({});     // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
+    const [stageLabels, setStageLabels] = useState({});
     const [stageOrder, setStageOrder] = useState([]);
 
-    // Add-stage form state
+    const [configurationNames, setConfigurationNames] = useState([]);
+    const [selectedConfigName, setSelectedConfigName] = useState(DEFAULT_CONFIGURATION_NAME);
+    const [newTemplateName, setNewTemplateName] = useState('');
+    const savedSnapshotRef = useRef('');
+
     const [newItemLabels, setNewItemLabels] = useState({ ...EMPTY_LABELS });
     const [newItemTime, setNewItemTime] = useState(60);
     const [newItemMode, setNewItemMode] = useState('single');
@@ -32,13 +93,28 @@ const DebateSetting = () => {
     const [draggedItem, setDraggedItem] = useState(null);
     const [dragOverItem, setDragOverItem] = useState(null);
 
+    const markClean = useCallback((stages, settings, labels, order) => {
+        savedSnapshotRef.current = buildConfigSnapshot(stages, settings, labels, order);
+    }, []);
+
+    const isDirty = useCallback(() => (
+        savedSnapshotRef.current !== buildConfigSnapshot(
+            debateStages,
+            timerSettings,
+            stageLabels,
+            stageOrder,
+        )
+    ), [debateStages, timerSettings, stageLabels, stageOrder]);
+
     const getOrderedStages = () => {
         if (stageOrder.length > 0) {
             const orderedStages = [];
-            stageOrder.forEach(stage => {
-                if (debateStages.hasOwnProperty(stage)) orderedStages.push(stage);
+            stageOrder.forEach((stage) => {
+                if (Object.prototype.hasOwnProperty.call(debateStages, stage)) {
+                    orderedStages.push(stage);
+                }
             });
-            Object.keys(debateStages).forEach(stage => {
+            Object.keys(debateStages).forEach((stage) => {
                 if (!stageOrder.includes(stage)) orderedStages.push(stage);
             });
             return orderedStages;
@@ -46,41 +122,153 @@ const DebateSetting = () => {
         return Object.keys(debateStages);
     };
 
+    const applyConfigData = useCallback((data) => {
+        const labels = data.stageLabels || {};
+        const order = data.stageOrder || Object.keys(data.debateStages);
+        setDebateStages(data.debateStages);
+        setTimerSettings(data.timerSettings);
+        setStageLabels(labels);
+        setStageOrder(order);
+        markClean(data.debateStages, data.timerSettings, labels, order);
+    }, [markClean]);
+
+    const applyLocalFallback = useCallback(() => {
+        const order = Object.keys(debateStagesData);
+        setDebateStages(debateStagesData);
+        setTimerSettings(timerSettingsData);
+        setStageLabels({});
+        setStageOrder(order);
+        markClean(debateStagesData, timerSettingsData, {}, order);
+    }, [markClean]);
+
+    const refreshConfigurationList = useCallback(async () => {
+        const listResult = await ConfigurationService.getConfigurations();
+        if (listResult.success) {
+            const names = (listResult.data || []).map((item) => item.name);
+            setConfigurationNames(names);
+            return names;
+        }
+        return null;
+    }, []);
+
+    const loadConfigByName = useCallback(async (name) => {
+        const result = await ConfigurationService.loadConfiguration(name);
+        if (result.success) {
+            applyConfigData(result.data);
+            setSelectedConfigName(name);
+            setStoredConfigurationName(name);
+            return true;
+        }
+        return false;
+    }, [applyConfigData]);
+
     useEffect(() => {
-        document.body.className = 'settings-body';
-        return () => { document.body.className = ''; };
+        document.body.classList.add('settings-body');
+        return () => {
+            document.body.classList.remove('settings-body');
+        };
     }, []);
 
     useEffect(() => {
         const initializeSettings = async () => {
             try {
                 await ConfigurationService.initializeDefaultConfigurations();
-                const defaultConfig = await ConfigurationService.loadConfiguration(DEFAULT_CONFIGURATION_NAME);
-                if (defaultConfig.success) {
-                    setDebateStages(defaultConfig.data.debateStages);
-                    setTimerSettings(defaultConfig.data.timerSettings);
-                    setStageLabels(defaultConfig.data.stageLabels || {});
-                    if (defaultConfig.data.stageOrder) {
-                        setStageOrder(defaultConfig.data.stageOrder);
-                    } else {
-                        setStageOrder(Object.keys(defaultConfig.data.debateStages));
-                    }
-                } else {
-                    setDebateStages(debateStagesData);
-                    setTimerSettings(timerSettingsData);
-                    setStageLabels({});
-                    setStageOrder(Object.keys(debateStagesData));
+                const names = await refreshConfigurationList() || [DEFAULT_CONFIGURATION_NAME];
+                const preferred = getStoredConfigurationName();
+                const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
+                const loaded = await loadConfigByName(target);
+                if (!loaded) {
+                    applyLocalFallback();
+                    setSelectedConfigName(DEFAULT_CONFIGURATION_NAME);
                 }
             } catch (error) {
                 console.error('Error initializing settings:', error);
-                setDebateStages(debateStagesData);
-                setTimerSettings(timerSettingsData);
-                setStageLabels({});
-                setStageOrder(Object.keys(debateStagesData));
+                applyLocalFallback();
+                setSelectedConfigName(DEFAULT_CONFIGURATION_NAME);
             }
         };
         initializeSettings();
-    }, []);
+    }, [refreshConfigurationList, loadConfigByName, applyLocalFallback]);
+
+    const handleTemplateSelect = async (event) => {
+        const name = event.target.value;
+        if (name === selectedConfigName) return;
+        if (isDirty() && !window.confirm(t('settings.confirmSwitchTemplate'))) {
+            return;
+        }
+        const loaded = await loadConfigByName(name);
+        if (!loaded) {
+            alert(t('settings.templateLoadFailed', { name }));
+        }
+    };
+
+    const createTemplate = async () => {
+        const name = newTemplateName.trim();
+        if (!name) {
+            alert(t('settings.templateNameRequired'));
+            return;
+        }
+        if (configurationNames.includes(name)) {
+            alert(t('settings.templateExists'));
+            return;
+        }
+
+        try {
+            const result = await ConfigurationService.saveConfiguration(
+                name,
+                debateStages,
+                timerSettings,
+                stageOrder,
+                stageLabels,
+            );
+            if (!result.success) {
+                alert(t('settings.templateCreateFailed', { message: result.message }));
+                return;
+            }
+            setNewTemplateName('');
+            await refreshConfigurationList();
+            setSelectedConfigName(name);
+            setStoredConfigurationName(name);
+            markClean(debateStages, timerSettings, stageLabels, stageOrder);
+            alert(t('settings.templateCreated', { name }));
+        } catch (error) {
+            console.error('Error creating template:', error);
+            alert(t('settings.templateCreateRetry'));
+        }
+    };
+
+    const deleteTemplate = async () => {
+        if (selectedConfigName === DEFAULT_CONFIGURATION_NAME) {
+            alert(t('settings.templateCannotDeleteDefault'));
+            return;
+        }
+        if (!window.confirm(t('settings.confirmDeleteTemplate', { name: selectedConfigName }))) {
+            return;
+        }
+
+        const deletedName = selectedConfigName;
+        try {
+            const result = await ConfigurationService.deleteConfiguration(selectedConfigName);
+            if (!result.success) {
+                alert(t('settings.templateDeleteFailed', { message: result.message }));
+                return;
+            }
+            const names = await refreshConfigurationList() || [DEFAULT_CONFIGURATION_NAME];
+            const next = names.includes(DEFAULT_CONFIGURATION_NAME)
+                ? DEFAULT_CONFIGURATION_NAME
+                : (names[0] || DEFAULT_CONFIGURATION_NAME);
+            const loaded = await loadConfigByName(next);
+            if (!loaded) {
+                applyLocalFallback();
+                setSelectedConfigName(next);
+                setStoredConfigurationName(next);
+            }
+            alert(t('settings.templateDeleted', { name: deletedName, next }));
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            alert(t('settings.templateDeleteRetry'));
+        }
+    };
 
     const handleDebateStageChange = (key, value) => {
         setDebateStages({ ...debateStages, [key]: value });
@@ -93,14 +281,15 @@ const DebateSetting = () => {
     const saveChanges = async () => {
         try {
             const result = await ConfigurationService.saveConfiguration(
-                DEFAULT_CONFIGURATION_NAME,
+                selectedConfigName,
                 debateStages,
                 timerSettings,
                 stageOrder,
                 stageLabels,
             );
             if (result.success) {
-                alert(t('settings.savedSuccess'));
+                markClean(debateStages, timerSettings, stageLabels, stageOrder);
+                alert(t('settings.savedSuccess', { name: selectedConfigName }));
             } else {
                 alert(t('settings.saveFailed', { message: result.message }));
             }
@@ -111,6 +300,9 @@ const DebateSetting = () => {
     };
 
     const loadLocalSettings = () => {
+        if (!window.confirm(t('settings.confirmReset'))) {
+            return;
+        }
         setDebateStages(debateStagesData);
         setTimerSettings(timerSettingsData);
         setStageLabels({});
@@ -118,24 +310,22 @@ const DebateSetting = () => {
     };
 
     const addTimerItem = () => {
-        const hasAnyLabel = Object.values(newItemLabels).some(v => v.trim());
+        const hasAnyLabel = Object.values(newItemLabels).some((v) => v.trim());
         if (!hasAnyLabel) {
             alert(t('settings.labelRequired'));
             return;
         }
 
         const id = generateCustomId();
-
-        // Trim labels and drop empty values
         const trimmedLabels = {};
         Object.entries(newItemLabels).forEach(([lang, val]) => {
             if (val.trim()) trimmedLabels[lang] = val.trim();
         });
 
-        setDebateStages(prev => ({ ...prev, [id]: newItemTime }));
-        setTimerSettings(prev => ({ ...prev, [id]: newItemMode }));
-        setStageLabels(prev => ({ ...prev, [id]: trimmedLabels }));
-        setStageOrder(prev => [...prev, id]);
+        setDebateStages((prev) => ({ ...prev, [id]: newItemTime }));
+        setTimerSettings((prev) => ({ ...prev, [id]: newItemMode }));
+        setStageLabels((prev) => ({ ...prev, [id]: trimmedLabels }));
+        setStageOrder((prev) => [...prev, id]);
 
         setNewItemLabels({ ...EMPTY_LABELS });
         setNewItemTime(60);
@@ -157,7 +347,7 @@ const DebateSetting = () => {
             setDebateStages(newDebateStages);
             setTimerSettings(newTimerSettings);
             setStageLabels(newStageLabels);
-            setStageOrder(prev => prev.filter(stage => stage !== itemName));
+            setStageOrder((prev) => prev.filter((stage) => stage !== itemName));
         }
     };
 
@@ -217,278 +407,417 @@ const DebateSetting = () => {
     const displayName = (stage) =>
         stageDisplayName(t, stage, stageLabels, i18n.language);
 
+    const orderedStages = getOrderedStages();
+
     return (
-        <div className="modern-settings-container">
-            {/* Header */}
-            <div className="settings-header">
-                <div className="header-content">
-                    <div className="settings-nav">
-                        <div className="nav-left">
-                            <button
-                                className="nav-back-btn"
-                                onClick={() => navigate('/')}
+        <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 6 }}>
+            <AppBar
+                position="sticky"
+                elevation={0}
+                color={darkMode ? 'default' : 'primary'}
+                sx={{
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    ...(darkMode
+                        ? {
+                            bgcolor: 'background.paper',
+                            color: 'text.primary',
+                            backgroundImage: 'none',
+                        }
+                        : {}),
+                }}
+            >
+                <Toolbar sx={{ gap: 1, flexWrap: 'wrap', py: { xs: 1, sm: 0 } }}>
+                    <Tooltip title={t('settings.backToTimer')}>
+                        <IconButton
+                            color="inherit"
+                            edge="start"
+                            onClick={() => navigate('/')}
+                            aria-label={t('settings.backToTimer')}
+                        >
+                            <ArrowBackIcon />
+                        </IconButton>
+                    </Tooltip>
+                    <Typography
+                        variant="h6"
+                        component="h1"
+                        color="inherit"
+                        sx={{ flexGrow: 1, fontWeight: 500 }}
+                    >
+                        {t('settings.pageTitle')}
+                    </Typography>
+                    <Box
+                        role="toolbar"
+                        aria-label={t('settings.toolbar')}
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
+                    >
+                        <LanguageSwitcher variant="mui" size="small" />
+                        <Tooltip title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}>
+                            <IconButton
+                                color="inherit"
+                                onClick={toggleDarkMode}
+                                aria-label={darkMode ? t('timer.darkLight') : t('timer.darkDark')}
                             >
-                                {t('settings.backToTimer')}
-                            </button>
-                        </div>
-                        <div className="nav-center">
-                            <div className="breadcrumb">
-                                <span className="breadcrumb-item">🎯 {t('settings.breadcrumbTimer')}</span>
-                                <span className="breadcrumb-separator">›</span>
-                                <span className="breadcrumb-item current">⚙️ {t('settings.breadcrumbSettings')}</span>
-                            </div>
-                        </div>
-                        <div className="nav-right settings-nav-actions">
-                            <div
-                                className="nav-actions-group nav-actions-group--settings"
-                                role="toolbar"
-                                aria-label={t('settings.toolbar')}
+                                {darkMode ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('settings.helpTitle')}>
+                            <IconButton
+                                color="inherit"
+                                onClick={() => alert(t('settings.helpAlert'))}
+                                aria-label={t('settings.help')}
                             >
-                                <LanguageSwitcher className="lang-switcher--settings" />
-                                <button
-                                    type="button"
-                                    className="nav-help-btn"
-                                    onClick={() => alert(t('settings.helpAlert'))}
-                                    title={t('settings.helpTitle')}
-                                >
-                                    ❓ {t('settings.help')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                                <HelpOutlinedIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                </Toolbar>
+            </AppBar>
 
-                    <div className="header-main">
-                        <h1 className="settings-title">⚙️ {t('settings.pageTitle')}</h1>
-                        <p className="settings-subtitle">{t('settings.pageSubtitle')}</p>
-                    </div>
-                </div>
-            </div>
+            <Container maxWidth="lg" sx={{ pt: 3 }}>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                    {t('settings.pageSubtitle')}
+                </Typography>
 
-            {/* Main Content */}
-            <div className="settings-content">
-
-                {/* Duration Settings Card */}
-                <div className="settings-card">
-                    <div className="card-header">
-                        <h2 className="card-title">⏱️ {t('settings.durationTitle')}</h2>
-                        <p className="card-description">{t('settings.durationDesc')}</p>
-                    </div>
-                    <div className="card-content">
-                        <div className="settings-grid">
-                            {getOrderedStages().map((stage, index) => {
-                                const minutes = Math.floor(debateStages[stage] / 60);
-                                const seconds = debateStages[stage] % 60;
-                                const timeDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                                return (
-                                    <div key={index} className="setting-item">
-                                        <label className="setting-label">
-                                            {displayName(stage)}
-                                            <span className="time-preview">{timeDisplay}</span>
-                                        </label>
-                                        <div className="input-group">
-                                            <input
-                                                type="number"
-                                                className="modern-input"
-                                                value={debateStages[stage]}
-                                                onChange={(e) => handleDebateStageChange(stage, parseInt(e.target.value) || 0)}
-                                                min="0"
-                                                max="3600"
-                                                placeholder={t('settings.secondsPlaceholder')}
-                                            />
-                                            <span className="input-suffix">{t('settings.secondsSuffix')}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Timer Mode Settings Card */}
-                <div className="settings-card">
-                    <div className="card-header">
-                        <h2 className="card-title">🎛️ {t('settings.modeTitle')}</h2>
-                        <p className="card-description">{t('settings.modeDesc')}</p>
-                    </div>
-                    <div className="card-content">
-                        <div className="settings-grid">
-                            {getOrderedStages().map((stage, index) => (
-                                <div key={index} className="setting-item">
-                                    <label className="setting-label">{displayName(stage)}</label>
-                                    <div className="input-group">
-                                        <select
-                                            className="modern-select"
-                                            value={timerSettings[stage]}
-                                            onChange={(e) => handleTimerSettingChange(stage, e.target.value)}
+                <Stack spacing={3}>
+                    {/* Template Management */}
+                    <Card>
+                        <CardHeader
+                            avatar={<FolderOpenIcon color="primary" />}
+                            title={t('settings.templateTitle')}
+                            subheader={t('settings.templateDesc')}
+                        />
+                        <CardContent>
+                            <Stack spacing={2.5}>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel id="template-select-label">
+                                            {t('settings.templateCurrent')}
+                                        </InputLabel>
+                                        <Select
+                                            labelId="template-select-label"
+                                            label={t('settings.templateCurrent')}
+                                            value={selectedConfigName}
+                                            onChange={handleTemplateSelect}
                                         >
-                                            <option value="single">🎯 {t('settings.singleTimer')}</option>
-                                            <option value="double">⚖️ {t('settings.doubleTimer')}</option>
-                                        </select>
-                                        <button
-                                            className="btn btn-danger btn-small"
-                                            onClick={() => deleteTimerItem(stage)}
-                                            title={t('settings.deleteItemTitle')}
-                                        >
-                                            🗑️
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Add New Timer Item Card */}
-                <div className="settings-card">
-                    <div className="card-header">
-                        <h2 className="card-title">➕ {t('settings.addTitle')}</h2>
-                        <p className="card-description">{t('settings.addDesc')}</p>
-                    </div>
-                    <div className="card-content">
-                        <div className="add-item-form">
-                            {/* Language name inputs */}
-                            <div className="form-row form-row--labels">
-                                <div className="form-field">
-                                    <label className="setting-label">🇨🇳 {t('settings.labelZh')}</label>
-                                    <input
-                                        type="text"
-                                        className="modern-input"
-                                        value={newItemLabels['zh-Hans']}
-                                        onChange={(e) => setNewItemLabels(prev => ({ ...prev, 'zh-Hans': e.target.value }))}
-                                        placeholder={t('settings.placeholderLabelZh')}
-                                        maxLength="40"
-                                    />
-                                </div>
-                                <div className="form-field">
-                                    <label className="setting-label">🇨🇦 {t('settings.labelEn')}</label>
-                                    <input
-                                        type="text"
-                                        className="modern-input"
-                                        value={newItemLabels['en']}
-                                        onChange={(e) => setNewItemLabels(prev => ({ ...prev, 'en': e.target.value }))}
-                                        placeholder={t('settings.placeholderLabelEn')}
-                                        maxLength="40"
-                                    />
-                                </div>
-                                <div className="form-field">
-                                    <label className="setting-label">🇫🇷 {t('settings.labelFr')}</label>
-                                    <input
-                                        type="text"
-                                        className="modern-input"
-                                        value={newItemLabels['fr-CA']}
-                                        onChange={(e) => setNewItemLabels(prev => ({ ...prev, 'fr-CA': e.target.value }))}
-                                        placeholder={t('settings.placeholderLabelFr')}
-                                        maxLength="40"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Duration / mode / submit */}
-                            <div className="form-row">
-                                <div className="form-field">
-                                    <label className="setting-label">{t('settings.durationSeconds')}</label>
-                                    <input
-                                        type="number"
-                                        className="modern-input"
-                                        value={newItemTime}
-                                        onChange={(e) => setNewItemTime(parseInt(e.target.value) || 0)}
-                                        min="1"
-                                        max="3600"
-                                        placeholder={t('settings.placeholderSeconds')}
-                                    />
-                                </div>
-                                <div className="form-field">
-                                    <label className="setting-label">{t('settings.timerMode')}</label>
-                                    <select
-                                        className="modern-select"
-                                        value={newItemMode}
-                                        onChange={(e) => setNewItemMode(e.target.value)}
+                                            {configurationNames.map((name) => (
+                                                <MenuItem key={name} value={name}>{name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <Button
+                                        variant="outlined"
+                                        color="error"
+                                        startIcon={<DeleteOutlinedIcon />}
+                                        onClick={deleteTemplate}
+                                        disabled={selectedConfigName === DEFAULT_CONFIGURATION_NAME}
+                                        title={
+                                            selectedConfigName === DEFAULT_CONFIGURATION_NAME
+                                                ? t('settings.templateCannotDeleteDefault')
+                                                : t('settings.templateDeleteTitle')
+                                        }
+                                        sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                                     >
-                                        <option value="single">🎯 {t('settings.singleTimer')}</option>
-                                        <option value="double">⚖️ {t('settings.doubleTimer')}</option>
-                                    </select>
-                                </div>
-                                <div className="form-field">
-                                    <button
-                                        className="btn btn-primary"
+                                        {t('settings.templateDelete')}
+                                    </Button>
+                                </Stack>
+
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label={t('settings.templateNewName')}
+                                        value={newTemplateName}
+                                        onChange={(e) => setNewTemplateName(e.target.value)}
+                                        placeholder={t('settings.templateNamePlaceholder')}
+                                        slotProps={{ htmlInput: { maxLength: 60 } }}
+                                    />
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<AddIcon />}
+                                        onClick={createTemplate}
+                                        sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                                    >
+                                        {t('settings.templateCreate')}
+                                    </Button>
+                                </Stack>
+
+                                <Alert severity="info" variant="outlined">
+                                    {t('settings.templateHint')}
+                                </Alert>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+
+                    {/* Duration Settings */}
+                    <Card>
+                        <CardHeader
+                            avatar={<AccessTimeIcon color="primary" />}
+                            title={t('settings.durationTitle')}
+                            subheader={t('settings.durationDesc')}
+                        />
+                        <CardContent>
+                            <Grid container spacing={2}>
+                                {orderedStages.map((stage) => (
+                                    <Grid key={stage} size={{ xs: 12, sm: 6, md: 4 }}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            type="number"
+                                            label={displayName(stage)}
+                                            value={debateStages[stage] ?? 0}
+                                            onChange={(e) => handleDebateStageChange(stage, parseInt(e.target.value, 10) || 0)}
+                                            slotProps={{
+                                                htmlInput: { min: 0, max: 3600 },
+                                                input: {
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <Chip
+                                                                size="small"
+                                                                label={formatStageTime(debateStages[stage] || 0)}
+                                                                color="primary"
+                                                                variant="outlined"
+                                                            />
+                                                        </InputAdornment>
+                                                    ),
+                                                },
+                                            }}
+                                        />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </CardContent>
+                    </Card>
+
+                    {/* Timer Mode */}
+                    <Card>
+                        <CardHeader
+                            avatar={<TuneIcon color="primary" />}
+                            title={t('settings.modeTitle')}
+                            subheader={t('settings.modeDesc')}
+                        />
+                        <CardContent>
+                            <Grid container spacing={2}>
+                                {orderedStages.map((stage) => (
+                                    <Grid key={stage} size={{ xs: 12, sm: 6, md: 4 }}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <FormControl fullWidth size="small">
+                                                <InputLabel id={`mode-${stage}`}>{displayName(stage)}</InputLabel>
+                                                <Select
+                                                    labelId={`mode-${stage}`}
+                                                    label={displayName(stage)}
+                                                    value={timerSettings[stage] || 'single'}
+                                                    onChange={(e) => handleTimerSettingChange(stage, e.target.value)}
+                                                >
+                                                    <MenuItem value="single">{t('settings.singleTimer')}</MenuItem>
+                                                    <MenuItem value="double">{t('settings.doubleTimer')}</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                            <Tooltip title={t('settings.deleteItemTitle')}>
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() => deleteTimerItem(stage)}
+                                                    aria-label={t('settings.deleteItemTitle')}
+                                                >
+                                                    <DeleteOutlinedIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </CardContent>
+                    </Card>
+
+                    {/* Add Stage */}
+                    <Card>
+                        <CardHeader
+                            avatar={<AddIcon color="primary" />}
+                            title={t('settings.addTitle')}
+                            subheader={t('settings.addDesc')}
+                        />
+                        <CardContent>
+                            <Stack spacing={2.5}>
+                                <Grid container spacing={2}>
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label={t('settings.labelZh')}
+                                            value={newItemLabels['zh-Hans']}
+                                            onChange={(e) => setNewItemLabels((prev) => ({ ...prev, 'zh-Hans': e.target.value }))}
+                                            placeholder={t('settings.placeholderLabelZh')}
+                                            slotProps={{ htmlInput: { maxLength: 40 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label={t('settings.labelEn')}
+                                            value={newItemLabels.en}
+                                            onChange={(e) => setNewItemLabels((prev) => ({ ...prev, en: e.target.value }))}
+                                            placeholder={t('settings.placeholderLabelEn')}
+                                            slotProps={{ htmlInput: { maxLength: 40 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label={t('settings.labelFr')}
+                                            value={newItemLabels['fr-CA']}
+                                            onChange={(e) => setNewItemLabels((prev) => ({ ...prev, 'fr-CA': e.target.value }))}
+                                            placeholder={t('settings.placeholderLabelFr')}
+                                            slotProps={{ htmlInput: { maxLength: 40 } }}
+                                        />
+                                    </Grid>
+                                </Grid>
+
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+                                    <TextField
+                                        size="small"
+                                        type="number"
+                                        label={t('settings.durationSeconds')}
+                                        value={newItemTime}
+                                        onChange={(e) => setNewItemTime(parseInt(e.target.value, 10) || 0)}
+                                        slotProps={{ htmlInput: { min: 1, max: 3600 } }}
+                                        sx={{ minWidth: 160 }}
+                                    />
+                                    <FormControl size="small" sx={{ minWidth: 180 }}>
+                                        <InputLabel id="new-item-mode-label">{t('settings.timerMode')}</InputLabel>
+                                        <Select
+                                            labelId="new-item-mode-label"
+                                            label={t('settings.timerMode')}
+                                            value={newItemMode}
+                                            onChange={(e) => setNewItemMode(e.target.value)}
+                                        >
+                                            <MenuItem value="single">{t('settings.singleTimer')}</MenuItem>
+                                            <MenuItem value="double">{t('settings.doubleTimer')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<AddIcon />}
                                         onClick={addTimerItem}
                                     >
-                                        ➕ {t('settings.addButton')}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                                        {t('settings.addButton')}
+                                    </Button>
+                                </Stack>
+                            </Stack>
+                        </CardContent>
+                    </Card>
 
-                {/* Timer Order Management Card */}
-                <div className="settings-card">
-                    <div className="card-header">
-                        <h2 className="card-title">🔀 {t('settings.orderTitle')}</h2>
-                        <p className="card-description">{t('settings.orderDesc')}</p>
-                    </div>
-                    <div className="card-content">
-                        <div className="order-list">
-                            {getOrderedStages().map((stage, index) => (
-                                <div
-                                    key={stage}
-                                    className={`order-item ${draggedItem === stage ? 'dragging' : ''} ${dragOverItem === stage ? 'drag-over' : ''}`}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, stage)}
-                                    onDragOver={(e) => handleDragOver(e, stage)}
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={(e) => handleDrop(e, stage)}
-                                    onDragEnd={handleDragEnd}
-                                >
-                                    <div className="order-number">{index + 1}</div>
-                                    <div className="drag-handle">⋮⋮</div>
-                                    <div className="stage-name">{displayName(stage)}</div>
-                                    <div className="stage-info">
-                                        <span className="time-info">
-                                            {Math.floor(debateStages[stage] / 60)}:{(debateStages[stage] % 60).toString().padStart(2, '0')}
-                                        </span>
-                                        <span className="mode-info">
-                                            {timerSettings[stage] === 'single' ? '🎯' : '⚖️'}
-                                        </span>
-                                    </div>
-                                    <div className="order-controls">
-                                        <button
-                                            className="btn btn-small btn-outline"
-                                            onClick={() => moveItemUp(stage)}
-                                            disabled={index === 0}
-                                            title={t('settings.moveUp')}
+                    {/* Order */}
+                    <Card>
+                        <CardHeader
+                            avatar={<ReorderIcon color="primary" />}
+                            title={t('settings.orderTitle')}
+                            subheader={t('settings.orderDesc')}
+                        />
+                        <CardContent sx={{ pt: 0 }}>
+                            <List disablePadding>
+                                {orderedStages.map((stage, index) => (
+                                    <React.Fragment key={stage}>
+                                        {index > 0 && <Divider component="li" />}
+                                        <ListItem
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, stage)}
+                                            onDragOver={(e) => handleDragOver(e, stage)}
+                                            onDragLeave={handleDragLeave}
+                                            onDrop={(e) => handleDrop(e, stage)}
+                                            onDragEnd={handleDragEnd}
+                                            sx={{
+                                                bgcolor: dragOverItem === stage
+                                                    ? 'action.hover'
+                                                    : draggedItem === stage
+                                                        ? 'action.selected'
+                                                        : 'transparent',
+                                                borderRadius: 1,
+                                                cursor: 'grab',
+                                                py: 1.25,
+                                            }}
+                                            secondaryAction={(
+                                                <Stack direction="row" spacing={0.5}>
+                                                    <Tooltip title={t('settings.moveUp')}>
+                                                        <span>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => moveItemUp(stage)}
+                                                                disabled={index === 0}
+                                                                aria-label={t('settings.moveUp')}
+                                                            >
+                                                                <KeyboardArrowUpIcon />
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                    <Tooltip title={t('settings.moveDown')}>
+                                                        <span>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => moveItemDown(stage)}
+                                                                disabled={index === orderedStages.length - 1}
+                                                                aria-label={t('settings.moveDown')}
+                                                            >
+                                                                <KeyboardArrowDownIcon />
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                </Stack>
+                                            )}
                                         >
-                                            ↑
-                                        </button>
-                                        <button
-                                            className="btn btn-small btn-outline"
-                                            onClick={() => moveItemDown(stage)}
-                                            disabled={index === getOrderedStages().length - 1}
-                                            title={t('settings.moveDown')}
-                                        >
-                                            ↓
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="order-help">
-                            <p>💡 {t('settings.orderHint')}</p>
-                        </div>
-                    </div>
-                </div>
+                                            <ListItemIcon sx={{ minWidth: 36 }}>
+                                                <Chip size="small" label={index + 1} color="primary" />
+                                            </ListItemIcon>
+                                            <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+                                                <DragIndicatorIcon fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText
+                                                primary={displayName(stage)}
+                                                secondary={`${formatStageTime(debateStages[stage] || 0)} · ${
+                                                    timerSettings[stage] === 'double'
+                                                        ? t('settings.doubleTimer')
+                                                        : t('settings.singleTimer')
+                                                }`}
+                                            />
+                                        </ListItem>
+                                    </React.Fragment>
+                                ))}
+                            </List>
+                            <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
+                                {t('settings.orderHint')}
+                            </Alert>
+                        </CardContent>
+                    </Card>
 
-                {/* Action Buttons */}
-                <div className="settings-actions">
-                    <button className="btn btn-outline" onClick={loadLocalSettings}>
-                        🔄 {t('settings.resetDefault')}
-                    </button>
-                    <button className="btn btn-success" onClick={saveChanges}>
-                        💾 {t('settings.save')}
-                    </button>
-                </div>
-            </div>
-        </div>
+                    {/* Actions */}
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        justifyContent="center"
+                        sx={{ pt: 1, pb: 2 }}
+                    >
+                        <Button
+                            variant="outlined"
+                            size="large"
+                            startIcon={<RestartAltIcon />}
+                            onClick={loadLocalSettings}
+                        >
+                            {t('settings.resetDefault')}
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            size="large"
+                            startIcon={<SaveIcon />}
+                            onClick={saveChanges}
+                        >
+                            {t('settings.save')}
+                        </Button>
+                    </Stack>
+                </Stack>
+            </Container>
+        </Box>
     );
 };
 

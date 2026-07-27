@@ -1,4 +1,4 @@
-import React, {useState, useEffect, Fragment, useCallback} from 'react';
+import React, {useState, useEffect, Fragment, useCallback, useRef} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import end_sound from './resources/notify.wav';
@@ -7,17 +7,24 @@ import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import {TimerSetting} from './schema/TimerSetting';
 import ConfigurationService from './services/ConfigurationService';
-import { DEFAULT_CONFIGURATION_NAME } from './config/configConstants';
+import {
+    DEFAULT_CONFIGURATION_NAME,
+    getStoredConfigurationName,
+    setStoredConfigurationName,
+} from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
+import { useColorMode } from './context/ColorModeContext';
 
 const DebateTimer = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
+    const { darkMode, toggleDarkMode } = useColorMode();
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
     const [stageLabels, setStageLabels] = useState({});    // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
     const [stageOrder, setStageOrder] = useState([]);
+    const selectedConfigNameRef = useRef(DEFAULT_CONFIGURATION_NAME);
     const [timeLeft, setTimeLeft] = useState(0);
     const [timeLeftAff, setTimeLeftAff] = useState(0);
     const [timeLeftNeg, setTimeLeftNeg] = useState(0);
@@ -28,15 +35,6 @@ const DebateTimer = () => {
     const [isTimeUp, setIsTimeUp] = useState(false);
     const [isAffTimeUp, setIsAffTimeUp] = useState(false);
     const [isNegTimeUp, setIsNegTimeUp] = useState(false);
-    const [darkMode, setDarkMode] = useState(false);
-
-    const toggleDarkMode = () => {
-        setDarkMode(prev => {
-            const next = !prev;
-            localStorage.setItem('darkMode', String(next));
-            return next;
-        });
-    };
 
     // 获取按顺序排列的计时器项目
     const getOrderedStages = () => {
@@ -62,46 +60,11 @@ const DebateTimer = () => {
     };
 
     useEffect(() => {
-        // 为计时器页面添加body类名
-        document.body.className = 'timer-body';
-
-        // 清理函数，当组件卸载时移除类名
+        document.body.classList.add('timer-body');
         return () => {
-            document.body.className = '';
+            document.body.classList.remove('timer-body');
         };
     }, []);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('darkMode');
-        const matchDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
-
-        if (stored !== null) {
-            setDarkMode(stored === 'true');
-        } else {
-            setDarkMode(matchDarkMode.matches);
-        }
-
-        if (stored === null) {
-            const handleChange = (e) => {
-                setDarkMode(e.matches);
-            };
-
-            matchDarkMode.addEventListener('change', handleChange);
-
-            return () => {
-                matchDarkMode.removeEventListener('change', handleChange);
-            };
-        }
-    }, []);
-
-
-    useEffect(() => {
-        if (darkMode) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
-    }, [darkMode]);
 
 
     const formatTimerSettings = useCallback((timerSettings) => {
@@ -112,6 +75,15 @@ const DebateTimer = () => {
         return result;
     }, []);
 
+    const resetTimerRuntime = useCallback(() => {
+        setRunning(false);
+        setRunningAff(false);
+        setRunningNeg(false);
+        setIsTimeUp(false);
+        setIsAffTimeUp(false);
+        setIsNegTimeUp(false);
+    }, []);
+
     // Load configuration from API
     const loadConfiguration = useCallback(async (configName) => {
         try {
@@ -120,9 +92,12 @@ const DebateTimer = () => {
                 const newDebateStages = result.data.debateStages;
                 const newTimerSettings = formatTimerSettings(result.data.timerSettings);
 
+                resetTimerRuntime();
                 setDebateStages(newDebateStages);
                 setDebateSingleDoubleTimerSettings(newTimerSettings);
                 setStageLabels(result.data.stageLabels || {});
+                selectedConfigNameRef.current = configName;
+                setStoredConfigurationName(configName);
 
                 // 加载顺序信息（如果存在）
                 if (result.data.stageOrder) {
@@ -158,23 +133,39 @@ const DebateTimer = () => {
             console.error('Error loading configuration:', error);
             return false;
         }
-    }, [formatTimerSettings]);
+    }, [formatTimerSettings, resetTimerRuntime]);
 
     useEffect(() => {
         let unsubscribe;
+
+        const toNames = (list) => (list || []).map((item) => item.name);
 
         const initializeConfiguration = async () => {
             try {
                 // Initialize default configurations on the API
                 await ConfigurationService.initializeDefaultConfigurations();
 
-                // Load default configuration
-                await loadConfiguration(DEFAULT_CONFIGURATION_NAME);
+                const listResult = await ConfigurationService.getConfigurations();
+                const names = listResult.success
+                    ? toNames(listResult.data)
+                    : [DEFAULT_CONFIGURATION_NAME];
+
+                const preferred = getStoredConfigurationName();
+                const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
+                await loadConfiguration(target);
 
                 // Set up real-time listener for configuration changes
-                unsubscribe = ConfigurationService.onConfigurationsChange(() => {
-                    // Reload configuration when it changes
-                    loadConfiguration(DEFAULT_CONFIGURATION_NAME);
+                unsubscribe = ConfigurationService.onConfigurationsChange(async (list) => {
+                    const nextNames = toNames(list);
+                    const current = selectedConfigNameRef.current;
+                    const stillExists = nextNames.includes(current);
+                    const nextTarget = stillExists
+                        ? current
+                        : (nextNames.includes(DEFAULT_CONFIGURATION_NAME)
+                            ? DEFAULT_CONFIGURATION_NAME
+                            : nextNames[0]);
+                    if (!nextTarget) return;
+                    await loadConfiguration(nextTarget);
                 });
 
             } catch (error) {
@@ -183,6 +174,7 @@ const DebateTimer = () => {
                 setDebateStages(debateStagesData);
                 setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
                 setStageLabels({});
+                selectedConfigNameRef.current = DEFAULT_CONFIGURATION_NAME;
                 // 为本地数据创建默认顺序
                 const localStageKeys = Object.keys(debateStagesData);
                 setStageOrder(localStageKeys);
@@ -203,6 +195,38 @@ const DebateTimer = () => {
         };
     }, [loadConfiguration, formatTimerSettings]);
 
+    const endSoundRef = useRef(null);
+    const warn30SoundRef = useRef(null);
+
+    useEffect(() => {
+        endSoundRef.current = new Audio(end_sound);
+        warn30SoundRef.current = new Audio(r30_sound);
+        endSoundRef.current.preload = 'auto';
+        warn30SoundRef.current.preload = 'auto';
+        // Warm decode so the first play is not delayed by large WAV load.
+        endSoundRef.current.load();
+        warn30SoundRef.current.load();
+    }, []);
+
+    const playSound = useCallback((mode) => {
+        const audio = mode === 'end'
+            ? endSoundRef.current
+            : mode === '30'
+                ? warn30SoundRef.current
+                : null;
+        if (!audio) return;
+        try {
+            audio.pause();
+            audio.currentTime = 0;
+            const playPromise = audio.play();
+            if (playPromise?.catch) {
+                playPromise.catch(() => {});
+            }
+        } catch {
+            // Ignore autoplay / decode errors during local testing.
+        }
+    }, []);
+
     useEffect(() => {
         let interval;
         if (!runningAff && !runningNeg && running && timeLeft > 0) {
@@ -220,7 +244,7 @@ const DebateTimer = () => {
             //alert('时间到！');
         }
         return () => clearInterval(interval);
-    }, [running, timeLeft, runningAff, runningNeg]);
+    }, [running, timeLeft, runningAff, runningNeg, playSound]);
 
     useEffect(() => {
         let interval;
@@ -238,7 +262,7 @@ const DebateTimer = () => {
             playSound('end');
         }
         return () => clearInterval(interval);
-    }, [runningAff, timeLeftAff]);
+    }, [runningAff, timeLeftAff, playSound]);
 
     useEffect(() => {
         let interval;
@@ -256,7 +280,13 @@ const DebateTimer = () => {
             playSound('end');
         }
         return () => clearInterval(interval);
-    }, [runningNeg, timeLeftNeg]);
+    }, [runningNeg, timeLeftNeg, playSound]);
+
+    const clearClockBlink = useCallback(() => {
+        ['clock', 'clockAff', 'clockNeg'].forEach((id) => {
+            document.getElementById(id)?.classList.remove('time-30s-blinking');
+        });
+    }, []);
 
     const applyStage = useCallback((stage) => {
         if (!stage || !debateStages.hasOwnProperty(stage)) {
@@ -273,10 +303,32 @@ const DebateTimer = () => {
         setRunning(false);
         setRunningAff(false);
         setRunningNeg(false);
-    }, [debateStages]);
+        clearClockBlink();
+    }, [debateStages, clearClockBlink]);
 
     const handleStageSelect = (event) => {
         applyStage(event.target.value);
+    };
+
+    const resetSingleTimer = () => {
+        setRunning(false);
+        setIsTimeUp(false);
+        setTimeLeft(debateStages[selectedStage]);
+        clearClockBlink();
+    };
+
+    const resetAffTimer = () => {
+        setRunningAff(false);
+        setIsAffTimeUp(false);
+        setTimeLeftAff(debateStages[selectedStage]);
+        document.getElementById('clockAff')?.classList.remove('time-30s-blinking');
+    };
+
+    const resetNegTimer = () => {
+        setRunningNeg(false);
+        setIsNegTimeUp(false);
+        setTimeLeftNeg(debateStages[selectedStage]);
+        document.getElementById('clockNeg')?.classList.remove('time-30s-blinking');
     };
 
     const goToAdjacentStage = useCallback((direction) => {
@@ -357,18 +409,6 @@ const DebateTimer = () => {
         return () => clearInterval(interval);
     }, [runningNeg, timeLeftNeg]);
 
-
-    const playSound = (mode) => {
-        if(mode === 'end') {
-            const audio = new Audio(end_sound);
-            audio.play().catch(() => {});
-        }
-        if(mode === '30') {
-            const audio = new Audio(r30_sound);
-            audio.play().catch(() => {});
-        }
-    };
-
     useEffect(() => {
         const isTypingTarget = (target) => {
             if (!target || !(target instanceof Element)) {
@@ -379,18 +419,6 @@ const DebateTimer = () => {
         };
 
         const isDouble = debateSingleDoubleTimerSettings[selectedStage] === TimerSetting.double;
-
-        const resetSingle = () => {
-            if (running) {
-                return;
-            }
-            if (selectedStage === 'sound_check') {
-                setTimeLeft(0);
-            } else {
-                setTimeLeft(debateStages[selectedStage]);
-            }
-            setIsTimeUp(false);
-        };
 
         const handleKeyPress = (event) => {
             if (event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) {
@@ -418,8 +446,7 @@ const DebateTimer = () => {
                 } else if (withShift && (key === 'q' || key === 'Q')) {
                     event.preventDefault();
                     if (!runningAff) {
-                        setTimeLeftAff(debateStages[selectedStage]);
-                        setIsAffTimeUp(false);
+                        resetAffTimer();
                     }
                 } else if (!withShift && (key === 'l' || key === 'L')) {
                     event.preventDefault();
@@ -427,8 +454,7 @@ const DebateTimer = () => {
                 } else if (withShift && (key === 'o' || key === 'O')) {
                     event.preventDefault();
                     if (!runningNeg) {
-                        setTimeLeftNeg(debateStages[selectedStage]);
-                        setIsNegTimeUp(false);
+                        resetNegTimer();
                     }
                 }
                 return;
@@ -439,7 +465,16 @@ const DebateTimer = () => {
                 setRunning((prev) => !prev);
             } else if (withShift && (key === 'r' || key === 'R')) {
                 event.preventDefault();
-                resetSingle();
+                if (running) {
+                    return;
+                }
+                if (selectedStage === 'sound_check') {
+                    setTimeLeft(0);
+                    setIsTimeUp(false);
+                    clearClockBlink();
+                } else {
+                    resetSingleTimer();
+                }
             }
         };
 
@@ -455,6 +490,7 @@ const DebateTimer = () => {
         debateSingleDoubleTimerSettings,
         debateStages,
         goToAdjacentStage,
+        clearClockBlink,
     ]);
 
     return (
@@ -493,7 +529,12 @@ const DebateTimer = () => {
                 </div>
 
 
-                <select value={selectedStage} onChange={handleStageSelect} aria-label={t('timer.stageSelect')}>
+                <select
+                    className="timer-stage-select"
+                    value={selectedStage}
+                    onChange={handleStageSelect}
+                    aria-label={t('timer.stage')}
+                >
                     {getOrderedStages().map((stage) => (
                         <option
                             key={stage}
@@ -507,18 +548,20 @@ const DebateTimer = () => {
                 <h2>{stageDisplayName(t, selectedStage, stageLabels, i18n.language)}</h2>
                 {(selectedStage === 'sound_check') ? (
                     <div>
-                        <button onClick={() => {
-                            setIsTimeUp(false)
-                            setRunning(true)
-                            //playSound('30')
-                            setTimeLeft(30)
+                        <button type="button" onClick={() => {
+                            setRunning(false);
+                            setIsTimeUp(false);
+                            setTimeLeft(30);
+                            clearClockBlink();
+                            document.getElementById('clock')?.classList.add('time-30s-blinking');
+                            playSound('30');
                         }}>{t('timer.test30sSound')}</button>
-                        <button onClick={() => {
-                            setRunning(true)
-                            setTimeLeft(0)
-                            setIsTimeUp(true)
-                            //playSound('end')
-
+                        <button type="button" onClick={() => {
+                            setRunning(false);
+                            setTimeLeft(0);
+                            setIsTimeUp(true);
+                            clearClockBlink();
+                            playSound('end');
                         }}>{t('timer.testEndSound')}</button>
                     </div>
                 ) : (
@@ -550,10 +593,7 @@ const DebateTimer = () => {
                                 </button>
                                 <button
                                     className={!runningAff ? 'active' : ''}
-                                    onClick={() => {
-                                        setIsAffTimeUp(false);
-                                        setTimeLeftAff(debateStages[selectedStage])
-                                    }}
+                                    onClick={resetAffTimer}
                                     disabled={runningAff}
                                     title={t('timer.shortcutAffReset')}
                                 >
@@ -584,10 +624,7 @@ const DebateTimer = () => {
                                 </button>
                                 <button
                                     className={!runningNeg ? 'active' : ''}
-                                    onClick={() => {
-                                        setIsNegTimeUp(false);
-                                        setTimeLeftNeg(debateStages[selectedStage]);
-                                    }}
+                                    onClick={resetNegTimer}
                                     disabled={runningNeg}
                                     title={t('timer.shortcutNegReset')}
                                 >
@@ -619,10 +656,7 @@ const DebateTimer = () => {
                             </button>
                             <button
                                 className={!running ? 'active' : ''}
-                                onClick={() => {
-                                    setIsTimeUp(false);
-                                    setTimeLeft(debateStages[selectedStage])
-                                }}
+                                onClick={resetSingleTimer}
                                 disabled={running}
                                 title={t('timer.shortcutSingleReset')}
                             >

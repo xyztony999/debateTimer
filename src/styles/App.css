@@ -294,6 +294,7 @@ body {
   padding-right: 1.5rem;
 }
 
+#timer > .timer-stage-select,
 #timer > select,
 #timer > h2,
 #timer > .timer-box,
@@ -303,6 +304,7 @@ body {
   margin-right: 0;
 }
 
+.timer-stage-select,
 select {
   width: 100%;
   padding: 10px;
@@ -318,9 +320,16 @@ h2 {
   margin-bottom: 10px;
 }
 
-h1 {
-  font-size: 100px; /* 增大字体大小 */
+#timer.light-mode h1,
+#timer:not(.dark-mode) h1 {
+  font-size: 100px;
   color: #222;
+  margin: 20px 0;
+}
+
+#timer.dark-mode h1 {
+  font-size: 100px;
+  color: #f7f7f7;
   margin: 20px 0;
 }
 
@@ -468,6 +477,7 @@ button:not(:disabled):hover {
 
 /* 其他深色模式样式 */
 /* Stage picker only — do not target .lang-switcher-select (nested under .timer-nav) */
+.dark-mode #timer > .timer-stage-select,
 .dark-mode #timer > select {
   background-color: #3c3c3c;
   color: #f7f7f7;
@@ -569,28 +579,7 @@ button:not(:disabled):hover {
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* Breadcrumb Navigation */
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.breadcrumb-item {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.9rem;
-  transition: color 0.3s ease;
-}
-
-.breadcrumb-item.current {
-  color: white;
-  font-weight: 500;
-}
-
-.breadcrumb-separator {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 1rem;
-}
+/* Breadcrumb Navigation removed — settings page uses MUI AppBar */
 
 .nav-back-btn,
 .nav-help-btn {
@@ -703,6 +692,24 @@ button:not(:disabled):hover {
   gap: 1rem;
   flex: 1;
   align-items: center;
+}
+
+.template-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.template-manager .form-field--grow {
+  flex: 1;
+  min-width: 220px;
+}
+
+.template-hint {
+  margin: 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 /* Settings Grid */
@@ -1408,14 +1415,6 @@ button:not(:disabled):hover {
 
   .nav-title {
     font-size: 1rem;
-  }
-
-  .breadcrumb-item {
-    font-size: 0.8rem;
-  }
-
-  .breadcrumb {
-    gap: 0.25rem;
   }
 
   .nav-back-btn,

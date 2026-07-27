@@ -288,8 +288,10 @@ const DebateTimer = () => {
         });
     }, []);
 
-    const handleStageSelect = (event) => {
-        const stage = event.target.value;
+    const applyStage = useCallback((stage) => {
+        if (!stage || !debateStages.hasOwnProperty(stage)) {
+            return;
+        }
         setSelectedStage(stage);
         const time = debateStages[stage];
         setTimeLeft(time);
@@ -302,6 +304,10 @@ const DebateTimer = () => {
         setRunningAff(false);
         setRunningNeg(false);
         clearClockBlink();
+    }, [debateStages, clearClockBlink]);
+
+    const handleStageSelect = (event) => {
+        applyStage(event.target.value);
     };
 
     const resetSingleTimer = () => {
@@ -324,6 +330,22 @@ const DebateTimer = () => {
         setTimeLeftNeg(debateStages[selectedStage]);
         document.getElementById('clockNeg')?.classList.remove('time-30s-blinking');
     };
+
+    const goToAdjacentStage = useCallback((direction) => {
+        const stages = getOrderedStages();
+        if (stages.length === 0) {
+            return;
+        }
+        const currentIndex = stages.indexOf(selectedStage);
+        if (currentIndex === -1) {
+            return;
+        }
+        const nextIndex = currentIndex + direction;
+        if (nextIndex < 0 || nextIndex >= stages.length) {
+            return;
+        }
+        applyStage(stages[nextIndex]);
+    }, [selectedStage, applyStage, stageOrder, debateStages]);
 
     const formatTime = (seconds) => {
         const minutes = Math.floor(seconds / 60);
@@ -388,65 +410,88 @@ const DebateTimer = () => {
     }, [runningNeg, timeLeftNeg]);
 
     useEffect(() => {
+        const isTypingTarget = (target) => {
+            if (!target || !(target instanceof Element)) {
+                return false;
+            }
+            const tag = target.tagName;
+            return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+        };
+
+        const isDouble = debateSingleDoubleTimerSettings[selectedStage] === TimerSetting.double;
+
         const handleKeyPress = (event) => {
-            if (event.key === 's' || event.key === 'S') {
-                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
-                    !runningAff && setRunningAff(true);
-                } else {
-                    !running && setRunning(true);
-                }
-            } else if (event.key === 'p' || event.key === 'P') {
-                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
-                    runningAff && setRunningAff(false);
-                } else {
-                    running && setRunning(false);
-                }
-            } else if (event.key === 'r' || event.key === 'R') {
-                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
+            if (event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) {
+                return;
+            }
+
+            const key = event.key;
+            const withShift = event.shiftKey;
+
+            if (!withShift && key === 'ArrowLeft') {
+                event.preventDefault();
+                goToAdjacentStage(-1);
+                return;
+            }
+            if (!withShift && key === 'ArrowRight') {
+                event.preventDefault();
+                goToAdjacentStage(1);
+                return;
+            }
+
+            if (isDouble) {
+                if (!withShift && (key === 'a' || key === 'A')) {
+                    event.preventDefault();
+                    setRunningAff((prev) => !prev);
+                } else if (withShift && (key === 'q' || key === 'Q')) {
+                    event.preventDefault();
                     if (!runningAff) {
-                        setTimeLeftAff(debateStages[selectedStage]);
-                        setIsAffTimeUp(false);
-                        document.getElementById('clockAff')?.classList.remove('time-30s-blinking');
+                        resetAffTimer();
+                    }
+                } else if (!withShift && (key === 'l' || key === 'L')) {
+                    event.preventDefault();
+                    setRunningNeg((prev) => !prev);
+                } else if (withShift && (key === 'o' || key === 'O')) {
+                    event.preventDefault();
+                    if (!runningNeg) {
+                        resetNegTimer();
                     }
                 }
-                else if (selectedStage === 'sound_check') {
-                    if (!running) {
-                        setTimeLeft(0);
-                        setIsTimeUp(false);
-                        clearClockBlink();
-                    }
+                return;
+            }
+
+            if (!withShift && (key === ' ' || key === 'Spacebar')) {
+                event.preventDefault();
+                setRunning((prev) => !prev);
+            } else if (withShift && (key === 'r' || key === 'R')) {
+                event.preventDefault();
+                if (running) {
+                    return;
                 }
-                else if (!running) {
-                    setTimeLeft(debateStages[selectedStage]);
+                if (selectedStage === 'sound_check') {
+                    setTimeLeft(0);
                     setIsTimeUp(false);
                     clearClockBlink();
-                }
-            } else if (event.key === 'd' || event.key === 'D') {
-                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
-                    !runningNeg && setRunningNeg(true);
-                }
-            } else if (event.key === '[' || event.key === '{') {
-                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
-                    runningNeg && setRunningNeg(false);
-                }
-            } else if (event.key ==='t' || event.key === 'T') {
-                if (debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) {
-                    if (!runningNeg) {
-                        setTimeLeftNeg(debateStages[selectedStage]);
-                        setIsNegTimeUp(false);
-                        document.getElementById('clockNeg')?.classList.remove('time-30s-blinking');
-                    }
+                } else {
+                    resetSingleTimer();
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyPress);
-
-        // 移除事件监听器
         return () => {
             window.removeEventListener('keydown', handleKeyPress);
         };
-    }, [selectedStage, running, runningAff, runningNeg, debateSingleDoubleTimerSettings, debateStages, clearClockBlink]);
+    }, [
+        selectedStage,
+        running,
+        runningAff,
+        runningNeg,
+        debateSingleDoubleTimerSettings,
+        debateStages,
+        goToAdjacentStage,
+        clearClockBlink,
+    ]);
 
     return (
         <Fragment>
@@ -530,49 +575,99 @@ const DebateTimer = () => {
                             <h3>{t('timer.affirmative')}</h3>
                             <h1 className={isAffTimeUp ? 'blinking' : ''} id='clockAff'>{formatTime(timeLeftAff)}</h1>
                             <div className='controls'>
-                                <button className={!runningAff ? 'active' : ''} onClick={() => setRunningAff(true)} disabled={runningAff}>
+                                <button
+                                    className={!runningAff ? 'active' : ''}
+                                    onClick={() => setRunningAff(true)}
+                                    disabled={runningAff}
+                                    title={t('timer.shortcutAffToggle')}
+                                >
                                     ▶️
                                 </button>
-                                <button className={runningAff ? 'active' : ''} onClick={() => setRunningAff(false)} disabled={!runningAff}>
+                                <button
+                                    className={runningAff ? 'active' : ''}
+                                    onClick={() => setRunningAff(false)}
+                                    disabled={!runningAff}
+                                    title={t('timer.shortcutAffToggle')}
+                                >
                                     ⏸️
                                 </button>
-                                <button className={!runningAff ? 'active' : ''} onClick={resetAffTimer} disabled={runningAff}>
+                                <button
+                                    className={!runningAff ? 'active' : ''}
+                                    onClick={resetAffTimer}
+                                    disabled={runningAff}
+                                    title={t('timer.shortcutAffReset')}
+                                >
                                     🔃
                                 </button>
                             </div>
+                            <p className="shortcut-hint">{t('timer.hintAff')}</p>
                         </div>
                         <div className='timer-box'>
                             <h3>{t('timer.negative')}</h3>
                             <h1 className={isNegTimeUp ? 'blinking' : ''} id='clockNeg'>{formatTime(timeLeftNeg)}</h1>
                             <div className='controls'>
-                                <button className={!runningNeg ? 'active' : ''} onClick={() => setRunningNeg(true)} disabled={runningNeg}>
+                                <button
+                                    className={!runningNeg ? 'active' : ''}
+                                    onClick={() => setRunningNeg(true)}
+                                    disabled={runningNeg}
+                                    title={t('timer.shortcutNegToggle')}
+                                >
                                     ▶️
                                 </button>
-                                <button className={runningNeg ? 'active' : ''} onClick={() => setRunningNeg(false)} disabled={!runningNeg}>
+                                <button
+                                    className={runningNeg ? 'active' : ''}
+                                    onClick={() => setRunningNeg(false)}
+                                    disabled={!runningNeg}
+                                    title={t('timer.shortcutNegToggle')}
+                                >
                                     ⏸️
                                 </button>
-                                <button className={!runningNeg ? 'active' : ''} onClick={resetNegTimer} disabled={runningNeg}>
+                                <button
+                                    className={!runningNeg ? 'active' : ''}
+                                    onClick={resetNegTimer}
+                                    disabled={runningNeg}
+                                    title={t('timer.shortcutNegReset')}
+                                >
                                     🔃
                                 </button>
                             </div>
+                            <p className="shortcut-hint">{t('timer.hintNeg')}</p>
                         </div>
                     </div>
                 ) : (
                     <div className='timer-box'>
                         <h1 className={isTimeUp ? 'blinking' : 'timer'} id='clock'>{formatTime(timeLeft)}</h1>
                         <div className='controls'>
-                            <button className={!running ? 'active' : ''} onClick={() => setRunning(true)} disabled={running}>
+                            <button
+                                className={!running ? 'active' : ''}
+                                onClick={() => setRunning(true)}
+                                disabled={running}
+                                title={t('timer.shortcutSingleToggle')}
+                            >
                                 ▶️
                             </button>
-                            <button className={running ? 'active' : ''} onClick={() => setRunning(false)} disabled={!running}>
+                            <button
+                                className={running ? 'active' : ''}
+                                onClick={() => setRunning(false)}
+                                disabled={!running}
+                                title={t('timer.shortcutSingleToggle')}
+                            >
                                 ⏸️
                             </button>
-                            <button className={!running ? 'active' : ''} onClick={resetSingleTimer} disabled={running}>
+                            <button
+                                className={!running ? 'active' : ''}
+                                onClick={resetSingleTimer}
+                                disabled={running}
+                                title={t('timer.shortcutSingleReset')}
+                            >
                                 🔃
                             </button>
                         </div>
+                        <p className="shortcut-hint">{t('timer.hintSingle')}</p>
                     </div>
                 )}
+
+                <p className="shortcut-hint shortcut-hint--stage">{t('timer.hintStage')}</p>
 
             </div>
         </Fragment>

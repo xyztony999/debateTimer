@@ -11,7 +11,18 @@
         "testEndSound": "Test end cue",
         "language": "Language",
         "toolbar": "Timer actions",
-        "stage": "Stage"
+        "stage": "Stage",
+        "stageSelect": "Select debate stage",
+        "shortcutSingleToggle": "Space: start / pause",
+        "shortcutSingleReset": "Shift+R: reset",
+        "shortcutAffToggle": "A: affirmative start / pause",
+        "shortcutAffReset": "Shift+Q: affirmative reset",
+        "shortcutNegToggle": "L: negative start / pause",
+        "shortcutNegReset": "Shift+O: negative reset",
+        "hintSingle": "Space toggle · Shift+R reset",
+        "hintAff": "A toggle · Shift+Q reset",
+        "hintNeg": "L toggle · Shift+O reset",
+        "hintStage": "← → switch stage"
     },
     "settings": {
         "backToTimer": "Back to timer",

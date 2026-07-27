@@ -11,7 +11,18 @@
         "testEndSound": "Tester le signal de fin",
         "language": "Langue",
         "toolbar": "Actions du chronomètre",
-        "stage": "Phase"
+        "stage": "Phase",
+        "stageSelect": "Choisir la phase",
+        "shortcutSingleToggle": "Espace : démarrer / pause",
+        "shortcutSingleReset": "Maj+R : réinitialiser",
+        "shortcutAffToggle": "A : pour démarrer / pause",
+        "shortcutAffReset": "Maj+Q : réinitialiser pour",
+        "shortcutNegToggle": "L : contre démarrer / pause",
+        "shortcutNegReset": "Maj+O : réinitialiser contre",
+        "hintSingle": "Espace marche/arrêt · Maj+R réinit.",
+        "hintAff": "A marche/arrêt · Maj+Q réinit.",
+        "hintNeg": "L marche/arrêt · Maj+O réinit.",
+        "hintStage": "← → changer de phase"
     },
     "settings": {
         "backToTimer": "Retour au chronomètre",

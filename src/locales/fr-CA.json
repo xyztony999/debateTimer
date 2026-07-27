@@ -1,4 +1,10 @@
 {
+    "common": {
+        "ok": "OK",
+        "cancel": "Annuler",
+        "confirm": "Confirmer",
+        "delete": "Supprimer"
+    },
     "timer": {
         "title": "Chronomètre de débat",
         "settings": "Réglages",
@@ -29,6 +35,7 @@
         "help": "Aide",
         "helpTitle": "Aide",
         "helpAlert": "Astuce : après vos modifications, cliquez sur « Enregistrer » pour sauvegarder le modèle actuel. La page du chronomètre se met à jour automatiquement. Une confirmation apparaît si vous changez de modèle avec des modifications non enregistrées.",
+        "confirmTitle": "Veuillez confirmer",
         "toolbar": "Barre de réglages",
         "pageTitle": "Réglages du chronomètre de débat",
         "pageSubtitle": "Personnalisez les phases, durées et modes du chronomètre",

@@ -1,4 +1,10 @@
 {
+    "common": {
+        "ok": "OK",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "delete": "Delete"
+    },
     "timer": {
         "title": "Debate timer",
         "settings": "Settings",
@@ -29,6 +35,7 @@
         "help": "Help",
         "helpTitle": "Help",
         "helpAlert": "Tip: After editing, click “Save” to store the current template. The timer page updates automatically. You’ll be asked to confirm if you switch with unsaved changes.",
+        "confirmTitle": "Please confirm",
         "toolbar": "Settings bar",
         "pageTitle": "Debate timer settings",
         "pageSubtitle": "Customize debate stages, durations, and timer modes",

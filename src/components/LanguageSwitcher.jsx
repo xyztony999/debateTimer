@@ -1,5 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 
 /** Short labels so the control stays one compact row in the nav bar. */
 const OPTIONS = [
@@ -15,8 +17,44 @@ function resolveUiLanguage(i18n) {
     return 'en';
 }
 
-export default function LanguageSwitcher({ className = '' }) {
+export default function LanguageSwitcher({ className = '', variant = 'default', size = 'small' }) {
     const { i18n, t } = useTranslation();
+    const value = resolveUiLanguage(i18n);
+
+    if (variant === 'mui') {
+        return (
+            <Select
+                className={className}
+                size={size}
+                value={value}
+                onChange={(e) => i18n.changeLanguage(e.target.value)}
+                aria-label={t('timer.language')}
+                sx={{
+                    minWidth: 110,
+                    color: 'inherit',
+                    '.MuiOutlinedInput-notchedOutline': {
+                        borderColor: (theme) => theme.palette.mode === 'dark'
+                            ? 'rgba(255,255,255,0.28)'
+                            : 'rgba(255,255,255,0.4)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: (theme) => theme.palette.mode === 'dark'
+                            ? 'rgba(255,255,255,0.55)'
+                            : 'rgba(255,255,255,0.7)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'inherit',
+                    },
+                    '.MuiSvgIcon-root': { color: 'inherit' },
+                    '.MuiSelect-select': { py: 1 },
+                }}
+            >
+                {OPTIONS.map(({ value: opt, label }) => (
+                    <MenuItem key={opt} value={opt}>{label}</MenuItem>
+                ))}
+            </Select>
+        );
+    }
 
     const rootClass = ['lang-switcher', className].filter(Boolean).join(' ');
 
@@ -28,13 +66,13 @@ export default function LanguageSwitcher({ className = '' }) {
             <span className="sr-only">{t('timer.language')}</span>
             <select
                 className="lang-switcher-select"
-                value={resolveUiLanguage(i18n)}
+                value={value}
                 onChange={(e) => i18n.changeLanguage(e.target.value)}
                 aria-label={t('timer.language')}
                 title={t('timer.language')}
             >
-                {OPTIONS.map(({ value, label }) => (
-                    <option key={value} value={value}>
+                {OPTIONS.map(({ value: opt, label }) => (
+                    <option key={opt} value={opt}>
                         {label}
                     </option>
                 ))}

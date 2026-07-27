@@ -10,7 +10,18 @@
         "test30sSound": "测试30秒声音",
         "testEndSound": "测试结束声音",
         "language": "语言",
-        "toolbar": "计时器操作"
+        "toolbar": "计时器操作",
+        "stageSelect": "选择辩论阶段",
+        "shortcutSingleToggle": "空格：启动 / 暂停",
+        "shortcutSingleReset": "Shift+R：重置",
+        "shortcutAffToggle": "A：正方启动 / 暂停",
+        "shortcutAffReset": "Shift+Q：正方重置",
+        "shortcutNegToggle": "L：反方启动 / 暂停",
+        "shortcutNegReset": "Shift+O：反方重置",
+        "hintSingle": "空格 启停 · Shift+R 重置",
+        "hintAff": "A 启停 · Shift+Q 重置",
+        "hintNeg": "L 启停 · Shift+O 重置",
+        "hintStage": "← → 切换辩论阶段"
     },
     "settings": {
         "backToTimer": "← 返回计时器",

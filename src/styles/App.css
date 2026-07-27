@@ -297,7 +297,8 @@ body {
 #timer > select,
 #timer > h2,
 #timer > .timer-box,
-#timer > .debate-timers-container {
+#timer > .debate-timers-container,
+#timer > .shortcut-hint {
   margin-left: 0;
   margin-right: 0;
 }
@@ -354,6 +355,24 @@ button:not(:disabled):hover {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+
+.shortcut-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: #888;
+  text-align: center;
+  user-select: none;
+}
+
+.shortcut-hint--stage {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.dark-mode .shortcut-hint {
+  color: #9a9a9a;
 }
 
 /* 针对两个计时器的布局 */

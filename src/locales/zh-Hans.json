@@ -14,9 +14,7 @@
         "stage": "阶段"
     },
     "settings": {
-        "backToTimer": "← 返回计时器",
-        "breadcrumbTimer": "计时器",
-        "breadcrumbSettings": "设置",
+        "backToTimer": "返回计时器",
         "help": "帮助",
         "helpTitle": "查看帮助",
         "helpAlert": "提示：修改设置后点击“保存”按钮保存当前模板。计时器页面会自动更新。若有未保存修改，切换模板时会提示确认。",

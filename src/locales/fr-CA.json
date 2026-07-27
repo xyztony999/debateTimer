@@ -14,9 +14,7 @@
         "stage": "Phase"
     },
     "settings": {
-        "backToTimer": "← Retour au chronomètre",
-        "breadcrumbTimer": "Chronomètre",
-        "breadcrumbSettings": "Réglages",
+        "backToTimer": "Retour au chronomètre",
         "help": "Aide",
         "helpTitle": "Aide",
         "helpAlert": "Astuce : après vos modifications, cliquez sur « Enregistrer » pour sauvegarder le modèle actuel. La page du chronomètre se met à jour automatiquement. Une confirmation apparaît si vous changez de modèle avec des modifications non enregistrées.",

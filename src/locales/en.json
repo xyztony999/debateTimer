@@ -14,9 +14,7 @@
         "stage": "Stage"
     },
     "settings": {
-        "backToTimer": "← Back to timer",
-        "breadcrumbTimer": "Timer",
-        "breadcrumbSettings": "Settings",
+        "backToTimer": "Back to timer",
         "help": "Help",
         "helpTitle": "Help",
         "helpAlert": "Tip: After editing, click “Save” to store the current template. The timer page updates automatically. You’ll be asked to confirm if you switch with unsaved changes.",

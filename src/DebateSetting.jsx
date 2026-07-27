@@ -53,6 +53,7 @@ import {
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
 import { useColorMode } from './context/ColorModeContext';
+import { useFeedback } from './context/FeedbackContext';
 
 /** Generate a short unique ID for custom stages. */
 function generateCustomId() {
@@ -75,6 +76,7 @@ const DebateSetting = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
     const { darkMode, toggleDarkMode } = useColorMode();
+    const { notify, confirm, alert: showAlert } = useFeedback();
 
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
@@ -193,23 +195,28 @@ const DebateSetting = () => {
     const handleTemplateSelect = async (event) => {
         const name = event.target.value;
         if (name === selectedConfigName) return;
-        if (isDirty() && !window.confirm(t('settings.confirmSwitchTemplate'))) {
-            return;
+        if (isDirty()) {
+            const accepted = await confirm({
+                title: t('settings.confirmTitle'),
+                message: t('settings.confirmSwitchTemplate'),
+                confirmColor: 'warning',
+            });
+            if (!accepted) return;
         }
         const loaded = await loadConfigByName(name);
         if (!loaded) {
-            alert(t('settings.templateLoadFailed', { name }));
+            notify(t('settings.templateLoadFailed', { name }), { severity: 'error' });
         }
     };
 
     const createTemplate = async () => {
         const name = newTemplateName.trim();
         if (!name) {
-            alert(t('settings.templateNameRequired'));
+            notify(t('settings.templateNameRequired'), { severity: 'warning' });
             return;
         }
         if (configurationNames.includes(name)) {
-            alert(t('settings.templateExists'));
+            notify(t('settings.templateExists'), { severity: 'warning' });
             return;
         }
 
@@ -222,7 +229,9 @@ const DebateSetting = () => {
                 stageLabels,
             );
             if (!result.success) {
-                alert(t('settings.templateCreateFailed', { message: result.message }));
+                notify(t('settings.templateCreateFailed', { message: result.message }), {
+                    severity: 'error',
+                });
                 return;
             }
             setNewTemplateName('');
@@ -230,27 +239,33 @@ const DebateSetting = () => {
             setSelectedConfigName(name);
             setStoredConfigurationName(name);
             markClean(debateStages, timerSettings, stageLabels, stageOrder);
-            alert(t('settings.templateCreated', { name }));
+            notify(t('settings.templateCreated', { name }), { severity: 'success' });
         } catch (error) {
             console.error('Error creating template:', error);
-            alert(t('settings.templateCreateRetry'));
+            notify(t('settings.templateCreateRetry'), { severity: 'error' });
         }
     };
 
     const deleteTemplate = async () => {
         if (selectedConfigName === DEFAULT_CONFIGURATION_NAME) {
-            alert(t('settings.templateCannotDeleteDefault'));
+            notify(t('settings.templateCannotDeleteDefault'), { severity: 'warning' });
             return;
         }
-        if (!window.confirm(t('settings.confirmDeleteTemplate', { name: selectedConfigName }))) {
-            return;
-        }
+        const accepted = await confirm({
+            title: t('settings.confirmTitle'),
+            message: t('settings.confirmDeleteTemplate', { name: selectedConfigName }),
+            confirmColor: 'error',
+            confirmLabel: t('common.delete'),
+        });
+        if (!accepted) return;
 
         const deletedName = selectedConfigName;
         try {
             const result = await ConfigurationService.deleteConfiguration(selectedConfigName);
             if (!result.success) {
-                alert(t('settings.templateDeleteFailed', { message: result.message }));
+                notify(t('settings.templateDeleteFailed', { message: result.message }), {
+                    severity: 'error',
+                });
                 return;
             }
             const names = await refreshConfigurationList() || [DEFAULT_CONFIGURATION_NAME];
@@ -263,10 +278,12 @@ const DebateSetting = () => {
                 setSelectedConfigName(next);
                 setStoredConfigurationName(next);
             }
-            alert(t('settings.templateDeleted', { name: deletedName, next }));
+            notify(t('settings.templateDeleted', { name: deletedName, next }), {
+                severity: 'success',
+            });
         } catch (error) {
             console.error('Error deleting template:', error);
-            alert(t('settings.templateDeleteRetry'));
+            notify(t('settings.templateDeleteRetry'), { severity: 'error' });
         }
     };
 
@@ -289,20 +306,27 @@ const DebateSetting = () => {
             );
             if (result.success) {
                 markClean(debateStages, timerSettings, stageLabels, stageOrder);
-                alert(t('settings.savedSuccess', { name: selectedConfigName }));
+                notify(t('settings.savedSuccess', { name: selectedConfigName }), {
+                    severity: 'success',
+                });
             } else {
-                alert(t('settings.saveFailed', { message: result.message }));
+                notify(t('settings.saveFailed', { message: result.message }), {
+                    severity: 'error',
+                });
             }
         } catch (error) {
             console.error('Error saving configuration:', error);
-            alert(t('settings.saveRetry'));
+            notify(t('settings.saveRetry'), { severity: 'error' });
         }
     };
 
-    const loadLocalSettings = () => {
-        if (!window.confirm(t('settings.confirmReset'))) {
-            return;
-        }
+    const loadLocalSettings = async () => {
+        const accepted = await confirm({
+            title: t('settings.confirmTitle'),
+            message: t('settings.confirmReset'),
+            confirmColor: 'warning',
+        });
+        if (!accepted) return;
         setDebateStages(debateStagesData);
         setTimerSettings(timerSettingsData);
         setStageLabels({});
@@ -312,7 +336,7 @@ const DebateSetting = () => {
     const addTimerItem = () => {
         const hasAnyLabel = Object.values(newItemLabels).some((v) => v.trim());
         if (!hasAnyLabel) {
-            alert(t('settings.labelRequired'));
+            notify(t('settings.labelRequired'), { severity: 'warning' });
             return;
         }
 
@@ -332,23 +356,29 @@ const DebateSetting = () => {
         setNewItemMode('single');
     };
 
-    const deleteTimerItem = (itemName) => {
-        if (window.confirm(t('settings.confirmDelete', {
-            name: stageDisplayName(t, itemName, stageLabels, i18n.language),
-        }))) {
-            const newDebateStages = { ...debateStages };
-            const newTimerSettings = { ...timerSettings };
-            const newStageLabels = { ...stageLabels };
+    const deleteTimerItem = async (itemName) => {
+        const accepted = await confirm({
+            title: t('settings.confirmTitle'),
+            message: t('settings.confirmDelete', {
+                name: stageDisplayName(t, itemName, stageLabels, i18n.language),
+            }),
+            confirmColor: 'error',
+            confirmLabel: t('common.delete'),
+        });
+        if (!accepted) return;
 
-            delete newDebateStages[itemName];
-            delete newTimerSettings[itemName];
-            delete newStageLabels[itemName];
+        const newDebateStages = { ...debateStages };
+        const newTimerSettings = { ...timerSettings };
+        const newStageLabels = { ...stageLabels };
 
-            setDebateStages(newDebateStages);
-            setTimerSettings(newTimerSettings);
-            setStageLabels(newStageLabels);
-            setStageOrder((prev) => prev.filter((stage) => stage !== itemName));
-        }
+        delete newDebateStages[itemName];
+        delete newTimerSettings[itemName];
+        delete newStageLabels[itemName];
+
+        setDebateStages(newDebateStages);
+        setTimerSettings(newTimerSettings);
+        setStageLabels(newStageLabels);
+        setStageOrder((prev) => prev.filter((stage) => stage !== itemName));
     };
 
     const handleDragStart = (e, itemName) => {
@@ -464,7 +494,10 @@ const DebateSetting = () => {
                         <Tooltip title={t('settings.helpTitle')}>
                             <IconButton
                                 color="inherit"
-                                onClick={() => alert(t('settings.helpAlert'))}
+                                onClick={() => showAlert({
+                                    title: t('settings.helpTitle'),
+                                    message: t('settings.helpAlert'),
+                                })}
                                 aria-label={t('settings.help')}
                             >
                                 <HelpOutlinedIcon />

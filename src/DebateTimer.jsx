@@ -15,11 +15,15 @@ import {
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
 import { useColorMode } from './context/ColorModeContext';
+import { useAuth } from './context/AuthContext';
 
-const DebateTimer = () => {
+const DebateTimer = ({ shareToken = null }) => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
     const { darkMode, toggleDarkMode } = useColorMode();
+    const { user, logout } = useAuth();
+    const isDisplay = Boolean(shareToken);
+    const [displayError, setDisplayError] = useState('');
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
     const [stageLabels, setStageLabels] = useState({});    // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
@@ -84,56 +88,56 @@ const DebateTimer = () => {
         setIsNegTimeUp(false);
     }, []);
 
-    // Load configuration from API
+    const applyLoadedData = useCallback((configName, data, persistName = true) => {
+        const newDebateStages = data.debateStages;
+        const newTimerSettings = formatTimerSettings(data.timerSettings);
+
+        resetTimerRuntime();
+        setDebateStages(newDebateStages);
+        setDebateSingleDoubleTimerSettings(newTimerSettings);
+        setStageLabels(data.stageLabels || {});
+        selectedConfigNameRef.current = configName;
+        if (persistName) {
+            setStoredConfigurationName(configName);
+        }
+
+        if (data.stageOrder) {
+            setStageOrder(data.stageOrder);
+            if (data.stageOrder.length > 0) {
+                const firstStage = data.stageOrder[0];
+                if (newDebateStages[firstStage]) {
+                    setSelectedStage(firstStage);
+                    setTimeLeft(newDebateStages[firstStage]);
+                    setTimeLeftAff(newDebateStages[firstStage]);
+                    setTimeLeftNeg(newDebateStages[firstStage]);
+                }
+            }
+        } else {
+            const keys = Object.keys(newDebateStages);
+            setStageOrder(keys);
+            if (keys.length > 0) {
+                setSelectedStage(keys[0]);
+                setTimeLeft(newDebateStages[keys[0]]);
+                setTimeLeftAff(newDebateStages[keys[0]]);
+                setTimeLeftNeg(newDebateStages[keys[0]]);
+            }
+        }
+    }, [formatTimerSettings, resetTimerRuntime]);
+
     const loadConfiguration = useCallback(async (configName) => {
         try {
             const result = await ConfigurationService.loadConfiguration(configName);
             if (result.success) {
-                const newDebateStages = result.data.debateStages;
-                const newTimerSettings = formatTimerSettings(result.data.timerSettings);
-
-                resetTimerRuntime();
-                setDebateStages(newDebateStages);
-                setDebateSingleDoubleTimerSettings(newTimerSettings);
-                setStageLabels(result.data.stageLabels || {});
-                selectedConfigNameRef.current = configName;
-                setStoredConfigurationName(configName);
-
-                // 加载顺序信息（如果存在）
-                if (result.data.stageOrder) {
-                    setStageOrder(result.data.stageOrder);
-                    // 使用有序的第一个项目作为默认选择
-                    if (result.data.stageOrder.length > 0) {
-                        const firstStage = result.data.stageOrder[0];
-                        if (newDebateStages[firstStage]) {
-                            setSelectedStage(firstStage);
-                            setTimeLeft(newDebateStages[firstStage]);
-                            setTimeLeftAff(newDebateStages[firstStage]);
-                            setTimeLeftNeg(newDebateStages[firstStage]);
-                        }
-                    }
-                } else {
-                    // 如果没有顺序信息，使用对象键的顺序并设置默认项目
-                    const keys = Object.keys(newDebateStages);
-                    setStageOrder(keys);
-                    if (keys.length > 0) {
-                        setSelectedStage(keys[0]);
-                        setTimeLeft(newDebateStages[keys[0]]);
-                        setTimeLeftAff(newDebateStages[keys[0]]);
-                        setTimeLeftNeg(newDebateStages[keys[0]]);
-                    }
-                }
-
+                applyLoadedData(configName, result.data, true);
                 return true;
-            } else {
-                console.error('Failed to load configuration:', result.message);
-                return false;
             }
+            console.error('Failed to load configuration:', result.message);
+            return false;
         } catch (error) {
             console.error('Error loading configuration:', error);
             return false;
         }
-    }, [formatTimerSettings, resetTimerRuntime]);
+    }, [applyLoadedData]);
 
     useEffect(() => {
         let unsubscribe;
@@ -142,7 +146,26 @@ const DebateTimer = () => {
 
         const initializeConfiguration = async () => {
             try {
-                // Initialize default configurations on the API
+                if (shareToken) {
+                    const result = await ConfigurationService.loadDisplayConfiguration(shareToken);
+                    if (!result.success) {
+                        setDisplayError(result.message || t('share.notFound'));
+                        return;
+                    }
+                    setDisplayError('');
+                    applyLoadedData(result.data.name || DEFAULT_CONFIGURATION_NAME, result.data, false);
+                    unsubscribe = ConfigurationService.onDisplayChange(shareToken, async () => {
+                        const next = await ConfigurationService.loadDisplayConfiguration(shareToken);
+                        if (next.success) {
+                            setDisplayError('');
+                            applyLoadedData(next.data.name || DEFAULT_CONFIGURATION_NAME, next.data, false);
+                        } else {
+                            setDisplayError(next.message || t('share.notFound'));
+                        }
+                    });
+                    return;
+                }
+
                 await ConfigurationService.initializeDefaultConfigurations();
 
                 const listResult = await ConfigurationService.getConfigurations();
@@ -154,7 +177,6 @@ const DebateTimer = () => {
                 const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
                 await loadConfiguration(target);
 
-                // Set up real-time listener for configuration changes
                 unsubscribe = ConfigurationService.onConfigurationsChange(async (list) => {
                     const nextNames = toNames(list);
                     const current = selectedConfigNameRef.current;
@@ -167,18 +189,18 @@ const DebateTimer = () => {
                     if (!nextTarget) return;
                     await loadConfiguration(nextTarget);
                 });
-
             } catch (error) {
                 console.error('Error initializing configuration:', error);
-                // Fallback to local JSON files
+                if (shareToken) {
+                    setDisplayError(t('share.notFound'));
+                    return;
+                }
                 setDebateStages(debateStagesData);
                 setDebateSingleDoubleTimerSettings(formatTimerSettings(timerSettingsData));
                 setStageLabels({});
                 selectedConfigNameRef.current = DEFAULT_CONFIGURATION_NAME;
-                // 为本地数据创建默认顺序
                 const localStageKeys = Object.keys(debateStagesData);
                 setStageOrder(localStageKeys);
-                // 设置默认选择
                 if (localStageKeys.length > 0) {
                     setSelectedStage(localStageKeys[0]);
                     setTimeLeft(debateStagesData[localStageKeys[0]]);
@@ -193,7 +215,7 @@ const DebateTimer = () => {
         return () => {
             if (unsubscribe) unsubscribe();
         };
-    }, [loadConfiguration, formatTimerSettings]);
+    }, [loadConfiguration, formatTimerSettings, shareToken, applyLoadedData, t]);
 
     const endSoundRef = useRef(null);
     const warn30SoundRef = useRef(null);
@@ -508,14 +530,26 @@ const DebateTimer = () => {
                             aria-label={t('timer.toolbar')}
                         >
                             <LanguageSwitcher className="lang-switcher--timer" />
-                            <button
-                                type="button"
-                                className="nav-btn"
-                                onClick={() => navigate('/settings')}
-                                title={t('timer.settingsAria')}
-                            >
-                                ⚙️ {t('timer.settings')}
-                            </button>
+                            {!isDisplay ? (
+                                <button
+                                    type="button"
+                                    className="nav-btn"
+                                    onClick={() => navigate('/settings')}
+                                    title={t('timer.settingsAria')}
+                                >
+                                    ⚙️ {t('timer.settings')}
+                                </button>
+                            ) : null}
+                            {!isDisplay && user?.role === 'admin' ? (
+                                <button
+                                    type="button"
+                                    className="nav-btn"
+                                    onClick={() => navigate('/admin')}
+                                    title={t('admin.title')}
+                                >
+                                    {t('admin.short')}
+                                </button>
+                            ) : null}
                             <button
                                 type="button"
                                 className="nav-btn dark-mode-btn"
@@ -524,10 +558,27 @@ const DebateTimer = () => {
                             >
                                 {darkMode ? '☀️' : '🌙'}
                             </button>
+                            {!isDisplay ? (
+                                <button
+                                    type="button"
+                                    className="nav-btn"
+                                    onClick={async () => {
+                                        await logout();
+                                        navigate('/login');
+                                    }}
+                                    title={t('auth.logout')}
+                                >
+                                    {t('auth.logout')}
+                                </button>
+                            ) : null}
                         </div>
                     </div>
                 </div>
 
+
+                {displayError ? (
+                    <p className="shortcut-hint">{displayError}</p>
+                ) : null}
 
                 <select
                     className="timer-stage-select"

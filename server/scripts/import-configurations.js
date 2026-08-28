@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { MongoClient } from 'mongodb';
 import { buildMongoUri } from '../lib/mongoUri.js';
+import { normalizeUsername } from '../lib/password.js';
 import { parseConfigExportFile } from './lib/parseConfigExport.js';
 
 const COLLECTION = 'configurations';
@@ -13,12 +14,13 @@ function printHelp() {
 Import debate configurations from JSON into MongoDB
 
 Usage:
-  node scripts/import-configurations.js --file <export.json> [--dry-run] [--force]
+  node scripts/import-configurations.js --file <export.json> --owner <username> [--dry-run] [--force]
 
 Options:
-  --file <path>   Import from a JSON / NDJSON export file (required)
-  --dry-run       Parse and preview only, do not write to MongoDB
-  --force         Overwrite existing MongoDB documents with the same _id
+  --file <path>       Import from a JSON / NDJSON export file (required)
+  --owner <username>  Existing account that will own the imported templates (required unless --dry-run)
+  --dry-run           Parse and preview only, do not write to MongoDB
+  --force             Overwrite existing templates with the same name for that owner
 
 Environment (server/.env):
   MONGODB_URI / MONGODB_USER / MONGODB_PASSWORD ...
@@ -34,6 +36,7 @@ Supported JSON formats:
 function parseArgs(argv) {
     const options = {
         file: null,
+        owner: null,
         dryRun: false,
         force: false,
     };
@@ -44,6 +47,9 @@ function parseArgs(argv) {
             options.help = true;
         } else if (arg === '--file') {
             options.file = argv[i + 1];
+            i += 1;
+        } else if (arg === '--owner') {
+            options.owner = argv[i + 1];
             i += 1;
         } else if (arg === '--dry-run') {
             options.dryRun = true;
@@ -61,6 +67,9 @@ function parseArgs(argv) {
     if (!options.file) {
         throw new Error('Provide --file <path>');
     }
+    if (!options.dryRun && !options.owner) {
+        throw new Error('Provide --owner <username>');
+    }
 
     return options;
 }
@@ -73,14 +82,35 @@ async function loadFromFile(filePath) {
     return docs;
 }
 
-async function importIntoMongo(docs, { dryRun, force }) {
+function toOwnedDoc(doc, ownerId) {
+    const name = typeof doc.name === 'string' && doc.name.trim()
+        ? doc.name
+        : String(doc._id);
+    const now = Date.now();
+    return {
+        ownerId,
+        name,
+        schemaVersion: doc.schemaVersion ?? 2,
+        debateStages: doc.debateStages || {},
+        timerSettings: doc.timerSettings || {},
+        stageOrder: doc.stageOrder || Object.keys(doc.debateStages || {}),
+        stageLabels: doc.stageLabels || {},
+        shareToken: null,
+        shareEnabled: false,
+        createdAt: doc.createdAt ?? now,
+        updatedAt: now,
+    };
+}
+
+async function importIntoMongo(docs, { dryRun, force, owner }) {
     if (docs.length === 0) {
         console.log('Nothing to import.');
         return;
     }
 
     for (const doc of docs) {
-        console.log(`- ${doc._id} (schema v${doc.schemaVersion}, ${Object.keys(doc.debateStages).length} stages)`);
+        const name = doc.name || doc._id;
+        console.log(`- ${name} (schema v${doc.schemaVersion}, ${Object.keys(doc.debateStages || {}).length} stages)`);
     }
 
     if (dryRun) {
@@ -90,32 +120,54 @@ async function importIntoMongo(docs, { dryRun, force }) {
 
     const client = new MongoClient(buildMongoUri());
     await client.connect();
-    const collection = client.db().collection(COLLECTION);
+    const db = client.db();
+    const users = db.collection('users');
+    const collection = db.collection(COLLECTION);
+
+    const username = normalizeUsername(owner);
+    const ownerDoc = await users.findOne({ username });
+    if (!ownerDoc) {
+        await client.close();
+        throw new Error(`Owner user "${username}" not found. Create the account first.`);
+    }
 
     let inserted = 0;
     let updated = 0;
     let skipped = 0;
 
     for (const doc of docs) {
-        const existing = await collection.findOne({ _id: doc._id }, { projection: { _id: 1 } });
+        const payload = toOwnedDoc(doc, ownerDoc._id);
+        const existing = await collection.findOne(
+            { ownerId: ownerDoc._id, name: payload.name },
+            { projection: { _id: 1, createdAt: 1 } },
+        );
         if (existing && !force) {
             skipped += 1;
-            console.log(`Skipped existing document: ${doc._id} (use --force to overwrite)`);
+            console.log(`Skipped existing template: ${payload.name} (use --force to overwrite)`);
             continue;
         }
 
-        await collection.replaceOne({ _id: doc._id }, doc, { upsert: true });
         if (existing) {
+            await collection.replaceOne(
+                { _id: existing._id },
+                {
+                    ...payload,
+                    _id: existing._id,
+                    createdAt: existing.createdAt ?? payload.createdAt,
+                },
+            );
             updated += 1;
         } else {
+            await collection.insertOne(payload);
             inserted += 1;
         }
     }
 
+    await collection.createIndex({ ownerId: 1, name: 1 }, { unique: true });
     await collection.createIndex({ updatedAt: -1 });
     await client.close();
 
-    console.log(`\nImport complete: ${inserted} inserted, ${updated} updated, ${skipped} skipped.`);
+    console.log(`\nImport complete for ${username}: ${inserted} inserted, ${updated} updated, ${skipped} skipped.`);
 }
 
 async function main() {

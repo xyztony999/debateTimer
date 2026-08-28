@@ -5,20 +5,28 @@ export function getApiBaseUrl() {
     return base.replace(/\/$/, '');
 }
 
+function isPublicPath(pathname) {
+    return pathname.startsWith('/login') || pathname.startsWith('/display');
+}
+
 export const apiClient = axios.create({
     baseURL: getApiBaseUrl(),
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
     validateStatus: () => true,
 });
 
-apiClient.interceptors.request.use((config) => {
-    const apiKey = import.meta.env.VITE_API_KEY;
-    if (apiKey && config.method !== 'get') {
-        config.headers['X-API-Key'] = apiKey;
+apiClient.interceptors.response.use((response) => {
+    if (response.status === 401 && !response.config?.skipAuthRedirect && typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (!isPublicPath(path)) {
+            const next = `${path}${window.location.search}`;
+            window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+        }
     }
-    return config;
+    return response;
 });
 
 export function toServiceError(error, prefix) {

@@ -24,14 +24,24 @@ export function createAuthMiddleware({ users, sessions }) {
         return publicUser(user);
     }
 
+    async function attachUser(req, _res, next) {
+        try {
+            req.user = await loadUserFromRequest(req);
+            next();
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async function requireAuth(req, res, next) {
         try {
-            const user = await loadUserFromRequest(req);
-            if (!user) {
+            if (!req.user) {
+                req.user = await loadUserFromRequest(req);
+            }
+            if (!req.user) {
                 res.status(401).json({ success: false, message: 'Authentication required' });
                 return;
             }
-            req.user = user;
             next();
         } catch (error) {
             next(error);
@@ -46,5 +56,5 @@ export function createAuthMiddleware({ users, sessions }) {
         next();
     }
 
-    return { requireAuth, requireAdmin, loadUserFromRequest };
+    return { attachUser, requireAuth, requireAdmin, loadUserFromRequest };
 }

@@ -1,0 +1,16 @@
+{
+  "name": "Debate Timer",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "api-server",
+      "command": "cd server && node index.js"
+    },
+    {
+      "name": "vite-dev",
+      "command": "export PATH=\"$HOME/.bun/bin:$PATH\" && bun run vite --host 127.0.0.1"
+    }
+  ],
+  "ports": [3000, 3001]
+}

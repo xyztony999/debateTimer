@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './i18n';
 import './styles/index.css';
 import { ColorModeProvider } from './context/ColorModeContext';
+import { FeedbackProvider } from './context/FeedbackContext';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
@@ -10,7 +11,9 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <ColorModeProvider>
-      <App />
+      <FeedbackProvider>
+        <App />
+      </FeedbackProvider>
     </ColorModeProvider>
   </React.StrictMode>
 );

@@ -1,4 +1,10 @@
 {
+    "common": {
+        "ok": "知道了",
+        "cancel": "取消",
+        "confirm": "确定",
+        "delete": "删除"
+    },
     "timer": {
         "title": "辩论计时器",
         "settings": "设置",
@@ -29,6 +35,7 @@
         "help": "帮助",
         "helpTitle": "查看帮助",
         "helpAlert": "提示：修改设置后点击“保存”按钮保存当前模板。计时器页面会自动更新。若有未保存修改，切换模板时会提示确认。",
+        "confirmTitle": "请确认",
         "toolbar": "设置栏",
         "pageTitle": "辩论计时器设置",
         "pageSubtitle": "自定义您的辩论比赛时间和计时器配置",

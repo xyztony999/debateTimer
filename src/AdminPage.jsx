@@ -31,6 +31,7 @@ import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { useAuth } from './context/AuthContext';
 import { useColorMode } from './context/ColorModeContext';
+import { useFeedback } from './context/FeedbackContext';
 import {
     createUser,
     deleteConfigurationById,
@@ -45,6 +46,7 @@ export default function AdminPage() {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
     const { darkMode, toggleDarkMode } = useColorMode();
+    const { confirm } = useFeedback();
 
     const [users, setUsers] = useState([]);
     const [configs, setConfigs] = useState([]);
@@ -228,7 +230,13 @@ export default function AdminPage() {
                                                         color="error"
                                                         disabled={row.id === user?.id}
                                                         onClick={async () => {
-                                                            if (!window.confirm(t('admin.confirmDeleteUser', { name: row.username }))) {
+                                                            const accepted = await confirm({
+                                                                title: t('settings.confirmTitle'),
+                                                                message: t('admin.confirmDeleteUser', { name: row.username }),
+                                                                confirmLabel: t('common.delete'),
+                                                                confirmColor: 'error',
+                                                            });
+                                                            if (!accepted) {
                                                                 return;
                                                             }
                                                             const result = await deleteUser(row.id);
@@ -287,7 +295,13 @@ export default function AdminPage() {
                                                         size="small"
                                                         color="error"
                                                         onClick={async () => {
-                                                            if (!window.confirm(t('admin.confirmDeleteTemplate', { name: row.name }))) {
+                                                            const accepted = await confirm({
+                                                                title: t('settings.confirmTitle'),
+                                                                message: t('admin.confirmDeleteTemplate', { name: row.name }),
+                                                                confirmLabel: t('common.delete'),
+                                                                confirmColor: 'error',
+                                                            });
+                                                            if (!accepted) {
                                                                 return;
                                                             }
                                                             const result = await deleteConfigurationById(row.id);

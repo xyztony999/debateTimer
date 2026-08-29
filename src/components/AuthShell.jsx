@@ -3,7 +3,6 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
@@ -91,11 +90,11 @@ export default function AuthShell({ children, maxWidth = 440 }) {
                 }}
             >
                 <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-                    <Stack
-                        direction="row"
+                    <Box
                         sx={{
                             mb: 3,
                             width: '100%',
+                            display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             gap: 1,
@@ -108,7 +107,7 @@ export default function AuthShell({ children, maxWidth = 440 }) {
                         >
                             {t('timer.title')}
                         </Typography>
-                        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
                             <LanguageSwitcher variant="mui" size="small" tone="onPaper" />
                             <Tooltip title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}>
                                 <IconButton
@@ -119,8 +118,8 @@ export default function AuthShell({ children, maxWidth = 440 }) {
                                     {darkMode ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
                                 </IconButton>
                             </Tooltip>
-                        </Stack>
-                    </Stack>
+                        </Box>
+                    </Box>
                     {children}
                 </CardContent>
             </Card>

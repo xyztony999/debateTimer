@@ -9,6 +9,7 @@ const SettingsPage = lazy(() => import('./DebateSetting'));
 const LoginPage = lazy(() => import('./LoginPage'));
 const AdminPage = lazy(() => import('./AdminPage'));
 const DisplayTimer = lazy(() => import('./DisplayTimer'));
+const StatusPage = lazy(() => import('./components/StatusPage'));
 
 function App() {
     return (
@@ -43,6 +44,7 @@ function App() {
                                     </ProtectedRoute>
                                 )}
                             />
+                            <Route path="*" element={<StatusPage variant="notFound" />} />
                         </Routes>
                     </Suspense>
                 </div>

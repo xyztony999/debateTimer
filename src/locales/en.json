@@ -156,6 +156,14 @@
         "notFound": "This display link is invalid or has been turned off.",
         "status": "Display link"
     },
+    "errors": {
+        "notFoundTitle": "Page not found",
+        "notFoundBody": "This address is not a Debate Timer page. Check the link, or go back to the timer.",
+        "displayTitle": "Display link unavailable",
+        "displayBody": "This projection link is invalid or has been turned off.",
+        "goHome": "Back to timer",
+        "goLogin": "Sign in"
+    },
     "stages": {
         "sound_check": "Sound check",
         "aff_c1": "Affirmative 1st speech",

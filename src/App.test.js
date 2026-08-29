@@ -20,3 +20,8 @@ test('Chinese auth strings are present', async () => {
     expect(i18n.t('auth.login')).toBe('登录');
     expect(i18n.t('share.title')).toMatch(/投影/);
 });
+
+test('error page strings are present', async () => {
+    expect(i18n.t('errors.notFoundTitle')).toMatch(/not found/i);
+    expect(i18n.t('errors.displayTitle')).toMatch(/unavailable/i);
+});

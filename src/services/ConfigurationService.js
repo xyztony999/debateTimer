@@ -135,6 +135,7 @@ class ConfigurationService {
             if (!data.success) {
                 return {
                     success: false,
+                    notFound: status === 404,
                     message: data.message || `Request failed (${status})`,
                 };
             }

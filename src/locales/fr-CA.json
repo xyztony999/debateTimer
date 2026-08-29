@@ -156,6 +156,14 @@
         "notFound": "Ce lien d’affichage est invalide ou a été désactivé.",
         "status": "Lien d’affichage"
     },
+    "errors": {
+        "notFoundTitle": "Page introuvable",
+        "notFoundBody": "Cette adresse n’est pas une page du chronomètre de débat. Vérifiez le lien, ou revenez au chronomètre.",
+        "displayTitle": "Lien d’affichage indisponible",
+        "displayBody": "Ce lien de projection est invalide ou a été désactivé.",
+        "goHome": "Retour au chronomètre",
+        "goLogin": "Se connecter"
+    },
     "stages": {
         "sound_check": "Test audio",
         "aff_c1": "Premier discours (pour)",

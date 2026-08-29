@@ -156,6 +156,14 @@
         "notFound": "该投影链接无效或已关闭。",
         "status": "投影链接"
     },
+    "errors": {
+        "notFoundTitle": "页面不存在",
+        "notFoundBody": "这个地址不是辩论计时器的页面。请检查链接，或返回计时器。",
+        "displayTitle": "投影链接不可用",
+        "displayBody": "该投影链接无效或已被关闭。",
+        "goHome": "返回计时器",
+        "goLogin": "去登录"
+    },
     "stages": {
         "sound_check": "测试声音",
         "aff_c1": "正方一辩发言",

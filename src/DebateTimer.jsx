@@ -16,6 +16,7 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
 import { useColorMode } from './context/ColorModeContext';
 import { useAuth } from './context/AuthContext';
+import StatusPage from './components/StatusPage';
 
 const DebateTimer = ({ shareToken = null }) => {
     const navigate = useNavigate();
@@ -23,7 +24,7 @@ const DebateTimer = ({ shareToken = null }) => {
     const { darkMode, toggleDarkMode } = useColorMode();
     const { user, logout } = useAuth();
     const isDisplay = Boolean(shareToken);
-    const [displayError, setDisplayError] = useState('');
+    const [displayState, setDisplayState] = useState(shareToken ? 'loading' : 'ok');
     const [debateStages, setDebateStages] = useState({});
     const [debateSingleDoubleTimerSettings, setDebateSingleDoubleTimerSettings] = useState({});
     const [stageLabels, setStageLabels] = useState({});    // { [customId]: { 'zh-Hans', 'en', 'fr-CA' } }
@@ -149,18 +150,18 @@ const DebateTimer = ({ shareToken = null }) => {
                 if (shareToken) {
                     const result = await ConfigurationService.loadDisplayConfiguration(shareToken);
                     if (!result.success) {
-                        setDisplayError(result.message || t('share.notFound'));
+                        setDisplayState(result.notFound ? 'missing' : 'error');
                         return;
                     }
-                    setDisplayError('');
+                    setDisplayState('ok');
                     applyLoadedData(result.data.name || DEFAULT_CONFIGURATION_NAME, result.data, false);
                     unsubscribe = ConfigurationService.onDisplayChange(shareToken, async () => {
                         const next = await ConfigurationService.loadDisplayConfiguration(shareToken);
                         if (next.success) {
-                            setDisplayError('');
+                            setDisplayState('ok');
                             applyLoadedData(next.data.name || DEFAULT_CONFIGURATION_NAME, next.data, false);
                         } else {
-                            setDisplayError(next.message || t('share.notFound'));
+                            setDisplayState(next.notFound ? 'missing' : 'error');
                         }
                     });
                     return;
@@ -192,7 +193,7 @@ const DebateTimer = ({ shareToken = null }) => {
             } catch (error) {
                 console.error('Error initializing configuration:', error);
                 if (shareToken) {
-                    setDisplayError(t('share.notFound'));
+                    setDisplayState('error');
                     return;
                 }
                 setDebateStages(debateStagesData);
@@ -215,7 +216,7 @@ const DebateTimer = ({ shareToken = null }) => {
         return () => {
             if (unsubscribe) unsubscribe();
         };
-    }, [loadConfiguration, formatTimerSettings, shareToken, applyLoadedData, t]);
+    }, [loadConfiguration, formatTimerSettings, shareToken, applyLoadedData]);
 
     const endSoundRef = useRef(null);
     const warn30SoundRef = useRef(null);
@@ -515,6 +516,14 @@ const DebateTimer = ({ shareToken = null }) => {
         clearClockBlink,
     ]);
 
+    if (isDisplay && displayState === 'loading') {
+        return null;
+    }
+
+    if (isDisplay && (displayState === 'missing' || displayState === 'error')) {
+        return <StatusPage variant="display" />;
+    }
+
     return (
         <Fragment>
             <div id="timer" className={darkMode ? 'dark-mode' : 'light-mode'}>
@@ -575,10 +584,6 @@ const DebateTimer = ({ shareToken = null }) => {
                     </div>
                 </div>
 
-
-                {displayError ? (
-                    <p className="shortcut-hint">{displayError}</p>
-                ) : null}
 
                 <select
                     className="timer-stage-select"

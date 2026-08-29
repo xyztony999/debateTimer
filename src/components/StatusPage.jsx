@@ -27,15 +27,26 @@ export default function StatusPage({ variant = 'notFound' }) {
 
     return (
         <AuthShell maxWidth={460}>
-            <Stack spacing={2.75} alignItems="center" sx={{ textAlign: 'center' }}>
+            <Stack
+                spacing={2.75}
+                sx={{
+                    textAlign: 'center',
+                    width: '100%',
+                    alignItems: 'center',
+                }}
+            >
                 <Box
                     aria-hidden
                     sx={{
                         width: 88,
                         height: 88,
+                        mx: 'auto',
                         borderRadius: '50%',
-                        display: 'grid',
-                        placeItems: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 0,
+                        flexShrink: 0,
                         bgcolor: (theme) => theme.palette.mode === 'dark'
                             ? 'rgba(144, 202, 249, 0.1)'
                             : 'rgba(30, 58, 95, 0.08)',
@@ -45,13 +56,36 @@ export default function StatusPage({ variant = 'notFound' }) {
                             : 'rgba(30, 58, 95, 0.16)',
                     }}
                 >
-                    <Icon sx={{ fontSize: 36, color: 'primary.main' }} />
+                    <Icon
+                        sx={{
+                            fontSize: 36,
+                            color: 'primary.main',
+                            display: 'block',
+                        }}
+                    />
                 </Box>
-                <Stack spacing={1}>
+                <Stack
+                    spacing={1}
+                    sx={{
+                        width: '100%',
+                        alignItems: 'center',
+                    }}
+                >
                     <Typography
-                        variant="overline"
+                        component="p"
                         color="primary"
-                        sx={{ letterSpacing: '0.18em', fontWeight: 600 }}
+                        sx={{
+                            m: 0,
+                            fontSize: isDisplay
+                                ? { xs: '1.2rem', sm: '1.45rem' }
+                                : { xs: '1.75rem', sm: '2.15rem' },
+                            fontWeight: 800,
+                            letterSpacing: isDisplay ? '0.12em' : '0.08em',
+                            lineHeight: 1.2,
+                            textTransform: 'uppercase',
+                            // letter-spacing adds extra space after the last character
+                            marginRight: isDisplay ? '-0.12em' : '-0.08em',
+                        }}
                     >
                         {isDisplay ? t('errors.displayEyebrow') : t('errors.notFoundEyebrow')}
                     </Typography>

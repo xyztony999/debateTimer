@@ -93,9 +93,13 @@ export default function AuthShell({ children, maxWidth = 440 }) {
                 <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
                     <Stack
                         direction="row"
-                        justifyContent="space-between"
-                        alignItems="center"
-                        sx={{ mb: 3 }}
+                        sx={{
+                            mb: 3,
+                            width: '100%',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 1,
+                        }}
                     >
                         <Typography
                             variant="subtitle2"
@@ -104,7 +108,7 @@ export default function AuthShell({ children, maxWidth = 440 }) {
                         >
                             {t('timer.title')}
                         </Typography>
-                        <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
                             <LanguageSwitcher variant="mui" size="small" tone="onPaper" />
                             <Tooltip title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}>
                                 <IconButton

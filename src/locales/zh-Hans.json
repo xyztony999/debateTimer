@@ -159,8 +159,10 @@
     "errors": {
         "notFoundTitle": "页面不存在",
         "notFoundBody": "这个地址不是辩论计时器的页面。请检查链接，或返回计时器。",
+        "notFoundEyebrow": "404",
         "displayTitle": "投影链接不可用",
         "displayBody": "该投影链接无效或已被关闭。",
+        "displayEyebrow": "投影",
         "goHome": "返回计时器",
         "goLogin": "去登录"
     },

@@ -159,8 +159,10 @@
     "errors": {
         "notFoundTitle": "Page introuvable",
         "notFoundBody": "Cette adresse n’est pas une page du chronomètre de débat. Vérifiez le lien, ou revenez au chronomètre.",
+        "notFoundEyebrow": "404",
         "displayTitle": "Lien d’affichage indisponible",
         "displayBody": "Ce lien de projection est invalide ou a été désactivé.",
+        "displayEyebrow": "Projection",
         "goHome": "Retour au chronomètre",
         "goLogin": "Se connecter"
     },

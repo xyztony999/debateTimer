@@ -159,8 +159,10 @@
     "errors": {
         "notFoundTitle": "Page not found",
         "notFoundBody": "This address is not a Debate Timer page. Check the link, or go back to the timer.",
+        "notFoundEyebrow": "404",
         "displayTitle": "Display link unavailable",
         "displayBody": "This projection link is invalid or has been turned off.",
+        "displayEyebrow": "Projection",
         "goHome": "Back to timer",
         "goLogin": "Sign in"
     },

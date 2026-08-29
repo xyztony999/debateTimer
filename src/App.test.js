@@ -24,4 +24,5 @@ test('Chinese auth strings are present', async () => {
 test('error page strings are present', async () => {
     expect(i18n.t('errors.notFoundTitle')).toMatch(/not found/i);
     expect(i18n.t('errors.displayTitle')).toMatch(/unavailable/i);
+    expect(i18n.t('errors.notFoundEyebrow')).toBe('404');
 });

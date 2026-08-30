@@ -19,6 +19,8 @@
 .env.production.local
 /server/.env
 /server/node_modules
+/deploy/baota/deploy.env
+.deploy.lock
 **/serviceAccount*.json
 server.zip
 

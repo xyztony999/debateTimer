@@ -22,4 +22,8 @@ jobs:
           script: |
             set -euo pipefail
             APP_DIR=/www/wwwroot/debatetimer-api
+            cd "$APP_DIR"
+            git fetch origin
+            git checkout deploy/production
+            git pull --ff-only origin deploy/production
             bash "${APP_DIR}/deploy/baota/deploy.sh" --api-only

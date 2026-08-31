@@ -9,6 +9,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+ORIGINAL_ARGS=("$@")
 
 DRY_RUN=0
 TARGET_OVERRIDE=""
@@ -106,7 +107,6 @@ discover_node() {
         echo "$candidate"
         return
     fi
-    local dir
     local dir
     for dir in /www/server/nodejs/*/bin; do
         if [[ -x "${dir}/node" ]]; then
@@ -239,14 +239,21 @@ restart_api() {
     method="${CHOSEN_RESTART_METHOD:-}"
     baota_script="${CHOSEN_BAOTA_SCRIPT:-}"
 
+    if [[ -z "$method" || ( "$method" == "baota" && -z "$baota_script" ) ]]; then
+        baota_script="$(find_baota_node_script || true)"
+        if [[ -n "$baota_script" && -f "$baota_script" ]]; then
+            method="baota"
+        fi
+    fi
+
     if [[ "$method" == "pm2" ]]; then
         if discover_pm2_match; then
             PM2_BIN="$MATCH_PM2_BIN"
             PM2_APP="$MATCH_PM2_NAME"
         fi
-    elif [[ "$method" == "baota" && -z "$baota_script" ]]; then
-        baota_script="$(find_baota_node_script || true)"
     fi
+
+    log "重启方式: ${method:-未探测到}  宝塔脚本=${baota_script:-无}"
 
     case "$method" in
         command)
@@ -289,7 +296,7 @@ restart_api() {
             log "未能自动重启 API：系统 pm2 list 为空，也没有匹配 ${APP_DIR} 的宝塔启动脚本或 systemd 单元。"
             dump_restart_hints
             log "也可在宝塔「网站 → Node 项目」里手动重启。"
-            return 0
+            return 1
             ;;
     esac
 }
@@ -310,8 +317,25 @@ wait_health() {
     die "API 启动后未能响应 ${HEALTH_URL}。看 ${APP_DIR}/server 控制台或 $(baota_log_file "$(find_baota_node_script || true)")。"
 }
 
+# git pull 之后必须重新 exec 本脚本：bash 不会自动加载刚拉下来的重启逻辑。
+# 上次发版因此打出了旧日志「未能自动重启 API。请到宝塔…」。
+reexec_after_pull() {
+    [[ "${DEPLOY_REEXECED:-0}" == "1" ]] && return 0
+    [[ "${DRY_RUN:-0}" -eq 1 ]] && return 0
+    if [[ -d "${APP_DIR}/.git" ]]; then
+        log "先拉取 ${GIT_BRANCH}，再用最新脚本执行（避免旧 deploy.sh 留在内存里）"
+        git -C "$APP_DIR" fetch origin
+        git -C "$APP_DIR" checkout "$GIT_BRANCH"
+        git -C "$APP_DIR" pull --ff-only origin "$GIT_BRANCH"
+        log "仓库已更新: $(git -C "$APP_DIR" rev-parse --short HEAD) $(git -C "$APP_DIR" log -1 --pretty=%s)"
+    fi
+    export DEPLOY_REEXECED=1
+    exec bash "${SCRIPT_DIR}/deploy.sh" "${ORIGINAL_ARGS[@]}"
+}
+
 main() {
-    log "======== DebateTimer 部署开始 target=${DEPLOY_TARGET} ========"
+    reexec_after_pull
+    log "======== DebateTimer 部署开始 target=${DEPLOY_TARGET} script=$(git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null || echo '?') ========"
     acquire_lock
     pull_repo
 

@@ -18,7 +18,7 @@ header('Content-Type: text/plain; charset=utf-8');
 $scriptDir = __DIR__;
 $envFile = $scriptDir . '/deploy.env';
 $secret = getenv('WEBHOOK_SECRET') ?: '';
-$branch = getenv('GIT_BRANCH') ?: 'master';
+$branch = getenv('GIT_BRANCH') ?: 'deploy/production';
 $deployScript = $scriptDir . '/deploy.sh';
 
 if (is_readable($envFile)) {

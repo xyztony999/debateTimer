@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 查看宝塔上 DebateTimer 的部署状态。
+# 查看宝塔上 DebateTimer API 的部署状态。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,24 +11,15 @@ if [[ -f "${SCRIPT_DIR}/deploy.env" ]]; then
 fi
 
 APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-SITE_DIR="${SITE_DIR:-/www/wwwroot/debatetimer.tonyxyz.com}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3001/health}"
 PM2_APP="${PM2_APP:-debatetimer-api}"
 
 echo "仓库: $APP_DIR"
 if [[ -d "${APP_DIR}/.git" ]]; then
-    git -C "$APP_DIR" log -1 --oneline
     git -C "$APP_DIR" status -sb
+    git -C "$APP_DIR" log -1 --oneline
 else
     echo "  (不是 git 仓库)"
-fi
-
-echo
-echo "前端目录: $SITE_DIR"
-if [[ -f "${SITE_DIR}/index.html" ]]; then
-    ls -l "${SITE_DIR}/index.html"
-else
-    echo "  没有 index.html"
 fi
 
 echo

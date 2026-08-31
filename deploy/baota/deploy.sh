@@ -18,9 +18,11 @@ usage() {
 DebateTimer — 宝塔生产部署
 用法：
   bash deploy/baota/deploy.sh
-  bash deploy/baota/deploy.sh --frontend-only
   bash deploy/baota/deploy.sh --api-only
+  bash deploy/baota/deploy.sh --frontend-only
   bash deploy/baota/deploy.sh --dry-run
+
+默认只部署 API（前端由 GitHub Pages 发布）。
 EOF
 }
 
@@ -47,10 +49,10 @@ if [[ -f "${SCRIPT_DIR}/deploy.env" ]]; then
 fi
 
 APP_DIR="${APP_DIR:-$REPO_ROOT}"
-GIT_BRANCH="${GIT_BRANCH:-master}"
+GIT_BRANCH="${GIT_BRANCH:-deploy/production}"
 SITE_DIR="${SITE_DIR:-/www/wwwroot/debatetimer.tonyxyz.com}"
 VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.debatetimer.tonyxyz.com}"
-DEPLOY_TARGET="${TARGET_OVERRIDE:-${DEPLOY_TARGET:-both}}"
+DEPLOY_TARGET="${TARGET_OVERRIDE:-${DEPLOY_TARGET:-api}}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3001/health}"
 PM2_APP="${PM2_APP:-debatetimer-api}"
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-debatetimer-api}"

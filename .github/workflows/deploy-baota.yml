@@ -1,16 +1,16 @@
-name: Deploy to Baota
+name: Deploy API to Baota
 
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [deploy/production]
 
 jobs:
-  deploy:
+  deploy-api:
     runs-on: ubuntu-latest
     if: ${{ vars.BAOTA_DEPLOY == 'true' }}
     steps:
-      - name: Deploy over SSH
+      - name: Deploy API over SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.BAOTA_SSH_HOST }}
@@ -22,4 +22,4 @@ jobs:
           script: |
             set -euo pipefail
             APP_DIR="${APP_DIR:-/www/wwwroot/debatetimer}"
-            bash "${APP_DIR}/deploy/baota/deploy.sh"
+            bash "${APP_DIR}/deploy/baota/deploy.sh" --api-only

@@ -1,91 +1,85 @@
-# 在宝塔面板上部署 DebateTimer
+# 在宝塔上部署 DebateTimer API
 
-前端静态站 + Node API + MongoDB。脚本只改服务器上的代码和构建产物，**不会**动 `server/.env` 里的密码。
+前端仍由 **GitHub Pages** 发布（推送 `deploy/production`，见 `.github/workflows/deploy.yml`）。  
+宝塔只跑 **Node API + MongoDB**。脚本不会构建前端，也**不会**改 `server/.env` 或数据库里的数据。
 
-| 域名 | 作用 |
+| 位置 | 作用 |
 |------|------|
-| `debatetimer.tonyxyz.com` | 前端（Nginx 静态，SPA） |
-| `api.debatetimer.tonyxyz.com` | API（Nginx 反代 `127.0.0.1:3001`） |
+| `debatetimer.tonyxyz.com` | 前端（GitHub Pages） |
+| `api.debatetimer.tonyxyz.com` | API（宝塔 Nginx 反代 `127.0.0.1:3001`） |
+| 宝塔 MongoDB | 用户、会话、模板 |
 
-GitHub Pages 那套（`deploy/production`）可以继续留着；转到宝塔后把 DNS 指到这台机器即可。
+推送 `deploy/production` 时：Pages 发前端，GitHub Actions SSH（可选）在宝塔上跑 `deploy.sh --api-only`。
 
 ## 一次性准备
 
 在宝塔里：
 
-1. **软件商店**安装：Nginx、MongoDB、Node.js 版本管理器（18 或 20）、PM2（Node 项目会自带）。
+1. **软件商店**安装：Nginx、MongoDB、Node.js 版本管理器（18 或 20）、PM2。
 2. **数据库 → MongoDB**：库名 `debatetimer`，给该库建用户，密码记下来。
-3. **网站**建两个站点，都开 SSL（Let's Encrypt）：
-   - `debatetimer.tonyxyz.com`，根目录例如 `/www/wwwroot/debatetimer.tonyxyz.com`
-   - `api.debatetimer.tonyxyz.com`，类型选反向代理，目标 `http://127.0.0.1:3001`，再把 [`nginx/api.snippet.conf`](nginx/api.snippet.conf) 贴进配置（SSE 需要关掉缓冲）。
-4. 前端站点配置贴上 [`nginx/frontend.snippet.conf`](nginx/frontend.snippet.conf)，然后 `nginx -t` 并重载。
+3. **网站**只建 API 站点 `api.debatetimer.tonyxyz.com`，开 SSL，反向代理到 `http://127.0.0.1:3001`，再把 [`nginx/api.snippet.conf`](nginx/api.snippet.conf) 贴进配置（登录 cookie 和 SSE 需要）。
 
-SSH 登录服务器（root）：
+若仓库已经按 `master` 克隆过，先改跟发版分支：
 
 ```bash
-git clone -b master https://github.com/xyztony999/debateTimer.git /www/wwwroot/debatetimer
+cd /www/wwwroot/debatetimer
+git fetch origin
+git checkout deploy/production
+```
+
+SSH 登录服务器（root）做全新安装：
+
+```bash
+git clone -b deploy/production https://github.com/xyztony999/debateTimer.git /www/wwwroot/debatetimer
 bash /www/wwwroot/debatetimer/deploy/baota/setup.sh
 ```
 
-编辑两个文件：
+编辑：
 
-- ` /www/wwwroot/debatetimer/server/.env`
+- `/www/wwwroot/debatetimer/server/.env`
   - MongoDB 用户密码
-  - `ALLOWED_ORIGINS=https://debatetimer.tonyxyz.com`
+  - `ALLOWED_ORIGINS=https://debatetimer.tonyxyz.com`（GitHub Pages 域名）
   - `COOKIE_SECURE=true`
 - `/www/wwwroot/debatetimer/deploy/baota/deploy.env`
-  - `APP_DIR`、`SITE_DIR`、`VITE_API_BASE_URL` 按实际路径改
+  - `APP_DIR`、`GIT_BRANCH=deploy/production`、`DEPLOY_TARGET=api`
 
-登记并启动 API（三选一）：
+登记并启动 API：
 
 ```bash
-# A. 宝塔 Node 项目 / PM2（推荐）
 cd /www/wwwroot/debatetimer
 APP_DIR=/www/wwwroot/debatetimer pm2 start deploy/baota/ecosystem.config.cjs
 pm2 save
 pm2 startup
-
-# B. systemd
-cp /www/wwwroot/debatetimer/deploy/baota/debatetimer-api.service /etc/systemd/system/
-# 若 node 不在 PATH 里，改 ExecStart 为宝塔 Node 绝对路径
-systemctl daemon-reload && systemctl enable --now debatetimer-api
 ```
 
-第一次发版：
+或用 systemd：见 `debatetimer-api.service`。
+
+第一次发 API：
 
 ```bash
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh
+bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
 ```
 
-打开网站，**用你自己的用户名注册第一个账号**（自动成为管理员，旧模板会挂到这个账号下）。
+打开 GitHub Pages 网站，**用你自己的用户名注册第一个账号**（自动成为管理员，旧模板会挂到这个账号下）。
 
 ## 以后怎么更新
 
-在服务器上：
+推送 `deploy/production`：
+
+1. GitHub Pages 自动更新前端。
+2. 配好下面的 Actions 后，同一推送会 SSH 到宝塔只更新 API。
+
+在服务器上手动：
 
 ```bash
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh
-# 只更 API
 bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
-# 只更前端
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --frontend-only
 ```
 
-脚本会：`git pull` → 装依赖 → 重启 API 并打 `/health` → `bun run build` → 同步到网站目录（保留 `.user.ini` / `.well-known`）。
+脚本会：切到 `deploy/production` → `git pull` → 安装 `server` 依赖 → 重启 API → 检查 `/health`。
 
-### 方式 1：宝塔计划任务（最省事）
+### GitHub Actions SSH（推荐）
 
-计划任务 → Shell 脚本 → 每天或每小时：
-
-```bash
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh
-```
-
-不需要公开 webhook。想推完代码马上更新，用下面两种。
-
-### 方式 2：GitHub Actions SSH（推荐自动）
-
-仓库 Settings → Secrets and variables → Actions，添加：
+仓库 Settings → Secrets and variables → Actions：
 
 | Secret | 含义 |
 |--------|------|
@@ -94,15 +88,19 @@ bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh
 | `BAOTA_SSH_KEY` | 该用户的**私钥**全文 |
 | `BAOTA_SSH_PORT` | 可选，默认 `22` |
 
-再在 Settings → Variables 增加 `BAOTA_DEPLOY=true`，否则 workflow 不会跑（避免没配密钥时红掉）。
+Settings → Variables 增加 `BAOTA_DEPLOY=true`，否则 API 这条 workflow 不会跑。
 
-`master` 有推送，或 Actions 里手动 Run workflow，就会 SSH 上去跑 `deploy.sh`。
+服务器 `~/.ssh/authorized_keys` 放对应公钥。
 
-服务器上要先放好对应公钥：`~/.ssh/authorized_keys`。
+### 宝塔计划任务（可选备份）
 
-### 方式 3：GitHub Webhook + PHP
+```bash
+bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
+```
 
-把 `webhook.php` 放到**不是前端根目录**的地方，`deploy.env` 增加 `WEBHOOK_SECRET=长随机串`。GitHub Webhook 的 Secret 填同一串。PHP 用户必须能执行 `deploy.sh`（权限不够时请用方式 2）。
+### GitHub Webhook + PHP（可选）
+
+`webhook.php` 默认只接受 `deploy/production` 的 push。PHP 用户必须能执行 `deploy.sh`；权限不够时用 Actions SSH。
 
 ## 检查
 
@@ -111,11 +109,11 @@ bash /www/wwwroot/debatetimer/deploy/baota/status.sh
 curl -sS http://127.0.0.1:3001/health
 ```
 
-日志：`/www/wwwlogs/debatetimer-deploy.log`，以及宝塔 Node 项目日志。
+日志：`/www/wwwlogs/debatetimer-deploy.log`。
 
 ## 注意
 
 - 不要把 `server/.env`、`deploy/baota/deploy.env` 提交进 Git。
-- `COOKIE_SECURE=true` 必须配 HTTPS，否则登录 cookie 种不上。
-- 前端构建里的 `VITE_API_BASE_URL` 要和浏览器实际访问的 API 域名一致。
+- `COOKIE_SECURE=true` 必须配 API 站点的 HTTPS。
+- 前端构建里的 `VITE_API_BASE_URL` 由 GitHub Pages workflow 写成 `https://api.debatetimer.tonyxyz.com`。
 - 若 API 起不来，先看 MongoDB 用户的 `authSource` 是 `debatetimer` 还是 `admin`。

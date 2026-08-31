@@ -46,13 +46,13 @@ git checkout deploy/production
 - `/www/wwwroot/debatetimer-api/deploy/baota/deploy.env`
   - `APP_DIR=/www/wwwroot/debatetimer-api`、`GIT_BRANCH=deploy/production`、`DEPLOY_TARGET=api`
 
-登记并启动 API：
+若宝塔「网站 → Node 项目」里**已经在跑** API，不必再用下面的 `pm2 start` 登记一份，否则会和宝塔抢 3001 端口。`deploy.sh` 会自己找到宝塔那份进程并重启。
+
+若你要自己用 PM2 托管，注意：系统里的 `/usr/bin/pm2` 经常 `pm2 list` 为空，真正管宝塔 Node 项目的是 `/www/server/nodejs/<版本>/bin/pm2`：
 
 ```bash
-cd /www/wwwroot/debatetimer-api
-APP_DIR=/www/wwwroot/debatetimer-api pm2 start deploy/baota/ecosystem.config.cjs
-pm2 save
-pm2 startup
+ls /www/server/nodejs/*/bin/pm2
+/www/server/nodejs/<版本>/bin/pm2 list
 ```
 
 或用 systemd：见 `debatetimer-api.service`。
@@ -113,6 +113,28 @@ curl -sS http://127.0.0.1:3001/health
 ```
 
 日志：`/www/wwwlogs/debatetimer-deploy.log`。
+
+### `pm2 list` 为空
+
+生产上 **两份 pm2 都是空的**（`/usr/bin/pm2` 和 `/www/server/nodejs/v24.16.0/bin/pm2`）。宝塔「网站 → Node 项目」实际用的是：
+
+| 路径 | 作用 |
+|------|------|
+| `/www/server/nodejs/vhost/scripts/debatetimer-api-server.sh` | 启动：`cd …/server && nohup npm run start` |
+| `/www/server/nodejs/vhost/pids/debatetimer-api-server.pid` | npm 的 pid（`$!`，不是 node） |
+| `/www/wwwlogs/nodejs/debatetimer-api-server.log` | 标准输出 |
+
+不要再跑一遍启动脚本而不先停进程，会 `EADDRINUSE`。`deploy.sh` 会先按 pid 文件杀掉 npm 及其子进程（node），再停掉仍占 3001 的本仓库进程，然后执行该脚本。
+
+立刻手动重启：
+
+```bash
+pidfile=/www/server/nodejs/vhost/pids/debatetimer-api-server.pid
+[[ -f $pidfile ]] && kill "$(cat $pidfile)" || true
+ss -lntp | grep 3001   # 若 node 还在，再 kill 那个 pid
+bash /www/server/nodejs/vhost/scripts/debatetimer-api-server.sh
+curl -sS http://127.0.0.1:3001/health
+```
 
 ## 注意
 

@@ -107,7 +107,8 @@ discover_node() {
         return
     fi
     local dir
-    for dir in /www/server/nodejs/v2*/bin /www/server/nodejs/v1*/bin; do
+    local dir
+    for dir in /www/server/nodejs/*/bin; do
         if [[ -x "${dir}/node" ]]; then
             echo "${dir}/node"
             return
@@ -116,22 +117,8 @@ discover_node() {
     return 1
 }
 
-discover_pm2() {
-    local candidate
-    candidate="$(find_in_path pm2)"
-    if [[ -n "$candidate" ]]; then
-        echo "$candidate"
-        return
-    fi
-    local dir
-    for dir in /www/server/nodejs/v2*/bin /www/server/nodejs/v1*/bin; do
-        if [[ -x "${dir}/pm2" ]]; then
-            echo "${dir}/pm2"
-            return
-        fi
-    done
-    return 1
-}
+# shellcheck source=lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 
 ensure_bun() {
     if [[ -n "$(find_in_path bun)" ]]; then
@@ -244,23 +231,21 @@ publish_frontend() {
 }
 
 restart_api() {
-    local method="${RESTART_WITH:-}"
+    local method=""
     local pm2_bin=""
+    local baota_script=""
 
-    if [[ -n "${RESTART_CMD:-}" ]]; then
-        method="command"
-    fi
+    choose_restart_method
+    method="${CHOSEN_RESTART_METHOD:-}"
+    baota_script="${CHOSEN_BAOTA_SCRIPT:-}"
 
-    if [[ -z "$method" ]]; then
-        if pm2_bin="$(discover_pm2)"; then
-            if "$pm2_bin" describe "$PM2_APP" >/dev/null 2>&1; then
-                method="pm2"
-            fi
+    if [[ "$method" == "pm2" ]]; then
+        if discover_pm2_match; then
+            PM2_BIN="$MATCH_PM2_BIN"
+            PM2_APP="$MATCH_PM2_NAME"
         fi
-    fi
-
-    if [[ -z "$method" ]] && systemctl list-unit-files "${SYSTEMD_UNIT}.service" >/dev/null 2>&1; then
-        method="systemd"
+    elif [[ "$method" == "baota" && -z "$baota_script" ]]; then
+        baota_script="$(find_baota_node_script || true)"
     fi
 
     case "$method" in
@@ -268,21 +253,42 @@ restart_api() {
             run bash -lc "$RESTART_CMD"
             ;;
         pm2)
-            pm2_bin="$(discover_pm2)" || die "找不到 pm2"
+            pm2_bin="${PM2_BIN:-}"
+            if [[ -z "$pm2_bin" ]]; then
+                pm2_bin="$(list_pm2_bins | head -n1 || true)"
+            fi
+            [[ -n "$pm2_bin" && -x "$pm2_bin" ]] || die "找不到 pm2。可在 deploy.env 设置 PM2_BIN。"
             export_node_path "$pm2_bin"
             export APP_DIR PM2_APP
+            log "重启 PM2 应用: ${PM2_APP}  (${pm2_bin})"
             if "$pm2_bin" describe "$PM2_APP" >/dev/null 2>&1; then
                 run "$pm2_bin" restart "$PM2_APP" --update-env
             else
+                log "该 pm2 中没有 ${PM2_APP}，先停占用端口的本仓库进程，再用 ecosystem 启动。"
+                stop_app_listeners
                 run "$pm2_bin" start "${SCRIPT_DIR}/ecosystem.config.cjs" --only "$PM2_APP"
             fi
             run "$pm2_bin" save || true
+            ;;
+        baota)
+            if [[ -z "$baota_script" ]]; then
+                baota_script="$(find_baota_node_script || true)"
+            fi
+            [[ -n "$baota_script" && -f "$baota_script" ]] || \
+                die "找不到宝塔 Node 启动脚本（$(baota_scripts_dir)）。可在 deploy.env 设置 BAOTA_NODE_SCRIPT。"
+            log "通过宝塔 Node 项目脚本重启: ${baota_script}"
+            log "pid: $(baota_pid_file "$baota_script")  日志: $(baota_log_file "$baota_script")"
+            log "先停掉该项目的 npm/node（pid 文件 + 端口 $(health_port)），再执行启动脚本，避免 EADDRINUSE。"
+            stop_baota_project "$baota_script"
+            run bash "$baota_script"
             ;;
         systemd)
             run systemctl restart "$SYSTEMD_UNIT"
             ;;
         *)
-            log "未能自动重启 API。请到宝塔「网站 → Node 项目」里手动重启，或在 deploy.env 设置 RESTART_CMD / PM2_APP。"
+            log "未能自动重启 API：系统 pm2 list 为空，也没有匹配 ${APP_DIR} 的宝塔启动脚本或 systemd 单元。"
+            dump_restart_hints
+            log "也可在宝塔「网站 → Node 项目」里手动重启。"
             return 0
             ;;
     esac
@@ -301,7 +307,7 @@ wait_health() {
         fi
         sleep 1
     done
-    die "API 启动后未能响应 ${HEALTH_URL}。看宝塔 Node 项目日志或 ${APP_DIR}/server 控制台输出。"
+    die "API 启动后未能响应 ${HEALTH_URL}。看 ${APP_DIR}/server 控制台或 $(baota_log_file "$(find_baota_node_script || true)")。"
 }
 
 main() {

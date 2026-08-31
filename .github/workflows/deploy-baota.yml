@@ -1,0 +1,25 @@
+name: Deploy API to Baota
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [deploy/production]
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+    if: ${{ vars.BAOTA_DEPLOY == 'true' }}
+    steps:
+      - name: Deploy API over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.BAOTA_SSH_HOST }}
+          username: ${{ secrets.BAOTA_SSH_USER }}
+          key: ${{ secrets.BAOTA_SSH_KEY }}
+          port: ${{ secrets.BAOTA_SSH_PORT || '22' }}
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            APP_DIR=/www/wwwroot/debatetimer-api
+            bash "${APP_DIR}/deploy/baota/deploy.sh" --api-only

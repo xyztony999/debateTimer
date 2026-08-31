@@ -1,5 +1,6 @@
 name: Deploy React App to GitHub Pages
 
+# 同一推送还会触发 Deploy API to Baota（仅 API，见 deploy-baota.yml）
 on:
   push:
     branches: [ deploy/production ]
@@ -31,7 +32,6 @@ jobs:
       run: bun run build
       env:
         VITE_API_BASE_URL: https://api.debatetimer.tonyxyz.com
-        VITE_API_KEY: ${{ secrets.DEBATE_API_KEY }}
 
     - name: Setup Pages
       uses: actions/configure-pages@v4

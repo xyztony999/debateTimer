@@ -1,0 +1,16 @@
+[Unit]
+Description=DebateTimer API
+After=network.target mongod.service
+
+[Service]
+Type=simple
+WorkingDirectory=/www/wwwroot/debatetimer-api/server
+Environment=NODE_ENV=production
+EnvironmentFile=-/www/wwwroot/debatetimer-api/server/.env
+ExecStart=/usr/bin/env node index.js
+Restart=on-failure
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

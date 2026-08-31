@@ -243,9 +243,59 @@ publish_frontend() {
     log "前端已发布到 ${SITE_DIR}"
 }
 
+discover_pm2_app() {
+    local pm2_bin="$1"
+    local app=""
+    local names=""
+
+    if [[ -n "${PM2_APP:-}" ]] && "$pm2_bin" describe "$PM2_APP" >/dev/null 2>&1; then
+        echo "$PM2_APP"
+        return
+    fi
+
+    for names in "${PM2_APP:-}" debatetimer-api server index "$(basename "$APP_DIR")"; do
+        [[ -n "$names" ]] || continue
+        if "$pm2_bin" describe "$names" >/dev/null 2>&1; then
+            echo "$names"
+            return
+        fi
+    done
+
+    app="$(
+        "$pm2_bin" jlist 2>/dev/null | python3 -c '
+import json, os, sys
+want = os.path.realpath(sys.argv[1])
+try:
+    apps = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if not isinstance(apps, list):
+    sys.exit(1)
+for item in apps:
+    env = item.get("pm2_env") or {}
+    cwd = env.get("pm_cwd") or item.get("cwd") or ""
+    if not cwd:
+        continue
+    cwd = os.path.realpath(cwd)
+    if cwd == want or cwd == os.path.join(want, "server") or cwd.startswith(want + os.sep):
+        name = item.get("name") or env.get("name")
+        if name:
+            print(name)
+            sys.exit(0)
+sys.exit(1)
+' "$APP_DIR" 2>/dev/null
+    )" || true
+    if [[ -n "$app" ]]; then
+        echo "$app"
+        return
+    fi
+    return 1
+}
+
 restart_api() {
     local method="${RESTART_WITH:-}"
     local pm2_bin=""
+    local pm2_name=""
 
     if [[ -n "${RESTART_CMD:-}" ]]; then
         method="command"
@@ -253,7 +303,8 @@ restart_api() {
 
     if [[ -z "$method" ]]; then
         if pm2_bin="$(discover_pm2)"; then
-            if "$pm2_bin" describe "$PM2_APP" >/dev/null 2>&1; then
+            if pm2_name="$(discover_pm2_app "$pm2_bin")"; then
+                PM2_APP="$pm2_name"
                 method="pm2"
             fi
         fi
@@ -271,6 +322,7 @@ restart_api() {
             pm2_bin="$(discover_pm2)" || die "找不到 pm2"
             export_node_path "$pm2_bin"
             export APP_DIR PM2_APP
+            log "重启 PM2 应用: ${PM2_APP}"
             if "$pm2_bin" describe "$PM2_APP" >/dev/null 2>&1; then
                 run "$pm2_bin" restart "$PM2_APP" --update-env
             else
@@ -282,7 +334,12 @@ restart_api() {
             run systemctl restart "$SYSTEMD_UNIT"
             ;;
         *)
-            log "未能自动重启 API。请到宝塔「网站 → Node 项目」里手动重启，或在 deploy.env 设置 RESTART_CMD / PM2_APP。"
+            log "未能自动重启 API：没有找到匹配 ${APP_DIR} 的 PM2 进程。"
+            if pm2_bin="$(discover_pm2)"; then
+                log "当前 PM2 列表（把应用名写入 deploy.env 的 PM2_APP）："
+                "$pm2_bin" list || true
+            fi
+            log "也可在宝塔「网站 → Node 项目」里手动重启，或设置 RESTART_CMD。"
             return 0
             ;;
     esac

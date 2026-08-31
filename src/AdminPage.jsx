@@ -286,7 +286,16 @@ export default function AdminPage() {
                                                     {row.shareToken ? (
                                                         <Button
                                                             size="small"
-                                                            onClick={() => window.open(`/display/${row.shareToken}`, '_blank')}
+                                                            onClick={() => {
+                                                                const opened = window.open(
+                                                                    `/display/${row.shareToken}`,
+                                                                    '_blank',
+                                                                    'noopener,noreferrer',
+                                                                );
+                                                                if (opened) {
+                                                                    opened.opener = null;
+                                                                }
+                                                            }}
                                                         >
                                                             {t('share.openDisplay')}
                                                         </Button>

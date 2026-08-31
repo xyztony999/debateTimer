@@ -189,7 +189,7 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth })
                 {
                     $set: {
                         shareEnabled,
-                        shareToken: shareEnabled ? shareToken : shareToken,
+                        shareToken,
                         updatedAt: Date.now(),
                     },
                 },

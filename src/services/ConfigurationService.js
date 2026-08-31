@@ -173,14 +173,27 @@ class ConfigurationService {
         let pollTimer;
         let stopped = false;
 
+        const safeNotify = (...args) => {
+            if (stopped) {
+                return;
+            }
+            try {
+                Promise.resolve(notify(...args)).catch((error) => {
+                    console.error('Configuration listener error:', error);
+                });
+            } catch (error) {
+                console.error('Configuration listener error:', error);
+            }
+        };
+
         const startPolling = () => {
-            pollTimer = window.setInterval(notify, 5000);
-            notify();
+            pollTimer = window.setInterval(safeNotify, 5000);
+            safeNotify();
         };
 
         if (typeof EventSource !== 'undefined') {
             eventSource = new EventSource(streamUrl, { withCredentials });
-            eventSource.addEventListener('change', notify);
+            eventSource.addEventListener('change', safeNotify);
             eventSource.onerror = () => {
                 eventSource?.close();
                 eventSource = null;
@@ -188,7 +201,7 @@ class ConfigurationService {
                     startPolling();
                 }
             };
-            notify();
+            safeNotify();
         } else {
             startPolling();
         }

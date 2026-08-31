@@ -65,7 +65,7 @@ if ($event !== 'push') {
 $data = json_decode($payload, true);
 $ref = $data['ref'] ?? '';
 $wanted = 'refs/heads/' . $branch;
-if ($ref !== $wanted && $ref !== 'refs/heads/main') {
+if ($ref !== $wanted) {
     echo "ignored ref {$ref}\n";
     exit;
 }

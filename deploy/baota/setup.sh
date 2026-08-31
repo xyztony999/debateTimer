@@ -14,7 +14,7 @@ if [[ -f "${SCRIPT_DIR}/deploy.env" ]]; then
     set +a
 fi
 
-APP_DIR="${APP_DIR:-/www/wwwroot/debatetimer}"
+APP_DIR="${APP_DIR:-/www/wwwroot/debatetimer-api}"
 GIT_BRANCH="${GIT_BRANCH:-deploy/production}"
 REPO_URL="${REPO_URL:-https://github.com/xyztony999/debateTimer.git}"
 PM2_APP="${PM2_APP:-debatetimer-api}"
@@ -54,6 +54,6 @@ fi
 
 log "下一步："
 echo "  1. 编辑 ${APP_DIR}/server/.env 和 ${APP_DIR}/deploy/baota/deploy.env"
-echo "  2. 宝塔只建 API 站点 api.debatetimer.tonyxyz.com，反代 127.0.0.1:3001，贴 nginx/api.snippet.conf"
+echo "  2. 反代站点 /www/wwwroot/api.debatetimer.tonyxyz.com → 127.0.0.1:3001；Node 在 ${APP_DIR}/server"
 echo "  3. bash ${APP_DIR}/deploy/baota/deploy.sh --api-only"
 echo "  4. 打开 GitHub Pages 网站，注册第一个账号（自动成为管理员，并接管旧模板）"

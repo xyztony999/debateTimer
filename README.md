@@ -64,7 +64,7 @@
 - **API / MongoDB**：宝塔，`deploy.sh --api-only`（[说明](deploy/baota/README.md)）
 
 ```bash
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
+bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 ```
 
 ## 技术栈

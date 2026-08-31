@@ -6,7 +6,8 @@
 | 位置 | 作用 |
 |------|------|
 | `debatetimer.tonyxyz.com` | 前端（GitHub Pages） |
-| `api.debatetimer.tonyxyz.com` | API（宝塔 Nginx 反代 `127.0.0.1:3001`） |
+| `/www/wwwroot/api.debatetimer.tonyxyz.com` | 宝塔反代站点（Nginx 指到 `127.0.0.1:3001`，不是 Node 源码） |
+| `/www/wwwroot/debatetimer-api/server` | Node API 进程 |
 | 宝塔 MongoDB | 用户、会话、模板 |
 
 推送 `deploy/production` 时：Pages 发前端，GitHub Actions SSH（可选）在宝塔上跑 `deploy.sh --api-only`。
@@ -17,12 +18,12 @@
 
 1. **软件商店**安装：Nginx、MongoDB、Node.js 版本管理器（18 或 20）、PM2。
 2. **数据库 → MongoDB**：库名 `debatetimer`，给该库建用户，密码记下来。
-3. **网站**只建 API 站点 `api.debatetimer.tonyxyz.com`，开 SSL，反向代理到 `http://127.0.0.1:3001`，再把 [`nginx/api.snippet.conf`](nginx/api.snippet.conf) 贴进配置（登录 cookie 和 SSE 需要）。
+3. **网站** `api.debatetimer.tonyxyz.com` 根目录为 `/www/wwwroot/api.debatetimer.tonyxyz.com`，开 SSL，反向代理到 `http://127.0.0.1:3001`（Node 在 `/www/wwwroot/debatetimer-api/server`）。把 [`nginx/api.snippet.conf`](nginx/api.snippet.conf) 贴进配置（登录 cookie 和 SSE 需要）。
 
 若仓库已经按 `master` 克隆过，先改跟发版分支：
 
 ```bash
-cd /www/wwwroot/debatetimer
+cd /www/wwwroot/debatetimer-api
 git fetch origin
 git checkout deploy/production
 ```
@@ -30,24 +31,24 @@ git checkout deploy/production
 SSH 登录服务器（root）做全新安装：
 
 ```bash
-git clone -b deploy/production https://github.com/xyztony999/debateTimer.git /www/wwwroot/debatetimer
-bash /www/wwwroot/debatetimer/deploy/baota/setup.sh
+git clone -b deploy/production https://github.com/xyztony999/debateTimer.git /www/wwwroot/debatetimer-api
+bash /www/wwwroot/debatetimer-api/deploy/baota/setup.sh
 ```
 
 编辑：
 
-- `/www/wwwroot/debatetimer/server/.env`
+- `/www/wwwroot/debatetimer-api/server/.env`
   - MongoDB 用户密码
   - `ALLOWED_ORIGINS=https://debatetimer.tonyxyz.com`（GitHub Pages 域名）
   - `COOKIE_SECURE=true`
-- `/www/wwwroot/debatetimer/deploy/baota/deploy.env`
-  - `APP_DIR`、`GIT_BRANCH=deploy/production`、`DEPLOY_TARGET=api`
+- `/www/wwwroot/debatetimer-api/deploy/baota/deploy.env`
+  - `APP_DIR=/www/wwwroot/debatetimer-api`、`GIT_BRANCH=deploy/production`、`DEPLOY_TARGET=api`
 
 登记并启动 API：
 
 ```bash
-cd /www/wwwroot/debatetimer
-APP_DIR=/www/wwwroot/debatetimer pm2 start deploy/baota/ecosystem.config.cjs
+cd /www/wwwroot/debatetimer-api
+APP_DIR=/www/wwwroot/debatetimer-api pm2 start deploy/baota/ecosystem.config.cjs
 pm2 save
 pm2 startup
 ```
@@ -57,7 +58,7 @@ pm2 startup
 第一次发 API：
 
 ```bash
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
+bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 ```
 
 打开 GitHub Pages 网站，**用你自己的用户名注册第一个账号**（自动成为管理员，旧模板会挂到这个账号下）。
@@ -72,7 +73,7 @@ bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
 在服务器上手动：
 
 ```bash
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
+bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 ```
 
 脚本会：切到 `deploy/production` → `git pull` → 安装 `server` 依赖 → 重启 API → 检查 `/health`。
@@ -95,7 +96,7 @@ Settings → Variables 增加 `BAOTA_DEPLOY=true`，否则 API 这条 workflow �
 ### 宝塔计划任务（可选备份）
 
 ```bash
-bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
+bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 ```
 
 ### GitHub Webhook + PHP（可选）
@@ -105,7 +106,7 @@ bash /www/wwwroot/debatetimer/deploy/baota/deploy.sh --api-only
 ## 检查
 
 ```bash
-bash /www/wwwroot/debatetimer/deploy/baota/status.sh
+bash /www/wwwroot/debatetimer-api/deploy/baota/status.sh
 curl -sS http://127.0.0.1:3001/health
 ```
 

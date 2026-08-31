@@ -4,9 +4,9 @@ After=network.target mongod.service
 
 [Service]
 Type=simple
-WorkingDirectory=/www/wwwroot/debatetimer/server
+WorkingDirectory=/www/wwwroot/debatetimer-api/server
 Environment=NODE_ENV=production
-EnvironmentFile=-/www/wwwroot/debatetimer/server/.env
+EnvironmentFile=-/www/wwwroot/debatetimer-api/server/.env
 ExecStart=/usr/bin/env node index.js
 Restart=on-failure
 RestartSec=3

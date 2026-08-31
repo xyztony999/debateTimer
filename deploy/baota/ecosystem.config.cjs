@@ -1,6 +1,6 @@
 const path = require('path');
 
-const appDir = process.env.APP_DIR || '/www/wwwroot/debatetimer';
+const appDir = process.env.APP_DIR || '/www/wwwroot/debatetimer-api';
 
 module.exports = {
     apps: [

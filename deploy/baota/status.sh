@@ -56,6 +56,13 @@ echo
 echo "宝塔 Node 启动脚本目录: $(baota_scripts_dir)"
 if baota_script="$(find_baota_node_script)"; then
     echo "匹配到: ${baota_script}"
+    echo "pid 文件: $(baota_pid_file "$baota_script")"
+    if [[ -f "$(baota_pid_file "$baota_script")" ]]; then
+        echo "  pid=$(tr -d '[:space:]' < "$(baota_pid_file "$baota_script")")"
+    else
+        echo "  (pid 文件不存在，进程可能没在跑或不是这份脚本起的)"
+    fi
+    echo "日志: $(baota_log_file "$baota_script")"
 elif [[ -d "$(baota_scripts_dir)" ]]; then
     ls -1 "$(baota_scripts_dir)" || true
 else

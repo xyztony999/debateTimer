@@ -277,8 +277,9 @@ restart_api() {
             [[ -n "$baota_script" && -f "$baota_script" ]] || \
                 die "找不到宝塔 Node 启动脚本（$(baota_scripts_dir)）。可在 deploy.env 设置 BAOTA_NODE_SCRIPT。"
             log "通过宝塔 Node 项目脚本重启: ${baota_script}"
-            log "先停止占用端口 $(health_port) 且属于 ${APP_DIR} 的进程，避免脚本重复启动导致 EADDRINUSE。"
-            stop_app_listeners
+            log "pid: $(baota_pid_file "$baota_script")  日志: $(baota_log_file "$baota_script")"
+            log "先停掉该项目的 npm/node（pid 文件 + 端口 $(health_port)），再执行启动脚本，避免 EADDRINUSE。"
+            stop_baota_project "$baota_script"
             run bash "$baota_script"
             ;;
         systemd)
@@ -306,7 +307,7 @@ wait_health() {
         fi
         sleep 1
     done
-    die "API 启动后未能响应 ${HEALTH_URL}。看宝塔 Node 项目日志或 ${APP_DIR}/server 控制台输出。"
+    die "API 启动后未能响应 ${HEALTH_URL}。看 ${APP_DIR}/server 控制台或 $(baota_log_file "$(find_baota_node_script || true)")。"
 }
 
 main() {

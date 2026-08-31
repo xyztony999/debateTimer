@@ -44,7 +44,11 @@ stop_api_if_running() {
         log "暂停 PM2 应用 ${MATCH_PM2_NAME}（${MATCH_PM2_BIN}），避免挪目录时文件被占用"
         "$MATCH_PM2_BIN" stop "$MATCH_PM2_NAME" || true
     fi
-    stop_app_listeners
+    if baota_script="$(find_baota_node_script)"; then
+        stop_baota_project "$baota_script"
+    else
+        stop_app_listeners
+    fi
 }
 
 restore_env_from() {

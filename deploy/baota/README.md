@@ -116,30 +116,24 @@ curl -sS http://127.0.0.1:3001/health
 
 ### `pm2 list` 为空
 
-这很常见。`which pm2` 若是 `/usr/bin/pm2`，那是系统自带的一份，**不管**宝塔「网站 → Node 项目」起的进程。
+生产上 **两份 pm2 都是空的**（`/usr/bin/pm2` 和 `/www/server/nodejs/v24.16.0/bin/pm2`）。宝塔「网站 → Node 项目」实际用的是：
 
-请在服务器上执行：
+| 路径 | 作用 |
+|------|------|
+| `/www/server/nodejs/vhost/scripts/debatetimer-api-server.sh` | 启动：`cd …/server && nohup npm run start` |
+| `/www/server/nodejs/vhost/pids/debatetimer-api-server.pid` | npm 的 pid（`$!`，不是 node） |
+| `/www/wwwlogs/nodejs/debatetimer-api-server.log` | 标准输出 |
+
+不要再跑一遍启动脚本而不先停进程，会 `EADDRINUSE`。`deploy.sh` 会先按 pid 文件杀掉 npm 及其子进程（node），再停掉仍占 3001 的本仓库进程，然后执行该脚本。
+
+立刻手动重启：
 
 ```bash
-ls /www/server/nodejs/*/bin/pm2
-# 对每一份：
-/www/server/nodejs/<版本>/bin/pm2 list
-
-ls /www/server/nodejs/vhost/scripts/
-ss -lntp | grep 3001
-```
-
-`deploy.sh` 会：
-
-1. 扫 PATH 和宝塔各版本目录下的 **全部** pm2，按 `APP_DIR` 匹配应用后重启；
-2. 若都没有，再找 `vhost/scripts` 里包含仓库路径的启动脚本，**先停掉占用 3001 且属于本仓库的进程**，再执行该脚本（直接再跑脚本常会 `EADDRINUSE`）。
-
-也可在 `deploy.env` 写死：
-
-```
-PM2_BIN=/www/server/nodejs/<版本>/bin/pm2
-# 或
-BAOTA_NODE_SCRIPT=/www/server/nodejs/vhost/scripts/你的项目.sh
+pidfile=/www/server/nodejs/vhost/pids/debatetimer-api-server.pid
+[[ -f $pidfile ]] && kill "$(cat $pidfile)" || true
+ss -lntp | grep 3001   # 若 node 还在，再 kill 那个 pid
+bash /www/server/nodejs/vhost/scripts/debatetimer-api-server.sh
+curl -sS http://127.0.0.1:3001/health
 ```
 
 ## 注意

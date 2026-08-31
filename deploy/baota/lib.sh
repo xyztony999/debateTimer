@@ -9,6 +9,23 @@ baota_scripts_dir() {
     echo "${BAOTA_NODE_SCRIPTS_DIR:-/www/server/nodejs/vhost/scripts}"
 }
 
+baota_pids_dir() {
+    echo "${BAOTA_NODE_PIDS_DIR:-/www/server/nodejs/vhost/pids}"
+}
+
+baota_logs_dir() {
+    echo "${BAOTA_NODE_LOGS_DIR:-/www/wwwlogs/nodejs}"
+}
+
+# 宝塔 Node 项目名（启动脚本 / pid 文件 stem）。生产是 debatetimer-api-server。
+baota_project_names() {
+    printf '%s\n' \
+        debatetimer-api-server \
+        debatetimer-api \
+        "$(basename "${APP_DIR:-debatetimer-api}")" \
+        "$(basename "${APP_DIR:-debatetimer-api}")-server"
+}
+
 health_port() {
     local url="${HEALTH_URL:-http://127.0.0.1:3001/health}"
     if [[ "$url" =~ :([0-9]+)(/|$) ]]; then
@@ -113,7 +130,7 @@ find_baota_node_script() {
         echo "$BAOTA_NODE_SCRIPT"
         return 0
     fi
-    local dir want f name
+    local dir want f
     dir="$(baota_scripts_dir)"
     [[ -d "$dir" ]] || return 1
     want="$(readlink -f "${APP_DIR}" 2>/dev/null || echo "${APP_DIR}")"
@@ -124,14 +141,42 @@ find_baota_node_script() {
             return 0
         fi
     done
-    for name in debatetimer-api "$(basename "${APP_DIR}")"; do
+    local name
+    while IFS= read -r name; do
         [[ -n "$name" ]] || continue
         if [[ -f "${dir}/${name}.sh" ]]; then
             echo "${dir}/${name}.sh"
             return 0
         fi
-    done
+    done < <(baota_project_names)
     return 1
+}
+
+baota_pid_file() {
+    local script="${1:-}"
+    local name=""
+    if [[ -n "$script" ]]; then
+        name="$(basename "$script" .sh)"
+        echo "$(baota_pids_dir)/${name}.pid"
+        return
+    fi
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        if [[ -f "$(baota_pids_dir)/${name}.pid" ]]; then
+            echo "$(baota_pids_dir)/${name}.pid"
+            return 0
+        fi
+    done < <(baota_project_names)
+    return 1
+}
+
+baota_log_file() {
+    local script="${1:-}"
+    local name="debatetimer-api-server"
+    if [[ -n "$script" ]]; then
+        name="$(basename "$script" .sh)"
+    fi
+    echo "$(baota_logs_dir)/${name}.log"
 }
 
 # 选出重启方式：command / pm2 / baota / systemd，或空字符串。
@@ -198,6 +243,64 @@ _log_restart() {
     fi
 }
 
+pid_looks_like_our_api() {
+    local pid="$1"
+    local cmd comm cwd want
+    process_belongs_to_app "$pid" && return 0
+    want="$(readlink -f "${APP_DIR}" 2>/dev/null || echo "${APP_DIR}")"
+    cmd="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+    [[ "$cmd" == *debatetimer-api* || "$cmd" == *"$want"* || "$cmd" == *"${APP_DIR}"* ]] && return 0
+    comm="$(cat "/proc/${pid}/comm" 2>/dev/null || true)"
+    cwd="$(readlink -f "/proc/${pid}/cwd" 2>/dev/null || true)"
+    if [[ "$comm" == "npm" || "$comm" == "node" || "$comm" == "nodejs" ]]; then
+        if [[ "$cwd" == "$want" || "$cwd" == "${want}/server" || "$cwd" == "${want}/"* ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# 先杀子进程（npm run start 拉起的 node），再杀父进程。
+kill_pid_tree() {
+    local pid="$1"
+    local child
+    [[ -n "$pid" && "$pid" =~ ^[0-9]+$ ]] || return 0
+    [[ "$pid" -gt 1 ]] || return 0
+    for child in $(ps -o pid= --ppid "$pid" 2>/dev/null || true); do
+        child="${child// /}"
+        [[ -n "$child" ]] || continue
+        kill_pid_tree "$child"
+    done
+    [[ "$pid" != "$$" ]] || return 0
+    if [[ "${DRY_RUN:-0}" -eq 1 ]]; then
+        _log_restart "DRY-RUN  kill ${pid}"
+        return 0
+    fi
+    kill "$pid" 2>/dev/null || true
+}
+
+# 宝塔脚本是 nohup npm run start，pid 文件记的是 npm；只杀 3001 上的 node 会留下 npm。
+stop_baota_project() {
+    local script="${1:-}"
+    local pidfile pid
+    pidfile="$(baota_pid_file "$script" || true)"
+    if [[ -n "$pidfile" && -f "$pidfile" ]]; then
+        pid="$(tr -d '[:space:]' < "$pidfile" 2>/dev/null || true)"
+        if [[ "$pid" =~ ^[0-9]+$ ]] && [[ -d "/proc/${pid}" ]]; then
+            if pid_looks_like_our_api "$pid"; then
+                _log_restart "停止宝塔 Node 项目 pidfile=${pidfile} pid=${pid}"
+                kill_pid_tree "$pid"
+                if [[ "${DRY_RUN:-0}" -eq 0 ]]; then
+                    sleep 1
+                fi
+            else
+                _log_restart "忽略过期 pid 文件 ${pidfile}（pid=${pid} 不像本仓库的 API）"
+            fi
+        fi
+    fi
+    stop_app_listeners
+}
+
 # 只停「监听 API 端口且属于本仓库」的进程，避免误杀其它站点，也避免宝塔脚本重复启动导致 EADDRINUSE。
 stop_app_listeners() {
     local port pid still i
@@ -240,8 +343,8 @@ dump_restart_hints() {
     local bin script_dir port
     script_dir="$(baota_scripts_dir)"
     port="$(health_port)"
-    _log_restart "which pm2 经常是 /usr/bin/pm2，其 list 为空并不代表 API 没在跑。"
-    _log_restart "宝塔「网站 → Node 项目」用 $(baota_nodejs_root)/<版本>/bin/pm2 或 ${script_dir} 下的启动脚本。"
+    _log_restart "系统 pm2 和宝塔自带 pm2 的 list 都可以是空的：生产是 nohup npm run start，不是 pm2。"
+    _log_restart "启动脚本 ${script_dir}，pid $(baota_pids_dir)，日志 $(baota_logs_dir)。"
     if ! list_pm2_bins | grep -q .; then
         _log_restart "未找到任何 pm2 可执行文件。"
     fi

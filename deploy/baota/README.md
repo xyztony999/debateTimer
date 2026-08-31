@@ -46,13 +46,13 @@ git checkout deploy/production
 - `/www/wwwroot/debatetimer-api/deploy/baota/deploy.env`
   - `APP_DIR=/www/wwwroot/debatetimer-api`、`GIT_BRANCH=deploy/production`、`DEPLOY_TARGET=api`
 
-登记并启动 API：
+若宝塔「网站 → Node 项目」里**已经在跑** API，不必再用下面的 `pm2 start` 登记一份，否则会和宝塔抢 3001 端口。`deploy.sh` 会自己找到宝塔那份进程并重启。
+
+若你要自己用 PM2 托管，注意：系统里的 `/usr/bin/pm2` 经常 `pm2 list` 为空，真正管宝塔 Node 项目的是 `/www/server/nodejs/<版本>/bin/pm2`：
 
 ```bash
-cd /www/wwwroot/debatetimer-api
-APP_DIR=/www/wwwroot/debatetimer-api pm2 start deploy/baota/ecosystem.config.cjs
-pm2 save
-pm2 startup
+ls /www/server/nodejs/*/bin/pm2
+/www/server/nodejs/<版本>/bin/pm2 list
 ```
 
 或用 systemd：见 `debatetimer-api.service`。
@@ -113,6 +113,34 @@ curl -sS http://127.0.0.1:3001/health
 ```
 
 日志：`/www/wwwlogs/debatetimer-deploy.log`。
+
+### `pm2 list` 为空
+
+这很常见。`which pm2` 若是 `/usr/bin/pm2`，那是系统自带的一份，**不管**宝塔「网站 → Node 项目」起的进程。
+
+请在服务器上执行：
+
+```bash
+ls /www/server/nodejs/*/bin/pm2
+# 对每一份：
+/www/server/nodejs/<版本>/bin/pm2 list
+
+ls /www/server/nodejs/vhost/scripts/
+ss -lntp | grep 3001
+```
+
+`deploy.sh` 会：
+
+1. 扫 PATH 和宝塔各版本目录下的 **全部** pm2，按 `APP_DIR` 匹配应用后重启；
+2. 若都没有，再找 `vhost/scripts` 里包含仓库路径的启动脚本，**先停掉占用 3001 且属于本仓库的进程**，再执行该脚本（直接再跑脚本常会 `EADDRINUSE`）。
+
+也可在 `deploy.env` 写死：
+
+```
+PM2_BIN=/www/server/nodejs/<版本>/bin/pm2
+# 或
+BAOTA_NODE_SCRIPT=/www/server/nodejs/vhost/scripts/你的项目.sh
+```
 
 ## 注意
 

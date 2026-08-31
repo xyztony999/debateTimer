@@ -21,8 +21,12 @@ APP_DIR="${APP_DIR:-/www/wwwroot/debatetimer-api}"
 GIT_BRANCH="${GIT_BRANCH:-deploy/production}"
 REPO_URL="${REPO_URL:-https://github.com/xyztony999/debateTimer.git}"
 PM2_APP="${PM2_APP:-debatetimer-api}"
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3001/health}"
 
 log() { echo "[$(date '+%F %T')] $*"; }
+
+# shellcheck source=lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 
 die() {
     echo "错误: $*" >&2
@@ -36,22 +40,11 @@ dir_is_empty() {
 }
 
 stop_api_if_running() {
-    local pm2_bin=""
-    if command -v pm2 >/dev/null 2>&1; then
-        pm2_bin="$(command -v pm2)"
-    else
-        local dir
-        for dir in /www/server/nodejs/v*/bin; do
-            if [[ -x "${dir}/pm2" ]]; then
-                pm2_bin="${dir}/pm2"
-                break
-            fi
-        done
+    if discover_pm2_match; then
+        log "暂停 PM2 应用 ${MATCH_PM2_NAME}（${MATCH_PM2_BIN}），避免挪目录时文件被占用"
+        "$MATCH_PM2_BIN" stop "$MATCH_PM2_NAME" || true
     fi
-    if [[ -n "$pm2_bin" ]] && "$pm2_bin" describe "$PM2_APP" >/dev/null 2>&1; then
-        log "暂停 PM2 应用 ${PM2_APP}，避免挪目录时文件被占用"
-        "$pm2_bin" stop "$PM2_APP" || true
-    fi
+    stop_app_listeners
 }
 
 restore_env_from() {
@@ -141,10 +134,12 @@ else
     log "保留已有 server/.env"
 fi
 
-if command -v pm2 >/dev/null 2>&1 || ls /www/server/nodejs/v*/bin/pm2 >/dev/null 2>&1; then
-    log "检测到 PM2。可以用下面命令登记 API（只需一次）："
-    echo "  APP_DIR=${APP_DIR} pm2 start ${APP_DIR}/deploy/baota/ecosystem.config.cjs"
-    echo "  pm2 save && pm2 startup"
+if list_pm2_bins | grep -q .; then
+    log "检测到 PM2。若宝塔「网站 → Node 项目」里已经在跑 API，不必再登记；deploy.sh 会按目录匹配重启。"
+    log "若要用本仓库的 ecosystem 自行托管，注意用有进程的那份 pm2（系统 /usr/bin/pm2 的 list 经常是空的）："
+    list_pm2_bins | while IFS= read -r bin; do
+        echo "  APP_DIR=${APP_DIR} ${bin} start ${APP_DIR}/deploy/baota/ecosystem.config.cjs"
+    done
 fi
 
 log "下一步："

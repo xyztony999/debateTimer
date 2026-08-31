@@ -20,19 +20,21 @@
 2. **数据库 → MongoDB**：库名 `debatetimer`，给该库建用户，密码记下来。
 3. **网站** `api.debatetimer.tonyxyz.com` 根目录为 `/www/wwwroot/api.debatetimer.tonyxyz.com`，开 SSL，反向代理到 `http://127.0.0.1:3001`（Node 在 `/www/wwwroot/debatetimer-api/server`）。把 [`nginx/api.snippet.conf`](nginx/api.snippet.conf) 贴进配置（登录 cookie 和 SSE 需要）。
 
-若仓库已经按 `master` 克隆过，先改跟发版分支：
+当前 `/www/wwwroot/debatetimer-api` **只有 `server/`、不是 git 仓库**。第一次把完整仓库放进去（会备份旧目录和 `.env`）：
+
+```bash
+git clone -b deploy/production https://github.com/xyztony999/debateTimer.git /tmp/debatetimer-setup
+bash /tmp/debatetimer-setup/deploy/baota/setup.sh
+```
+
+`setup.sh` 会：暂停 PM2（若有）→ 备份 `server/.env` → 把旧目录改名为 `debatetimer-api.bak-时间戳` → clone 整个仓库到 `/www/wwwroot/debatetimer-api` → 写回 `.env`。Node 路径仍是 `/www/wwwroot/debatetimer-api/server`，反代目录不用动。
+
+若该路径已经是 git 仓库，改跟发版分支即可：
 
 ```bash
 cd /www/wwwroot/debatetimer-api
 git fetch origin
 git checkout deploy/production
-```
-
-SSH 登录服务器（root）做全新安装：
-
-```bash
-git clone -b deploy/production https://github.com/xyztony999/debateTimer.git /www/wwwroot/debatetimer-api
-bash /www/wwwroot/debatetimer-api/deploy/baota/setup.sh
 ```
 
 编辑：

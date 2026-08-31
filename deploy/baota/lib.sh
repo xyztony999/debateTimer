@@ -124,14 +124,22 @@ discover_pm2_match() {
     return 1
 }
 
-# 宝塔「网站 → Node 项目」生成的启动脚本，里面通常写了项目绝对路径。
+# 宝塔「网站 → Node 项目」生成的启动脚本。生产固定为 debatetimer-api-server.sh。
 find_baota_node_script() {
     if [[ -n "${BAOTA_NODE_SCRIPT:-}" && -f "${BAOTA_NODE_SCRIPT}" ]]; then
         echo "$BAOTA_NODE_SCRIPT"
         return 0
     fi
-    local dir want f
+    local dir want f name known
     dir="$(baota_scripts_dir)"
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        known="${dir}/${name}.sh"
+        if [[ -f "$known" ]]; then
+            echo "$known"
+            return 0
+        fi
+    done < <(baota_project_names)
     [[ -d "$dir" ]] || return 1
     want="$(readlink -f "${APP_DIR}" 2>/dev/null || echo "${APP_DIR}")"
     for f in "$dir"/*.sh; do
@@ -141,14 +149,6 @@ find_baota_node_script() {
             return 0
         fi
     done
-    local name
-    while IFS= read -r name; do
-        [[ -n "$name" ]] || continue
-        if [[ -f "${dir}/${name}.sh" ]]; then
-            echo "${dir}/${name}.sh"
-            return 0
-        fi
-    done < <(baota_project_names)
     return 1
 }
 
@@ -189,12 +189,13 @@ choose_restart_method() {
         return
     fi
     if [[ -z "$CHOSEN_RESTART_METHOD" ]]; then
-        if discover_pm2_match; then
-            CHOSEN_RESTART_METHOD="pm2"
-            return
-        fi
+        # 生产是 nohup npm，不是 pm2：先认宝塔启动脚本。
         if CHOSEN_BAOTA_SCRIPT="$(find_baota_node_script)"; then
             CHOSEN_RESTART_METHOD="baota"
+            return
+        fi
+        if discover_pm2_match; then
+            CHOSEN_RESTART_METHOD="pm2"
             return
         fi
         if command -v systemctl >/dev/null 2>&1 && \

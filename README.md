@@ -56,8 +56,19 @@
 - 在倒计时还有30秒时，时间会闪烁3秒，并会播放提示音
 - 在倒计时结束时，时间会持续红色闪烁提示，并会播放提示音
 
+## 生产部署
+
+推送 `deploy/production`：
+
+- **前端**：GitHub Pages（`.github/workflows/deploy.yml`）
+- **API / MongoDB**：宝塔，`deploy.sh --api-only`（[说明](deploy/baota/README.md)）
+
+```bash
+bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
+```
+
 ## 技术栈
 
 - 前端：React + Vite + Bun；设置页使用 Material UI
 - 后端：Express + MongoDB（配置模板 API）
-- 部署：`deploy/production` 经 GitHub Actions 构建并发布静态站点
+- 部署：前端 GitHub Pages（`deploy/production`）；API 宝塔脚本见 [`deploy/baota/README.md`](deploy/baota/README.md)

@@ -17,11 +17,17 @@ function resolveUiLanguage(i18n) {
     return 'en';
 }
 
-export default function LanguageSwitcher({ className = '', variant = 'default', size = 'small' }) {
+export default function LanguageSwitcher({
+    className = '',
+    variant = 'default',
+    size = 'small',
+    tone = 'onDark',
+}) {
     const { i18n, t } = useTranslation();
     const value = resolveUiLanguage(i18n);
 
     if (variant === 'mui') {
+        const onPaper = tone === 'onPaper';
         return (
             <Select
                 className={className}
@@ -31,21 +37,35 @@ export default function LanguageSwitcher({ className = '', variant = 'default', 
                 aria-label={t('timer.language')}
                 sx={{
                     minWidth: 110,
-                    color: 'inherit',
+                    color: onPaper ? 'text.primary' : 'inherit',
                     '.MuiOutlinedInput-notchedOutline': {
-                        borderColor: (theme) => theme.palette.mode === 'dark'
-                            ? 'rgba(255,255,255,0.28)'
-                            : 'rgba(255,255,255,0.4)',
+                        borderColor: (theme) => {
+                            if (onPaper) {
+                                return theme.palette.mode === 'dark'
+                                    ? 'rgba(255,255,255,0.22)'
+                                    : 'rgba(30, 58, 95, 0.22)';
+                            }
+                            return theme.palette.mode === 'dark'
+                                ? 'rgba(255,255,255,0.28)'
+                                : 'rgba(255,255,255,0.4)';
+                        },
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: (theme) => theme.palette.mode === 'dark'
-                            ? 'rgba(255,255,255,0.55)'
-                            : 'rgba(255,255,255,0.7)',
+                        borderColor: (theme) => {
+                            if (onPaper) {
+                                return theme.palette.mode === 'dark'
+                                    ? 'rgba(255,255,255,0.45)'
+                                    : 'rgba(30, 58, 95, 0.4)';
+                            }
+                            return theme.palette.mode === 'dark'
+                                ? 'rgba(255,255,255,0.55)'
+                                : 'rgba(255,255,255,0.7)';
+                        },
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'inherit',
+                        borderColor: onPaper ? 'primary.main' : 'inherit',
                     },
-                    '.MuiSvgIcon-root': { color: 'inherit' },
+                    '.MuiSvgIcon-root': { color: onPaper ? 'text.secondary' : 'inherit' },
                     '.MuiSelect-select': { py: 1 },
                 }}
             >

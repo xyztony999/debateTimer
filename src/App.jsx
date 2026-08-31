@@ -1,22 +1,55 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import './styles/App.css';
 
 const DebateTimer = lazy(() => import('./DebateTimer'));
 const SettingsPage = lazy(() => import('./DebateSetting'));
+const LoginPage = lazy(() => import('./LoginPage'));
+const AdminPage = lazy(() => import('./AdminPage'));
+const DisplayTimer = lazy(() => import('./DisplayTimer'));
+const StatusPage = lazy(() => import('./components/StatusPage'));
 
 function App() {
     return (
-        <Router>
-            <div className="App">
-                <Suspense fallback={null}>
-                    <Routes>
-                        <Route path="/" element={<DebateTimer />} />
-                        <Route path="/settings" element={<SettingsPage />} />
-                    </Routes>
-                </Suspense>
-            </div>
-        </Router>
+        <AuthProvider>
+            <Router>
+                <div className="App">
+                    <Suspense fallback={null}>
+                        <Routes>
+                            <Route path="/login" element={<LoginPage />} />
+                            <Route path="/display/:token" element={<DisplayTimer />} />
+                            <Route
+                                path="/"
+                                element={(
+                                    <ProtectedRoute>
+                                        <DebateTimer />
+                                    </ProtectedRoute>
+                                )}
+                            />
+                            <Route
+                                path="/settings"
+                                element={(
+                                    <ProtectedRoute>
+                                        <SettingsPage />
+                                    </ProtectedRoute>
+                                )}
+                            />
+                            <Route
+                                path="/admin"
+                                element={(
+                                    <ProtectedRoute adminOnly>
+                                        <AdminPage />
+                                    </ProtectedRoute>
+                                )}
+                            />
+                            <Route path="*" element={<StatusPage variant="notFound" />} />
+                        </Routes>
+                    </Suspense>
+                </div>
+            </Router>
+        </AuthProvider>
     );
 }
 

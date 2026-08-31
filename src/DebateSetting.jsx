@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -42,6 +42,10 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ReorderIcon from '@mui/icons-material/Reorder';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import ConfigurationService from './services/ConfigurationService';
@@ -53,6 +57,7 @@ import {
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
 import { useColorMode } from './context/ColorModeContext';
+import { useAuth } from './context/AuthContext';
 import { useFeedback } from './context/FeedbackContext';
 
 /** Generate a short unique ID for custom stages. */
@@ -74,9 +79,14 @@ function formatStageTime(seconds) {
 
 const DebateSetting = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { t, i18n } = useTranslation();
     const { darkMode, toggleDarkMode } = useColorMode();
+    const { user, logout } = useAuth();
     const { notify, confirm, alert: showAlert } = useFeedback();
+    const ownerId = user?.role === 'admin'
+        ? (searchParams.get('ownerId') || undefined)
+        : undefined;
 
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
@@ -94,6 +104,9 @@ const DebateSetting = () => {
 
     const [draggedItem, setDraggedItem] = useState(null);
     const [dragOverItem, setDragOverItem] = useState(null);
+    const [shareEnabled, setShareEnabled] = useState(false);
+    const [shareToken, setShareToken] = useState(null);
+    const [shareBusy, setShareBusy] = useState(false);
 
     const markClean = useCallback((stages, settings, labels, order) => {
         savedSnapshotRef.current = buildConfigSnapshot(stages, settings, labels, order);
@@ -144,25 +157,29 @@ const DebateSetting = () => {
     }, [markClean]);
 
     const refreshConfigurationList = useCallback(async () => {
-        const listResult = await ConfigurationService.getConfigurations();
+        const listResult = await ConfigurationService.getConfigurations(ownerId);
         if (listResult.success) {
             const names = (listResult.data || []).map((item) => item.name);
             setConfigurationNames(names);
             return names;
         }
         return null;
-    }, []);
+    }, [ownerId]);
 
     const loadConfigByName = useCallback(async (name) => {
-        const result = await ConfigurationService.loadConfiguration(name);
+        const result = await ConfigurationService.loadConfiguration(name, ownerId);
         if (result.success) {
             applyConfigData(result.data);
             setSelectedConfigName(name);
-            setStoredConfigurationName(name);
+            if (!ownerId) {
+                setStoredConfigurationName(name);
+            }
+            setShareEnabled(Boolean(result.data.shareEnabled));
+            setShareToken(result.data.shareToken || null);
             return true;
         }
         return false;
-    }, [applyConfigData]);
+    }, [applyConfigData, ownerId]);
 
     useEffect(() => {
         document.body.classList.add('settings-body');
@@ -174,7 +191,7 @@ const DebateSetting = () => {
     useEffect(() => {
         const initializeSettings = async () => {
             try {
-                await ConfigurationService.initializeDefaultConfigurations();
+                await ConfigurationService.initializeDefaultConfigurations(ownerId);
                 const names = await refreshConfigurationList() || [DEFAULT_CONFIGURATION_NAME];
                 const preferred = getStoredConfigurationName();
                 const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
@@ -190,7 +207,7 @@ const DebateSetting = () => {
             }
         };
         initializeSettings();
-    }, [refreshConfigurationList, loadConfigByName, applyLocalFallback]);
+    }, [refreshConfigurationList, loadConfigByName, applyLocalFallback, ownerId]);
 
     const handleTemplateSelect = async (event) => {
         const name = event.target.value;
@@ -227,6 +244,7 @@ const DebateSetting = () => {
                 timerSettings,
                 stageOrder,
                 stageLabels,
+                ownerId,
             );
             if (!result.success) {
                 notify(t('settings.templateCreateFailed', { message: result.message }), {
@@ -236,9 +254,16 @@ const DebateSetting = () => {
             }
             setNewTemplateName('');
             await refreshConfigurationList();
-            setSelectedConfigName(name);
-            setStoredConfigurationName(name);
-            markClean(debateStages, timerSettings, stageLabels, stageOrder);
+            const loaded = await loadConfigByName(name);
+            if (!loaded) {
+                setSelectedConfigName(name);
+                if (!ownerId) {
+                    setStoredConfigurationName(name);
+                }
+                markClean(debateStages, timerSettings, stageLabels, stageOrder);
+                setShareEnabled(false);
+                setShareToken(null);
+            }
             notify(t('settings.templateCreated', { name }), { severity: 'success' });
         } catch (error) {
             console.error('Error creating template:', error);
@@ -261,7 +286,7 @@ const DebateSetting = () => {
 
         const deletedName = selectedConfigName;
         try {
-            const result = await ConfigurationService.deleteConfiguration(selectedConfigName);
+            const result = await ConfigurationService.deleteConfiguration(selectedConfigName, ownerId);
             if (!result.success) {
                 notify(t('settings.templateDeleteFailed', { message: result.message }), {
                     severity: 'error',
@@ -276,7 +301,9 @@ const DebateSetting = () => {
             if (!loaded) {
                 applyLocalFallback();
                 setSelectedConfigName(next);
-                setStoredConfigurationName(next);
+                if (!ownerId) {
+                    setStoredConfigurationName(next);
+                }
             }
             notify(t('settings.templateDeleted', { name: deletedName, next }), {
                 severity: 'success',
@@ -284,6 +311,55 @@ const DebateSetting = () => {
         } catch (error) {
             console.error('Error deleting template:', error);
             notify(t('settings.templateDeleteRetry'), { severity: 'error' });
+        }
+    };
+
+    const displayShareUrl = shareEnabled && shareToken
+        ? `${window.location.origin}/display/${encodeURIComponent(shareToken)}`
+        : '';
+
+    const handleShareToggle = async (enabled) => {
+        setShareBusy(true);
+        const result = await ConfigurationService.updateShare(
+            selectedConfigName,
+            { enabled },
+            ownerId,
+        );
+        setShareBusy(false);
+        if (!result.success) {
+            notify(result.message, { severity: 'error' });
+            return;
+        }
+        setShareEnabled(Boolean(result.data?.shareEnabled));
+        setShareToken(result.data?.shareToken || null);
+    };
+
+    const handleShareRotate = async () => {
+        setShareBusy(true);
+        const result = await ConfigurationService.updateShare(
+            selectedConfigName,
+            { enabled: true, rotate: true },
+            ownerId,
+        );
+        setShareBusy(false);
+        if (!result.success) {
+            notify(result.message, { severity: 'error' });
+            return;
+        }
+        setShareEnabled(Boolean(result.data?.shareEnabled));
+        setShareToken(result.data?.shareToken || null);
+    };
+
+    const copyShareLink = async () => {
+        if (!displayShareUrl) return;
+        try {
+            await navigator.clipboard.writeText(displayShareUrl);
+            notify(t('share.copied'), { severity: 'success' });
+        } catch {
+            await showAlert({
+                title: t('share.copy'),
+                message: displayShareUrl,
+            });
         }
     };
 
@@ -303,6 +379,7 @@ const DebateSetting = () => {
                 timerSettings,
                 stageOrder,
                 stageLabels,
+                ownerId,
             );
             if (result.success) {
                 markClean(debateStages, timerSettings, stageLabels, stageOrder);
@@ -482,6 +559,11 @@ const DebateSetting = () => {
                         sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
                     >
                         <LanguageSwitcher variant="mui" size="small" />
+                        {user?.role === 'admin' ? (
+                            <Button color="inherit" onClick={() => navigate('/admin')}>
+                                {t('admin.short')}
+                            </Button>
+                        ) : null}
                         <Tooltip title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}>
                             <IconButton
                                 color="inherit"
@@ -503,11 +585,25 @@ const DebateSetting = () => {
                                 <HelpOutlinedIcon />
                             </IconButton>
                         </Tooltip>
+                        <Button
+                            color="inherit"
+                            onClick={async () => {
+                                await logout();
+                                navigate('/login');
+                            }}
+                        >
+                            {t('auth.logout')}
+                        </Button>
                     </Box>
                 </Toolbar>
             </AppBar>
 
             <Container maxWidth="lg" sx={{ pt: 3 }}>
+                {ownerId ? (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        {t('admin.editingOtherUser')}
+                    </Alert>
+                ) : null}
                 <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                     {t('settings.pageSubtitle')}
                 </Typography>
@@ -578,6 +674,57 @@ const DebateSetting = () => {
                                 <Alert severity="info" variant="outlined">
                                     {t('settings.templateHint')}
                                 </Alert>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader
+                            avatar={<LinkOutlinedIcon color="primary" />}
+                            title={t('share.title')}
+                            subheader={t('share.desc')}
+                        />
+                        <CardContent>
+                            <Stack spacing={2}>
+                                <FormControlLabel
+                                    control={(
+                                        <Switch
+                                            checked={shareEnabled}
+                                            disabled={shareBusy || !selectedConfigName}
+                                            onChange={(e) => handleShareToggle(e.target.checked)}
+                                        />
+                                    )}
+                                    label={shareEnabled ? t('share.enabled') : t('share.disabled')}
+                                />
+                                {shareEnabled && displayShareUrl ? (
+                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label={t('share.url')}
+                                            value={displayShareUrl}
+                                            slotProps={{ htmlInput: { readOnly: true } }}
+                                        />
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<ContentCopyIcon />}
+                                            onClick={copyShareLink}
+                                            sx={{ flexShrink: 0 }}
+                                        >
+                                            {t('share.copy')}
+                                        </Button>
+                                        <Button
+                                            variant="outlined"
+                                            disabled={shareBusy}
+                                            onClick={handleShareRotate}
+                                            sx={{ flexShrink: 0 }}
+                                        >
+                                            {t('share.rotate')}
+                                        </Button>
+                                    </Stack>
+                                ) : (
+                                    <Alert severity="info" variant="outlined">{t('share.hint')}</Alert>
+                                )}
                             </Stack>
                         </CardContent>
                     </Card>

@@ -46,6 +46,20 @@ app.use(cors({
     credentials: true,
 }));
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+app.use((req, res, next) => {
+    if (SAFE_METHODS.has(req.method)) {
+        next();
+        return;
+    }
+    const origin = req.get('Origin');
+    if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
+        res.status(403).json({ success: false, message: 'Forbidden origin' });
+        return;
+    }
+    next();
+});
+
 app.get('/health', (_req, res) => {
     res.json({ ok: true });
 });

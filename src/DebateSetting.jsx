@@ -80,11 +80,13 @@ function formatStageTime(seconds) {
 const DebateSetting = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const ownerId = searchParams.get('ownerId') || undefined;
     const { t, i18n } = useTranslation();
     const { darkMode, toggleDarkMode } = useColorMode();
     const { user, logout } = useAuth();
     const { notify, confirm, alert: showAlert } = useFeedback();
+    const ownerId = user?.role === 'admin'
+        ? (searchParams.get('ownerId') || undefined)
+        : undefined;
 
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
@@ -252,11 +254,16 @@ const DebateSetting = () => {
             }
             setNewTemplateName('');
             await refreshConfigurationList();
-            setSelectedConfigName(name);
-            if (!ownerId) {
-                setStoredConfigurationName(name);
+            const loaded = await loadConfigByName(name);
+            if (!loaded) {
+                setSelectedConfigName(name);
+                if (!ownerId) {
+                    setStoredConfigurationName(name);
+                }
+                markClean(debateStages, timerSettings, stageLabels, stageOrder);
+                setShareEnabled(false);
+                setShareToken(null);
             }
-            markClean(debateStages, timerSettings, stageLabels, stageOrder);
             notify(t('settings.templateCreated', { name }), { severity: 'success' });
         } catch (error) {
             console.error('Error creating template:', error);

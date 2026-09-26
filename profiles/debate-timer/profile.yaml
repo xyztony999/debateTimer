@@ -1,0 +1,31 @@
+apiVersion: 1
+profile:
+  name: debate-timer
+  type: business
+  title: 辩论赛计时器 Debate Match Timer（UOMDC 规则）
+  depends: ["react-vite-web"]
+knowledge:
+  inject: CLAUDE.md
+  sections:
+    business-concepts: knowledge/business-concepts/index.md
+    design-decisions: knowledge/design-decisions/index.md
+    service-pool: knowledge/service-pool/index.md
+    architecture-choices: knowledge/architecture-choices/index.md
+workspace:
+  root: workspace
+  index: workspace/INDEX.md
+  stages:
+    architecture: workspace/00-architecture
+    prd: workspace/02-detailed/prd
+    api: workspace/02-detailed/api
+    interaction: workspace/02-detailed/interaction
+    reports: workspace/05-reports
+  conventions:
+    enum_pool: workspace/01-solution/common-spec/enum-pool.md
+    common_enums: workspace/01-solution/common-spec/common-enums.md
+    select_pool: workspace/01-solution/common-spec/select-pool.md
+
+slots:
+  site: "https://debatetimer.tonyxyz.com"
+  package_manager: "bun"
+  deploy: "GitHub Actions → Pages（master 主程序 / deploy 分支静态版）"

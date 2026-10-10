@@ -1,6 +1,6 @@
 {
   "env": {
-    "ACTIVE_PROFILE": "",
-    "ACTIVE_STACKS": ""
+    "ACTIVE_PROFILE": "debate-timer",
+    "ACTIVE_STACKS": "react-vite-web"
   }
 }

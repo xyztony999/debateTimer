@@ -24,7 +24,7 @@ function sendError(res, error, fallback) {
     res.status(status).json({ success: false, message: error.message || fallback });
 }
 
-export function createConfigurationsRouter({ configurations, sse, requireAuth }) {
+export function createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }) {
     const router = Router();
     router.use(requireAuth);
 
@@ -208,6 +208,12 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth })
                 });
             }
 
+            // Disabling sharing or rotating the token kills the live session
+            // keyed by the old token (displays fall back to standalone mode).
+            if (existing.shareToken && existing.shareToken !== shareToken) {
+                timerSessions.end(existing.shareToken, 'share_disabled');
+            }
+
             res.json({
                 success: true,
                 data: {
@@ -217,6 +223,82 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth })
             });
         } catch (error) {
             sendError(res, error, 'POST /api/configurations/:name/share');
+        }
+    });
+
+    // --- Control session (timer state sync) -------------------------------
+    // Strictly the configuration owner may drive a session; admins do not
+    // control on behalf of others.
+
+    async function findOwnConfig(req, res) {
+        const ownerId = ownerObjectId(req.user, req.query.ownerId);
+        const existing = await configurations.findOne({ ownerId, name: req.params.name });
+        if (!existing) {
+            res.status(404).json({
+                success: false,
+                message: `Configuration "${req.params.name}" not found`,
+            });
+            return null;
+        }
+        if (String(existing.ownerId) !== String(req.user.id)) {
+            res.status(403).json({
+                success: false,
+                message: 'Cannot control another user\'s configuration',
+            });
+            return null;
+        }
+        return existing;
+    }
+
+    router.post('/:name/session', async (req, res) => {
+        try {
+            const existing = await findOwnConfig(req, res);
+            if (!existing) {
+                return;
+            }
+            const session = timerSessions.create({ doc: existing });
+            res.json({
+                success: true,
+                data: {
+                    sessionId: session.sessionId,
+                    shareToken: session.shareToken,
+                    displayUrl: `/display/${session.shareToken}`,
+                    status: 'active',
+                    startedAt: session.startedAt,
+                    snapshot: session.lastSnapshot,
+                },
+            });
+        } catch (error) {
+            sendError(res, error, 'POST /api/configurations/:name/session');
+        }
+    });
+
+    router.put('/:name/session/state', async (req, res) => {
+        try {
+            const existing = await findOwnConfig(req, res);
+            if (!existing) {
+                return;
+            }
+            const session = timerSessions.report(existing.shareToken, req.body);
+            res.json({
+                success: true,
+                data: { accepted: true, seq: session.lastSeq },
+            });
+        } catch (error) {
+            sendError(res, error, 'PUT /api/configurations/:name/session/state');
+        }
+    });
+
+    router.delete('/:name/session', async (req, res) => {
+        try {
+            const existing = await findOwnConfig(req, res);
+            if (!existing) {
+                return;
+            }
+            timerSessions.end(existing.shareToken, 'closed_by_operator');
+            res.json({ success: true, data: { ended: true } });
+        } catch (error) {
+            sendError(res, error, 'DELETE /api/configurations/:name/session');
         }
     });
 

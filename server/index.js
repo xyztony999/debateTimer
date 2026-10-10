@@ -7,6 +7,7 @@ import { createAuthMiddleware } from './lib/authMiddleware.js';
 import { migrateLegacyConfigurations } from './lib/migrateConfigurations.js';
 import { buildMongoUri } from './lib/mongoUri.js';
 import { createSseHub } from './lib/sseHub.js';
+import { createTimerSessionRegistry } from './lib/timerSessions.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createConfigurationsRouter } from './routes/configurations.js';
@@ -32,6 +33,7 @@ function logMongoAuthHelp() {
 
 const app = express();
 const sse = createSseHub();
+const timerSessions = createTimerSessionRegistry({ sse });
 
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
@@ -101,8 +103,8 @@ async function start() {
     app.use(attachUser);
 
     app.use('/api/auth', createAuthRouter({ users, sessions, configurations }));
-    app.use('/api/display', createDisplayRouter({ configurations, sse }));
-    app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth }));
+    app.use('/api/display', createDisplayRouter({ configurations, sse, timerSessions }));
+    app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }));
     app.use('/api/admin', createAdminRouter({
         users,
         sessions,

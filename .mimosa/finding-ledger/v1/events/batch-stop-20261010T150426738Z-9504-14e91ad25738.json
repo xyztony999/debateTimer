@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "stop-20261010T150426738Z-9504-14e91ad25738",
+  "runId": "20261010T150426738Z-9504-14e91ad25738",
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "Stop"
+  },
+  "revision": "4947aed8ad2a8d7a01742d5860f22b1e50f5fa14",
+  "diffHash": "c0555b6aa2084317dc4a3e6a78e7d4e8ef09274c44682cfa2480a81c4e6245d9",
+  "rulesVersion": "unavailable",
+  "sessionHash": "e16b58c21b878ac619d7daf5b0e267b4b186ba35d4f37556cc80d84743c4ab60",
+  "reportRef": ".mimosa/reports/task-review-sess_1767763f-284f-4e7e-9b6a-ff6a24ec8192-20261010T150426738Z-9504-14e91ad25738.json",
+  "events": [],
+  "observedFindingIds": [],
+  "verifiedFiles": [
+    {
+      "file": "server/lib/sseHub.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "server/lib/timerSessions.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "server/lib/timerSessions.test.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "server/lib/configDocs.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "server/routes/configurations.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "server/routes/display.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "server/index.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "src/DebateTimer.jsx",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "server/routes/sessionRoutes.test.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "src/App.test.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    }
+  ],
+  "recordedAt": "2026-10-10T15:04:27.140Z"
+}

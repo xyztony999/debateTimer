@@ -6,6 +6,9 @@
 
 ## Profile 绑定
 
-当前激活：无（纯引擎态）
+当前激活：**debate-timer**（business，depends: react-vite-web）
 
-> 激活：/profile use debate-timer
+@profiles/debate-timer/CLAUDE.md
+
+> 引擎各阶段执行前，按 skills 内「Profile 绑定」节完成槽位替换（manifest：profiles/debate-timer/profile.yaml）。
+> 切换/摘除：/profile use <name> / /profile off

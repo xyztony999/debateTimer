@@ -28,7 +28,27 @@
         "hintSingle": "Space toggle · Shift+R reset",
         "hintAff": "A toggle · Shift+Q reset",
         "hintNeg": "L toggle · Shift+O reset",
-        "hintStage": "← → switch stage"
+        "hintStage": "← → switch stage",
+        "hintFree": "A/L start-stop · stopping one side starts the other",
+        "session": {
+            "title": "Display sync",
+            "start": "Start display sync",
+            "stop": "Stop sync",
+            "active": "Display synced",
+            "weak": "Weak signal",
+            "ended": "Sync ended",
+            "enableShareFirst": "Enable sharing in settings first",
+            "copyUrl": "Copy display link",
+            "copied": "Link copied"
+        },
+        "display": {
+            "following": "Live from controller",
+            "weakSignal": "Weak signal",
+            "sessionEnded": "Sync ended — standalone mode"
+        },
+        "free": {
+            "locked": "Free debate concluded"
+        }
     },
     "settings": {
         "backToTimer": "Back to timer",
@@ -96,7 +116,8 @@
         "saveRetry": "Could not save settings. Please try again.",
         "enterItemName": "Enter a stage name.",
         "itemExists": "That stage already exists.",
-        "confirmDelete": "Delete stage “{{name}}”?"
+        "confirmDelete": "Delete stage “{{name}}”?",
+        "freeTimer": "Free debate (auto switch)"
     },
     "auth": {
         "loginTitle": "Sign in",

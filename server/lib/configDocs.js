@@ -6,6 +6,34 @@ const CONFIG_FIELDS = [
     'stageLabels',
 ];
 
+// Accepted timerSettings values; legacy numeric 0/1 map to single/double.
+const TIMER_SETTING_VALUES = {
+    single: 'single',
+    double: 'double',
+    free: 'free',
+    0: 'single',
+    1: 'double',
+};
+
+export function normalizeTimerSettings(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        const error = new Error('timerSettings must be an object of stage modes');
+        error.status = 400;
+        throw error;
+    }
+    const normalized = {};
+    for (const [stage, mode] of Object.entries(value)) {
+        const mapped = TIMER_SETTING_VALUES[mode];
+        if (!mapped) {
+            const error = new Error(`Invalid timer mode "${mode}" for stage "${stage}" (expected single/double/free)`);
+            error.status = 400;
+            throw error;
+        }
+        normalized[stage] = mapped;
+    }
+    return normalized;
+}
+
 export function pickConfigFields(body = {}) {
     const payload = {};
     for (const field of CONFIG_FIELDS) {
@@ -13,6 +41,7 @@ export function pickConfigFields(body = {}) {
             payload[field] = body[field];
         }
     }
+    payload.timerSettings = normalizeTimerSettings(payload.timerSettings);
     payload.stageLabels = payload.stageLabels || {};
     return payload;
 }

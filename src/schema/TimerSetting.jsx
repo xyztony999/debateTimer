@@ -1,4 +1,5 @@
 export const TimerSetting = {
     single: 0,
-    double: 1
+    double: 1,
+    free: 2
 }

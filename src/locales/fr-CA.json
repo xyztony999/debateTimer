@@ -28,7 +28,27 @@
         "hintSingle": "Espace marche/arrêt · Maj+R réinit.",
         "hintAff": "A marche/arrêt · Maj+Q réinit.",
         "hintNeg": "L marche/arrêt · Maj+O réinit.",
-        "hintStage": "← → changer de phase"
+        "hintStage": "← → changer de phase",
+        "hintFree": "A/L marche-arrêt · arrêter un côté lance l’autre",
+        "session": {
+            "title": "Synchro écran",
+            "start": "Démarrer la synchro écran",
+            "stop": "Arrêter la synchro",
+            "active": "Écran synchronisé",
+            "weak": "Signal faible",
+            "ended": "Synchro terminée",
+            "enableShareFirst": "Activez d’abord le partage dans les paramètres",
+            "copyUrl": "Copier le lien écran",
+            "copied": "Lien copié"
+        },
+        "display": {
+            "following": "Diffusion en direct",
+            "weakSignal": "Signal faible",
+            "sessionEnded": "Synchro terminée — mode autonome"
+        },
+        "free": {
+            "locked": "Débat libre terminé"
+        }
     },
     "settings": {
         "backToTimer": "Retour au chronomètre",
@@ -96,7 +116,8 @@
         "saveRetry": "Impossible d’enregistrer les réglages. Veuillez réessayer.",
         "enterItemName": "Entrez un nom de phase.",
         "itemExists": "Cette phase existe déjà.",
-        "confirmDelete": "Supprimer la phase « {{name}} » ?"
+        "confirmDelete": "Supprimer la phase « {{name}} » ?",
+        "freeTimer": "Débat libre (auto)"
     },
     "auth": {
         "loginTitle": "Connexion",

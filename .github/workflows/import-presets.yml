@@ -1,0 +1,56 @@
+name: Import Preset Templates to Gallery
+
+# One-shot utility: import the bundled preset rule sets (server/scripts/presets/)
+# into the production MongoDB, owned by the first admin account and published
+# to the public gallery. Safe to re-run (--force updates in place).
+on:
+  workflow_dispatch:
+
+jobs:
+  import-presets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Import presets over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.BAOTA_SSH_HOST }}
+          username: ${{ secrets.BAOTA_SSH_USER }}
+          key: ${{ secrets.BAOTA_SSH_KEY }}
+          port: ${{ secrets.BAOTA_SSH_PORT || '22' }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            APP_DIR=/www/wwwroot/debatetimer-api
+            cd "$APP_DIR"
+            git fetch origin
+            git checkout deploy/production
+            git pull --ff-only origin deploy/production
+
+            cd "$APP_DIR/server"
+            # Resolve the owner: first admin account.
+            cat > .tmp-find-owner.mjs <<'EOF'
+            import 'dotenv/config';
+            import { MongoClient } from 'mongodb';
+            import { buildMongoUri } from './lib/mongoUri.js';
+            const client = new MongoClient(buildMongoUri());
+            await client.connect();
+            const first = await client.db().collection('users')
+              .find({ role: 'admin' }).sort({ createdAt: 1 }).limit(1).toArray();
+            console.log(first[0]?.username || '');
+            await client.close();
+            EOF
+            OWNER="$(node .tmp-find-owner.mjs)"
+            rm -f .tmp-find-owner.mjs
+            if [ -z "$OWNER" ]; then
+              echo "No admin user found — create the admin account first."
+              exit 1
+            fi
+            echo "Importing presets as owner: $OWNER"
+
+            for preset in uomdc-standard bp-sample oregon-sample; do
+              echo "--- $preset ---"
+              node scripts/import-configurations.js \
+                --file "scripts/presets/$preset.json" \
+                --owner "$OWNER" --force --public
+            done
+            echo "Presets imported."

@@ -1,9 +1,10 @@
 import React, {useState, useEffect, Fragment, useCallback, useRef} from 'react';
 import TimerSessionService from './services/TimerSessionService';
+import MatchLogService from './services/MatchLogService';
+import SoundSettingsPanel from './components/SoundSettingsPanel';
+import { playAlert, warmupSounds } from './services/soundPrefs';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import end_sound from './resources/notify.wav';
-import r30_sound from './resources/split.wav';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
 import {TimerSetting} from './schema/TimerSetting';
@@ -14,10 +15,17 @@ import {
     setStoredConfigurationName,
 } from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import { InstallButton } from './components/PwaBits';
 import { stageDisplayName } from './utils/stageDisplayName';
 import { useColorMode } from './context/ColorModeContext';
 import { useAuth } from './context/AuthContext';
 import StatusPage from './components/StatusPage';
+
+const MODE_STRING = {
+    [TimerSetting.single]: 'single',
+    [TimerSetting.double]: 'double',
+    [TimerSetting.free]: 'free',
+};
 
 const DebateTimer = ({ shareToken = null }) => {
     const navigate = useNavigate();
@@ -42,6 +50,16 @@ const DebateTimer = ({ shareToken = null }) => {
     const [isAffTimeUp, setIsAffTimeUp] = useState(false);
     const [isNegTimeUp, setIsNegTimeUp] = useState(false);
 
+    // --- Stage enhancements (bundle A): grace / auto advance / team names ---
+    const [graceLeft, setGraceLeft] = useState(null);      // single-mode grace seconds (null = not in grace)
+    const [graceLeftAff, setGraceLeftAff] = useState(null);
+    const [graceLeftNeg, setGraceLeftNeg] = useState(null);
+    const [advanceCountdown, setAdvanceCountdown] = useState(null); // auto-advance seconds left
+    const [stageGrace, setStageGrace] = useState({});
+    const [stageAutoAdvance, setStageAutoAdvance] = useState({});
+    const [teamNames, setTeamNames] = useState({});
+    const [soundPanelOpen, setSoundPanelOpen] = useState(false);
+
     // --- Control session (operator side) / follow mode (display side) ---
     const [shareInfo, setShareInfo] = useState(null);       // { shareEnabled, shareToken } of current config
     const shareInfoRef = useRef(null);
@@ -57,6 +75,11 @@ const DebateTimer = ({ shareToken = null }) => {
     const autoSwitchRef = useRef(true);                     // free-debate auto switch armed
     const latestRef = useRef({});
 
+    // --- Match record capture (S-03): buffer of stage actuals, posted once ---
+    const matchCaptureRef = useRef(null);
+    const matchAutoSavedRef = useRef(false);
+    const [captureCount, setCaptureCount] = useState(0);
+
     // Mirror the latest timer state for event handlers and intervals that
     // must not re-register on every tick. Defined before the effects below so
     // they observe fresh values in the same commit.
@@ -71,8 +94,120 @@ const DebateTimer = ({ shareToken = null }) => {
             runningAff,
             runningNeg,
             debateSingleDoubleTimerSettings,
+            advanceCountdown,
+            isTimeUp,
+            isAffTimeUp,
+            isNegTimeUp,
+            graceLeft,
+            graceLeftAff,
+            graceLeftNeg,
+            teamNames,
         };
     });
+
+    // ------------------------------------------------------------------
+    // Match record capture (S-03): stage actuals accumulate locally and are
+    // POSTed once per save (manual button or session end).
+    // ------------------------------------------------------------------
+    const computeActuals = useCallback((entry, s) => {
+        const single = entry.mode === 'single';
+        const usedFor = (remaining, graceLeftValue, locked) => {
+            const graceLeftNow = graceLeftValue != null
+                ? graceLeftValue
+                : (locked ? 0 : entry.graceSeconds);
+            return Math.max(0, entry.plannedSeconds - remaining)
+                + (entry.graceSeconds - graceLeftNow);
+        };
+        return {
+            actualAffSeconds: single
+                ? usedFor(s.timeLeft, s.graceLeft, s.isTimeUp)
+                : usedFor(s.timeLeftAff, s.graceLeftAff, s.isAffTimeUp),
+            actualNegSeconds: single
+                ? 0
+                : usedFor(s.timeLeftNeg, s.graceLeftNeg, s.isNegTimeUp),
+        };
+    }, []);
+
+    const closeCurrentEntry = useCallback((entry, closedAt) => {
+        if (!entry || entry.exitedAt != null) {
+            return entry;
+        }
+        return { ...entry, ...computeActuals(entry, latestRef.current), exitedAt: closedAt };
+    }, [computeActuals]);
+
+    const beginStageCapture = useCallback((stage, modeValue, plannedSeconds, graceSeconds, label) => {
+        const now = Date.now();
+        const previous = matchCaptureRef.current;
+        const entries = [...(previous?.entries ?? [])];
+        if (entries.length > 0) {
+            entries[entries.length - 1] = closeCurrentEntry(entries[entries.length - 1], now);
+        }
+        entries.push({
+            stageId: stage,
+            label,
+            mode: MODE_STRING[modeValue] ?? 'single',
+            plannedSeconds,
+            graceSeconds,
+            actualAffSeconds: 0,
+            actualNegSeconds: 0,
+            overrunAff: 0,
+            overrunNeg: 0,
+            enteredAt: now,
+            exitedAt: null,
+        });
+        matchCaptureRef.current = { startedAt: previous?.startedAt ?? now, entries };
+        matchAutoSavedRef.current = false;
+        setCaptureCount(entries.length);
+    }, [closeCurrentEntry]);
+
+    const bumpOverrun = useCallback((side) => {
+        const capture = matchCaptureRef.current;
+        if (!capture || capture.entries.length === 0) {
+            return;
+        }
+        const entry = capture.entries[capture.entries.length - 1];
+        if (entry.stageId !== latestRef.current.selectedStage) {
+            return;
+        }
+        entry[`overrun${side}`] = (entry[`overrun${side}`] || 0) + 1;
+    }, []);
+
+    const buildMatchPayload = useCallback(() => {
+        const capture = matchCaptureRef.current;
+        if (!capture || capture.entries.length === 0) {
+            return null;
+        }
+        const now = Date.now();
+        const stages = capture.entries.map((entry) => closeCurrentEntry(entry, now));
+        const names = latestRef.current.teamNames || {};
+        return {
+            configName: selectedConfigNameRef.current,
+            ...(names.aff || names.neg ? { teamNames: { ...names } } : {}),
+            startedAt: capture.startedAt,
+            endedAt: now,
+            stages,
+        };
+    }, [closeCurrentEntry]);
+
+    const saveMatchRecord = useCallback(async (auto = false) => {
+        if (auto && matchAutoSavedRef.current) {
+            return;
+        }
+        const payload = buildMatchPayload();
+        if (!payload) {
+            return;
+        }
+        const result = await MatchLogService.saveRecord(payload);
+        if (result.success) {
+            if (auto) {
+                matchAutoSavedRef.current = true;
+            } else {
+                setSessionNotice(t('records.saved'));
+            }
+        } else if (!auto) {
+            setSessionNotice(t('records.saveFailed'));
+        }
+    }, [buildMatchPayload, t]);
 
     // 获取按顺序排列的计时器项目
     const getOrderedStages = () => {
@@ -120,6 +255,10 @@ const DebateTimer = ({ shareToken = null }) => {
         setIsTimeUp(false);
         setIsAffTimeUp(false);
         setIsNegTimeUp(false);
+        setGraceLeft(null);
+        setGraceLeftAff(null);
+        setGraceLeftNeg(null);
+        setAdvanceCountdown(null);
     }, []);
 
     const applyLoadedData = useCallback((configName, data, persistName = true) => {
@@ -134,6 +273,9 @@ const DebateTimer = ({ shareToken = null }) => {
             shareEnabled: Boolean(data.shareEnabled),
             shareToken: data.shareToken || null,
         });
+        setStageGrace(data.stageGrace || {});
+        setStageAutoAdvance(data.stageAutoAdvance || {});
+        setTeamNames(data.teamNames || {});
         shareInfoRef.current = {
             shareEnabled: Boolean(data.shareEnabled),
             shareToken: data.shareToken || null,
@@ -152,6 +294,14 @@ const DebateTimer = ({ shareToken = null }) => {
                     setTimeLeft(newDebateStages[firstStage]);
                     setTimeLeftAff(newDebateStages[firstStage]);
                     setTimeLeftNeg(newDebateStages[firstStage]);
+                    matchCaptureRef.current = null;
+                    beginStageCapture(
+                        firstStage,
+                        newTimerSettings[firstStage],
+                        Number(newDebateStages[firstStage]),
+                        Number(data.stageGrace?.[firstStage] ?? 0),
+                        stageDisplayName(t, firstStage, data.stageLabels || {}, i18n.language),
+                    );
                 }
             }
         } else {
@@ -162,9 +312,17 @@ const DebateTimer = ({ shareToken = null }) => {
                 setTimeLeft(newDebateStages[keys[0]]);
                 setTimeLeftAff(newDebateStages[keys[0]]);
                 setTimeLeftNeg(newDebateStages[keys[0]]);
+                matchCaptureRef.current = null;
+                beginStageCapture(
+                    keys[0],
+                    newTimerSettings[keys[0]],
+                    Number(newDebateStages[keys[0]]),
+                    Number(data.stageGrace?.[keys[0]] ?? 0),
+                    stageDisplayName(t, keys[0], data.stageLabels || {}, i18n.language),
+                );
             }
         }
-    }, [formatTimerSettings, resetTimerRuntime]);
+    }, [formatTimerSettings, resetTimerRuntime, beginStageCapture, t, i18n]);
 
     const loadConfiguration = useCallback(async (configName) => {
         try {
@@ -193,6 +351,17 @@ const DebateTimer = ({ shareToken = null }) => {
             ? 'single'
             : modeValue === TimerSetting.free ? 'free' : 'double';
         const single = stageMode === 'single';
+        const phaseOf = (graceLeftValue, isTimeUpValue) => (
+            graceLeftValue != null ? 'grace' : isTimeUpValue ? 'locked' : 'running'
+        );
+        const phaseAff = single
+            ? phaseOf(s.graceLeft, s.isTimeUp)
+            : phaseOf(s.graceLeftAff, s.isAffTimeUp);
+        const phaseNeg = single
+            ? phaseAff
+            : phaseOf(s.graceLeftNeg, s.isNegTimeUp);
+        const graceAffMs = (single ? s.graceLeft : s.graceLeftAff ?? 0) * 1000 || 0;
+        const graceNegMs = (single ? graceAffMs : s.graceLeftNeg ?? 0) * 1000 || 0;
         return {
             seq: (seqRef.current += 1),
             stageId: s.selectedStage,
@@ -204,6 +373,10 @@ const DebateTimer = ({ shareToken = null }) => {
             activeSide: stageMode === 'free'
                 ? (s.runningAff ? 'aff' : s.runningNeg ? 'neg' : 'none')
                 : 'none',
+            phaseAff,
+            phaseNeg,
+            graceAffMs: phaseAff === 'grace' ? graceAffMs : 0,
+            graceNegMs: phaseNeg === 'grace' ? graceNegMs : 0,
         };
     }, []);
 
@@ -215,6 +388,11 @@ const DebateTimer = ({ shareToken = null }) => {
         const secondsAff = Math.max(0, Math.floor((snapshot.remainingAffMs || 0) / 1000));
         const secondsNeg = Math.max(0, Math.floor((snapshot.remainingNegMs || 0) / 1000));
         const single = snapshot.stageMode === 'single';
+        // Phase fallback for pre-v2 snapshots: derive locked from remaining=0.
+        const affPhase = snapshot.phaseAff || (secondsAff <= 0 ? 'locked' : 'running');
+        const negPhase = snapshot.phaseNeg || (single ? affPhase : (secondsNeg <= 0 ? 'locked' : 'running'));
+        const graceSecAff = Math.max(0, Math.floor((snapshot.graceAffMs || 0) / 1000));
+        const graceSecNeg = Math.max(0, Math.floor((snapshot.graceNegMs || 0) / 1000));
         setSelectedStage(snapshot.stageId);
         setTimeLeft(secondsAff);
         setTimeLeftAff(secondsAff);
@@ -222,9 +400,12 @@ const DebateTimer = ({ shareToken = null }) => {
         setRunning(single ? Boolean(snapshot.runningAff) : false);
         setRunningAff(single ? false : Boolean(snapshot.runningAff));
         setRunningNeg(single ? false : Boolean(snapshot.runningNeg));
-        setIsTimeUp(single && secondsAff <= 0);
-        setIsAffTimeUp(secondsAff <= 0);
-        setIsNegTimeUp((single ? secondsAff : secondsNeg) <= 0);
+        setIsTimeUp(single && affPhase === 'locked');
+        setIsAffTimeUp(affPhase === 'locked');
+        setIsNegTimeUp(negPhase === 'locked');
+        setGraceLeft(single && affPhase === 'grace' ? graceSecAff : null);
+        setGraceLeftAff(!single && affPhase === 'grace' ? graceSecAff : null);
+        setGraceLeftNeg(!single && negPhase === 'grace' ? graceSecNeg : null);
     }, []);
 
     const reportSnapshot = useCallback(async () => {
@@ -253,8 +434,9 @@ const DebateTimer = ({ shareToken = null }) => {
             sessionRef.current = null;
             setSessionState('idle');
             setSessionNotice(t('timer.session.ended'));
+            saveMatchRecord(true);
         }
-    }, [buildSnapshot, t]);
+    }, [buildSnapshot, t, saveMatchRecord]);
 
     const handleStartSession = useCallback(async () => {
         if (sessionRef.current || sessionState === 'starting') {
@@ -294,8 +476,10 @@ const DebateTimer = ({ shareToken = null }) => {
             if (!result.success) {
                 setSessionNotice(result.message);
             }
+            // Auto-save the match record when the session ends (PRD FR-B2).
+            saveMatchRecord(true);
         }
-    }, []);
+    }, [saveMatchRecord]);
 
     // After a page refresh (or template switch), silently resume a session
     // that is still alive server-side: adopt its snapshot and keep reporting.
@@ -518,36 +702,12 @@ const DebateTimer = ({ shareToken = null }) => {
         };
     }, [loadConfiguration, formatTimerSettings, shareToken, applyLoadedData, adoptSnapshot, restoreLiveSession]);
 
-    const endSoundRef = useRef(null);
-    const warn30SoundRef = useRef(null);
-
     useEffect(() => {
-        endSoundRef.current = new Audio(end_sound);
-        warn30SoundRef.current = new Audio(r30_sound);
-        endSoundRef.current.preload = 'auto';
-        warn30SoundRef.current.preload = 'auto';
-        // Warm decode so the first play is not delayed by large WAV load.
-        endSoundRef.current.load();
-        warn30SoundRef.current.load();
+        warmupSounds();
     }, []);
 
-    const playSound = useCallback((mode) => {
-        const audio = mode === 'end'
-            ? endSoundRef.current
-            : mode === '30'
-                ? warn30SoundRef.current
-                : null;
-        if (!audio) return;
-        try {
-            audio.pause();
-            audio.currentTime = 0;
-            const playPromise = audio.play();
-            if (playPromise?.catch) {
-                playPromise.catch(() => {});
-            }
-        } catch {
-            // Ignore autoplay / decode errors during local testing.
-        }
+    const playSound = useCallback((node) => {
+        playAlert(node);
     }, []);
 
     useEffect(() => {
@@ -558,16 +718,23 @@ const DebateTimer = ({ shareToken = null }) => {
             }, 1000);
         }
         if (running && timeLeft === 30) {
-            playSound('30');
+            playSound('warn30');
         }
         if (running && timeLeft === 0) {
             setRunning(false);
-            setIsTimeUp(true);
-            playSound('end');
-            //alert('时间到！');
+            const grace = Number(stageGrace[selectedStage] ?? 0);
+            if (grace > 0) {
+                // Time is up: single short bell, then a grace countdown to wrap up.
+                setGraceLeft(grace);
+                playSound('timeUp');
+            } else {
+                setIsTimeUp(true);
+                playSound('mustStop');
+                bumpOverrun('Aff');
+            }
         }
         return () => clearInterval(interval);
-    }, [running, timeLeft, runningAff, runningNeg, playSound]);
+    }, [running, timeLeft, runningAff, runningNeg, playSound, stageGrace, selectedStage, bumpOverrun]);
 
     useEffect(() => {
         let interval;
@@ -577,21 +744,28 @@ const DebateTimer = ({ shareToken = null }) => {
             }, 1000);
         }
         if (runningAff && timeLeftAff === 30) {
-            playSound('30');
+            playSound('warn30');
         }
         if (runningAff && timeLeftAff === 0) {
             setRunningAff(false);
-            setIsAffTimeUp(true);
-            playSound('end');
             // Free debate: running out yields the floor to the other side.
             const s = latestRef.current;
             if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
                 && autoSwitchRef.current && s.timeLeftNeg > 0) {
                 setRunningNeg(true);
             }
+            const grace = Number(stageGrace[selectedStage] ?? 0);
+            if (grace > 0) {
+                setGraceLeftAff(grace);
+                playSound('timeUp');
+            } else {
+                setIsAffTimeUp(true);
+                playSound('mustStop');
+                bumpOverrun('Aff');
+            }
         }
         return () => clearInterval(interval);
-    }, [runningAff, timeLeftAff, playSound]);
+    }, [runningAff, timeLeftAff, playSound, stageGrace, selectedStage, bumpOverrun]);
 
     useEffect(() => {
         let interval;
@@ -601,21 +775,89 @@ const DebateTimer = ({ shareToken = null }) => {
             }, 1000);
         }
         if (runningNeg && timeLeftNeg === 30) {
-            playSound('30');
+            playSound('warn30');
         }
         if (runningNeg && timeLeftNeg === 0) {
             setRunningNeg(false);
-            setIsNegTimeUp(true);
-            playSound('end');
             // Free debate: running out yields the floor to the other side.
             const s = latestRef.current;
             if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
                 && autoSwitchRef.current && s.timeLeftAff > 0) {
                 setRunningAff(true);
             }
+            const grace = Number(stageGrace[selectedStage] ?? 0);
+            if (grace > 0) {
+                setGraceLeftNeg(grace);
+                playSound('timeUp');
+            } else {
+                setIsNegTimeUp(true);
+                playSound('mustStop');
+                bumpOverrun('Neg');
+            }
         }
         return () => clearInterval(interval);
-    }, [runningNeg, timeLeftNeg, playSound]);
+    }, [runningNeg, timeLeftNeg, playSound, stageGrace, selectedStage, bumpOverrun]);
+
+    // Grace countdowns: tick while in grace; at zero, must-stop bell + lock.
+    useEffect(() => {
+        if (graceLeft == null || graceLeft <= 0) {
+            return undefined;
+        }
+        const id = window.setInterval(() => {
+            setGraceLeft((prev) => (prev == null ? null : prev - 1));
+        }, 1000);
+        return () => window.clearInterval(id);
+    }, [graceLeft]);
+
+    useEffect(() => {
+        if (graceLeft == null || graceLeft > 0) {
+            return;
+        }
+        setIsTimeUp(true);
+        setGraceLeft(null);
+        playSound('mustStop');
+        bumpOverrun('Aff');
+    }, [graceLeft, playSound, bumpOverrun]);
+
+    useEffect(() => {
+        if (graceLeftAff == null || graceLeftAff <= 0) {
+            return undefined;
+        }
+        const id = window.setInterval(() => {
+            setGraceLeftAff((prev) => (prev == null ? null : prev - 1));
+        }, 1000);
+        return () => window.clearInterval(id);
+    }, [graceLeftAff]);
+
+    useEffect(() => {
+        if (graceLeftAff == null || graceLeftAff > 0) {
+            return;
+        }
+        setIsAffTimeUp(true);
+        setGraceLeftAff(null);
+        playSound('mustStop');
+        bumpOverrun('Aff');
+    }, [graceLeftAff, playSound, bumpOverrun]);
+
+    useEffect(() => {
+        if (graceLeftNeg == null || graceLeftNeg <= 0) {
+            return undefined;
+        }
+        const id = window.setInterval(() => {
+            setGraceLeftNeg((prev) => (prev == null ? null : prev - 1));
+        }, 1000);
+        return () => window.clearInterval(id);
+    }, [graceLeftNeg]);
+
+    useEffect(() => {
+        if (graceLeftNeg == null || graceLeftNeg > 0) {
+            return;
+        }
+        setIsNegTimeUp(true);
+        setGraceLeftNeg(null);
+        playSound('mustStop');
+        bumpOverrun('Neg');
+    }, [graceLeftNeg, playSound, bumpOverrun]);
 
     const clearClockBlink = useCallback(() => {
         ['clock', 'clockAff', 'clockNeg'].forEach((id) => {
@@ -623,11 +865,26 @@ const DebateTimer = ({ shareToken = null }) => {
         });
     }, []);
 
+    const cancelAdvance = useCallback(() => {
+        setAdvanceCountdown(null);
+    }, []);
+
     const applyStage = useCallback((stage) => {
         if (!stage || !debateStages.hasOwnProperty(stage)) {
             return;
         }
         autoSwitchRef.current = false;
+        setAdvanceCountdown(null);
+        setGraceLeft(null);
+        setGraceLeftAff(null);
+        setGraceLeftNeg(null);
+        beginStageCapture(
+            stage,
+            debateSingleDoubleTimerSettings[stage],
+            Number(debateStages[stage] ?? 0),
+            Number(stageGrace[stage] ?? 0),
+            stageDisplayName(t, stage, stageLabels, i18n.language),
+        );
         setSelectedStage(stage);
         const time = debateStages[stage];
         setTimeLeft(time);
@@ -640,31 +897,37 @@ const DebateTimer = ({ shareToken = null }) => {
         setRunningAff(false);
         setRunningNeg(false);
         clearClockBlink();
-    }, [debateStages, clearClockBlink]);
+    }, [debateStages, clearClockBlink, beginStageCapture, debateSingleDoubleTimerSettings, stageGrace, stageLabels, t, i18n]);
 
     const handleStageSelect = (event) => {
         applyStage(event.target.value);
     };
 
     const resetSingleTimer = () => {
+        cancelAdvance();
         setRunning(false);
         setIsTimeUp(false);
+        setGraceLeft(null);
         setTimeLeft(debateStages[selectedStage]);
         clearClockBlink();
     };
 
     const resetAffTimer = () => {
         autoSwitchRef.current = false;
+        cancelAdvance();
         setRunningAff(false);
         setIsAffTimeUp(false);
+        setGraceLeftAff(null);
         setTimeLeftAff(debateStages[selectedStage]);
         document.getElementById('clockAff')?.classList.remove('time-30s-blinking');
     };
 
     const resetNegTimer = () => {
         autoSwitchRef.current = false;
+        cancelAdvance();
         setRunningNeg(false);
         setIsNegTimeUp(false);
+        setGraceLeftNeg(null);
         setTimeLeftNeg(debateStages[selectedStage]);
         document.getElementById('clockNeg')?.classList.remove('time-30s-blinking');
     };
@@ -672,10 +935,12 @@ const DebateTimer = ({ shareToken = null }) => {
     // Free-debate toggles: explicitly starting a side arms the auto switch;
     // explicitly stopping a side hands the floor to the other side.
     const startAff = () => {
+        cancelAdvance();
         autoSwitchRef.current = true;
         setRunningAff(true);
     };
     const stopAff = () => {
+        cancelAdvance();
         setRunningAff(false);
         const s = latestRef.current;
         if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
@@ -684,10 +949,12 @@ const DebateTimer = ({ shareToken = null }) => {
         }
     };
     const startNeg = () => {
+        cancelAdvance();
         autoSwitchRef.current = true;
         setRunningNeg(true);
     };
     const stopNeg = () => {
+        cancelAdvance();
         setRunningNeg(false);
         const s = latestRef.current;
         if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
@@ -711,6 +978,44 @@ const DebateTimer = ({ shareToken = null }) => {
         }
         applyStage(stages[nextIndex]);
     }, [selectedStage, applyStage, stageOrder, debateStages]);
+
+    // Auto advance (C-01-07): when the stage is fully over (including grace)
+    // and the flag is on, count down 3s then move to the next stage. Any manual
+    // input cancels (see keyboard handler / cancelAdvance); last stage never advances.
+    useEffect(() => {
+        const stages = getOrderedStages();
+        const isLast = stages.indexOf(selectedStage) === stages.length - 1;
+        const modeValue = debateSingleDoubleTimerSettings[selectedStage];
+        const dual = modeValue === TimerSetting.double || modeValue === TimerSetting.free;
+        const inGrace = dual
+            ? (graceLeftAff != null || graceLeftNeg != null)
+            : graceLeft != null;
+        const fullyEnded = dual ? (isAffTimeUp && isNegTimeUp) : isTimeUp;
+        if (following || isLast || inGrace || !fullyEnded || !stageAutoAdvance[selectedStage]) {
+            if (advanceCountdown != null) {
+                setAdvanceCountdown(null);
+            }
+            return;
+        }
+        setAdvanceCountdown(3);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [following, selectedStage, isTimeUp, isAffTimeUp, isNegTimeUp,
+        graceLeft, graceLeftAff, graceLeftNeg, stageAutoAdvance,
+        debateSingleDoubleTimerSettings, stageOrder, debateStages]);
+
+    useEffect(() => {
+        if (advanceCountdown == null) {
+            return undefined;
+        }
+        if (advanceCountdown === 0) {
+            goToAdjacentStage(1);
+            return undefined;
+        }
+        const id = window.setTimeout(() => {
+            setAdvanceCountdown((prev) => (prev == null ? null : prev - 1));
+        }, 1000);
+        return () => window.clearTimeout(id);
+    }, [advanceCountdown, goToAdjacentStage]);
 
     const formatTime = (seconds) => {
         const minutes = Math.floor(seconds / 60);
@@ -792,6 +1097,11 @@ const DebateTimer = ({ shareToken = null }) => {
             }
             if (event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) {
                 return;
+            }
+
+            // Any manual input cancels a pending auto advance.
+            if (latestRef.current.advanceCountdown != null) {
+                setAdvanceCountdown(null);
             }
 
             const key = event.key;
@@ -883,6 +1193,9 @@ const DebateTimer = ({ shareToken = null }) => {
     const isDualMode = currentMode === TimerSetting.double || isFreeMode;
     const isFreeLocked = isFreeMode && isAffTimeUp && isNegTimeUp;
     const activeSide = runningAff ? 'aff' : runningNeg ? 'neg' : 'none';
+    const affTeamLabel = teamNames.aff || t('timer.affirmative');
+    const negTeamLabel = teamNames.neg || t('timer.negative');
+    const singleInGrace = graceLeft != null;
 
     return (
         <Fragment>
@@ -899,6 +1212,7 @@ const DebateTimer = ({ shareToken = null }) => {
                             aria-label={t('timer.toolbar')}
                         >
                             <LanguageSwitcher className="lang-switcher--timer" />
+                            <InstallButton />
                             {!isDisplay ? (
                                 <button
                                     type="button"
@@ -907,6 +1221,16 @@ const DebateTimer = ({ shareToken = null }) => {
                                     title={t('timer.settingsAria')}
                                 >
                                     ⚙️ {t('timer.settings')}
+                                </button>
+                            ) : null}
+                            {!isDisplay ? (
+                                <button
+                                    type="button"
+                                    className="nav-btn"
+                                    onClick={() => navigate('/records')}
+                                    title={t('records.title')}
+                                >
+                                    📊 {t('records.short')}
                                 </button>
                             ) : null}
                             {!isDisplay && user?.role === 'admin' ? (
@@ -939,15 +1263,39 @@ const DebateTimer = ({ shareToken = null }) => {
                                 >
                                     {t('auth.logout')}
                                 </button>
-                            ) : null}
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="nav-btn"
+                                    onClick={() => setSoundPanelOpen((open) => !open)}
+                                    title={t('settings.soundTitle')}
+                                >
+                                    🔊
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
+
+                {isDisplay && soundPanelOpen ? (
+                    <div className="display-sound-panel">
+                        <SoundSettingsPanel />
+                    </div>
+                ) : null}
 
 
                 {/* Session control bar (controller) / follow banner (display) */}
                 {!isDisplay ? (
                     <div className="session-bar" role="toolbar" aria-label={t('timer.session.title')}>
+                        <button
+                            type="button"
+                            className="session-btn"
+                            disabled={captureCount === 0}
+                            onClick={() => saveMatchRecord(false)}
+                            title={t('records.saveHint')}
+                        >
+                            💾 {t('records.save')}
+                        </button>
                         <span className={`session-chip session-chip--${sessionState}`}>
                             {sessionState === 'active' ? t('timer.session.active')
                                 : sessionState === 'weak' ? t('timer.session.weak')
@@ -1012,26 +1360,45 @@ const DebateTimer = ({ shareToken = null }) => {
                             setTimeLeft(30);
                             clearClockBlink();
                             document.getElementById('clock')?.classList.add('time-30s-blinking');
-                            playSound('30');
+                            playSound('warn30');
                         }}>{t('timer.test30sSound')}</button>
                         <button type="button" onClick={() => {
                             setRunning(false);
                             setTimeLeft(0);
                             setIsTimeUp(true);
+                            setGraceLeft(null);
                             clearClockBlink();
-                            playSound('end');
+                            playSound('mustStop');
                         }}>{t('timer.testEndSound')}</button>
                     </div>
                 ) : (
                     <div></div>
                 )}
 
+                {/* 自动推进倒计时横幅 */}
+                {!following && advanceCountdown != null ? (
+                    <div className="advance-banner" role="status">
+                        {t('timer.advanceCountdown', { n: advanceCountdown })}
+                    </div>
+                ) : null}
+
                 {/* 根据选定的阶段显示不同的计时器和控制按钮 */}
                 {isDualMode ? (
                     <div className='debate-timers-container'>
                         <div className={`timer-box${isFreeMode && activeSide === 'aff' ? ' free-active' : ''}`}>
-                            <h3>{t('timer.affirmative')}</h3>
-                            <h1 className={isAffTimeUp ? 'blinking' : ''} id='clockAff'>{formatTime(timeLeftAff)}</h1>
+                            <h3><span className="side-badge">{t('timer.affBadge')}</span>{affTeamLabel}</h3>
+                            <h1
+                                className={[
+                                    isAffTimeUp ? 'blinking' : '',
+                                    graceLeftAff != null ? 'grace-blinking' : '',
+                                ].filter(Boolean).join(' ')}
+                                id='clockAff'
+                            >
+                                {formatTime(graceLeftAff != null ? graceLeftAff : timeLeftAff)}
+                            </h1>
+                            {graceLeftAff != null ? (
+                                <p className="grace-hint">{t('timer.graceHint')}</p>
+                            ) : null}
                             {following ? (
                                 <p className="shortcut-hint">{t('timer.display.following')}</p>
                             ) : (
@@ -1067,8 +1434,19 @@ const DebateTimer = ({ shareToken = null }) => {
                             )}
                         </div>
                         <div className={`timer-box${isFreeMode && activeSide === 'neg' ? ' free-active' : ''}`}>
-                            <h3>{t('timer.negative')}</h3>
-                            <h1 className={isNegTimeUp ? 'blinking' : ''} id='clockNeg'>{formatTime(timeLeftNeg)}</h1>
+                            <h3><span className="side-badge">{t('timer.negBadge')}</span>{negTeamLabel}</h3>
+                            <h1
+                                className={[
+                                    isNegTimeUp ? 'blinking' : '',
+                                    graceLeftNeg != null ? 'grace-blinking' : '',
+                                ].filter(Boolean).join(' ')}
+                                id='clockNeg'
+                            >
+                                {formatTime(graceLeftNeg != null ? graceLeftNeg : timeLeftNeg)}
+                            </h1>
+                            {graceLeftNeg != null ? (
+                                <p className="grace-hint">{t('timer.graceHint')}</p>
+                            ) : null}
                             {following ? (
                                 <p className="shortcut-hint">{t('timer.display.following')}</p>
                             ) : (
@@ -1106,7 +1484,18 @@ const DebateTimer = ({ shareToken = null }) => {
                     </div>
                 ) : (
                     <div className='timer-box'>
-                        <h1 className={isTimeUp ? 'blinking' : 'timer'} id='clock'>{formatTime(timeLeft)}</h1>
+                        <h1
+                            className={[
+                                isTimeUp ? 'blinking' : 'timer',
+                                singleInGrace ? 'grace-blinking' : '',
+                            ].filter(Boolean).join(' ')}
+                            id='clock'
+                        >
+                            {formatTime(singleInGrace ? graceLeft : timeLeft)}
+                        </h1>
+                        {singleInGrace ? (
+                            <p className="grace-hint">{t('timer.graceHint')}</p>
+                        ) : null}
                         {following ? (
                             <p className="shortcut-hint">{t('timer.display.following')}</p>
                         ) : (

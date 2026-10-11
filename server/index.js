@@ -12,6 +12,8 @@ import { createAdminRouter } from './routes/admin.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createConfigurationsRouter } from './routes/configurations.js';
 import { createDisplayRouter } from './routes/display.js';
+import { createMatchLogsRouter } from './routes/matchLogs.js';
+import { createGalleryRouter } from './routes/gallery.js';
 
 const PORT = Number(process.env.PORT) || 3001;
 const MONGODB_URI = buildMongoUri();
@@ -73,6 +75,7 @@ async function start() {
     const configurations = db.collection('configurations');
     const users = db.collection('users');
     const sessions = db.collection('sessions');
+    const matchLogs = db.collection('match_logs');
 
     await db.command({ ping: 1 });
 
@@ -98,13 +101,20 @@ async function start() {
         { unique: true, partialFilterExpression: { shareToken: { $type: 'string' } } },
     );
     await configurations.createIndex({ updatedAt: -1 });
+    await configurations.createIndex(
+        { isPublic: 1, updatedAt: -1 },
+        { partialFilterExpression: { isPublic: true } },
+    );
+    await matchLogs.createIndex({ ownerId: 1, savedAt: -1 });
 
     const { attachUser, requireAuth, requireAdmin } = createAuthMiddleware({ users, sessions });
     app.use(attachUser);
 
     app.use('/api/auth', createAuthRouter({ users, sessions, configurations }));
     app.use('/api/display', createDisplayRouter({ configurations, sse, timerSessions }));
+    app.use('/api/gallery', createGalleryRouter({ configurations, requireAuth, requireAdmin }));
     app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }));
+    app.use('/api/match-logs', createMatchLogsRouter({ matchLogs, requireAuth }));
     app.use('/api/admin', createAdminRouter({
         users,
         sessions,

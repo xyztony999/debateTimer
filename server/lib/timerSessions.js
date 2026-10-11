@@ -2,7 +2,9 @@ import { randomBytes } from 'node:crypto';
 
 export const STAGE_MODES = new Set(['single', 'double', 'free']);
 export const ACTIVE_SIDES = new Set(['aff', 'neg', 'none']);
+export const TIMER_PHASES = new Set(['running', 'grace', 'locked']);
 export const MAX_REMAINING_MS = 24 * 60 * 60 * 1000;
+export const MAX_GRACE_MS = 300 * 1000;
 
 function invalid(message) {
     const error = new Error(message);
@@ -164,17 +166,43 @@ export function validateSnapshot(body, session) {
         }
         return num;
     };
+    const readPhase = (phase, graceMs, side) => {
+        if (phase === undefined) {
+            phase = 'running';
+        }
+        if (!TIMER_PHASES.has(phase)) {
+            throw invalid(`Invalid snapshot: unknown ${side} phase`);
+        }
+        // grace ⇔ graceMs>0; running/locked require no remaining grace.
+        if ((phase === 'grace') !== (graceMs > 0)) {
+            throw invalid(`Invalid snapshot: phase/grace mismatch for ${side}`);
+        }
+        return phase;
+    };
+    const readGrace = (value, side) => {
+        const num = Number(value ?? 0);
+        if (!Number.isInteger(num) || num < 0 || num > MAX_GRACE_MS) {
+            throw invalid(`Invalid snapshot: ${side} grace out of range`);
+        }
+        return num;
+    };
     let remainingAffMs = readRemaining(body.remainingAffMs);
     let remainingNegMs = readRemaining(body.remainingNegMs);
     let runningAff = body.runningAff === true;
     let runningNeg = body.runningNeg === true;
     let activeSide = body.activeSide;
+    let graceAffMs = readGrace(body.graceAffMs, 'aff');
+    let graceNegMs = readGrace(body.graceNegMs, 'neg');
+    let phaseAff = readPhase(body.phaseAff, graceAffMs, 'aff');
+    let phaseNeg = readPhase(body.phaseNeg, graceNegMs, 'neg');
 
     // Mode normalization (single collapses both sides; activeSide only in free).
     if (stageMode === 'single') {
         remainingNegMs = remainingAffMs;
         runningNeg = false;
         activeSide = 'none';
+        phaseNeg = phaseAff;
+        graceNegMs = graceAffMs;
     } else if (stageMode === 'double') {
         activeSide = 'none';
     } else if (!ACTIVE_SIDES.has(activeSide)) {
@@ -190,6 +218,10 @@ export function validateSnapshot(body, session) {
         runningAff,
         runningNeg,
         activeSide,
+        phaseAff,
+        phaseNeg,
+        graceAffMs,
+        graceNegMs,
         serverTime: Date.now(),
     };
 }

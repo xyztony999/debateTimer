@@ -107,6 +107,75 @@ test('save accepts the free timer mode and rejects unknown modes', async () => {
     expect(bad.status).toBe(400);
 });
 
+test('stage enhancement fields are validated and echoed back', async () => {
+    const ok = await fetch(`${base}/api/configurations/default`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180, sound_check: 30 },
+            timerSettings: { free_debate: 'free', sound_check: 'single' },
+            stageOrder: ['sound_check', 'free_debate'],
+            stageGrace: { free_debate: 30 },
+            stageAutoAdvance: { sound_check: true },
+            teamNames: { aff: 'A 队', neg: 'B 队' },
+        }),
+    });
+    expect(ok.status).toBe(200);
+
+    // The display route only serves shared documents; flip it on in the stub.
+    const shared = await configurations.findOne({ name: 'default' });
+    shared.shareEnabled = true;
+    shared.shareToken = 'tok-itest';
+    const loaded = await fetch(`${base}/api/display/tok-itest`).then((r) => r.json());
+    expect(loaded.data.stageGrace).toEqual({ free_debate: 30 });
+    expect(loaded.data.stageAutoAdvance).toEqual({ sound_check: true });
+    expect(loaded.data.teamNames).toEqual({ aff: 'A 队', neg: 'B 队' });
+
+    const badGrace = await fetch(`${base}/api/configurations/default`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180 },
+            timerSettings: { free_debate: 'free' },
+            stageGrace: { free_debate: 999 },
+        }),
+    });
+    expect(badGrace.status).toBe(400);
+
+    const unknownStage = await fetch(`${base}/api/configurations/default`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180 },
+            timerSettings: { free_debate: 'free' },
+            stageAutoAdvance: { nope: true },
+        }),
+    });
+    expect(unknownStage.status).toBe(400);
+
+    const longTeam = await fetch(`${base}/api/configurations/default`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180 },
+            timerSettings: { free_debate: 'free' },
+            teamNames: { aff: 'x'.repeat(21) },
+        }),
+    });
+    expect(longTeam.status).toBe(400);
+
+    // Restore a clean document for the session lifecycle test below.
+    await fetch(`${base}/api/configurations/default`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180, sound_check: 30 },
+            timerSettings: { free_debate: 'free', sound_check: 'single' },
+            stageOrder: ['sound_check', 'free_debate'],
+        }),
+    });
+});
+
 test('session lifecycle: start, report, read, subscribe, end', async () => {
     // Enable sharing directly on the stubbed document.
     const doc = await configurations.findOne({ name: 'default' });

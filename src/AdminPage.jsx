@@ -40,6 +40,7 @@ import {
     listUsers,
     updateUser,
 } from './services/adminService';
+import GalleryService from './services/GalleryService';
 
 export default function AdminPage() {
     const navigate = useNavigate();
@@ -274,6 +275,9 @@ export default function AdminPage() {
                                             <TableCell>{row.ownerUsername || row.ownerId}</TableCell>
                                             <TableCell>
                                                 {row.shareEnabled ? t('share.enabled') : t('share.disabled')}
+                                                {row.isPublic ? (
+                                                    <Chip size="small" color="primary" label={t('gallery.publicChip')} sx={{ ml: 1 }} />
+                                                ) : null}
                                             </TableCell>
                                             <TableCell align="right">
                                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -298,6 +302,27 @@ export default function AdminPage() {
                                                             }}
                                                         >
                                                             {t('share.openDisplay')}
+                                                        </Button>
+                                                    ) : null}
+                                                    {row.isPublic ? (
+                                                        <Button
+                                                            size="small"
+                                                            color="warning"
+                                                            onClick={async () => {
+                                                                const accepted = await confirm({
+                                                                    title: t('settings.confirmTitle'),
+                                                                    message: t('gallery.unpublishConfirm', { name: row.name }),
+                                                                    confirmColor: 'warning',
+                                                                });
+                                                                if (!accepted) {
+                                                                    return;
+                                                                }
+                                                                const result = await GalleryService.unpublish(row.id);
+                                                                if (!result.success) setError(result.message);
+                                                                else await refresh();
+                                                            }}
+                                                        >
+                                                            {t('gallery.unpublish')}
                                                         </Button>
                                                     ) : null}
                                                     <Button

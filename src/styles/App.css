@@ -1663,3 +1663,156 @@ button:not(:disabled):hover {
   margin-bottom: 0;
 }
 
+/* ===== 赛制增强：宽限 / 自动推进 / 队名 ===== */
+.grace-blinking {
+  color: #ef6c00 !important;
+  animation: grace-flash 1s ease-in-out infinite;
+}
+
+@keyframes grace-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.grace-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  color: #ef6c00;
+  letter-spacing: 0.1em;
+}
+
+.dark-mode .grace-blinking {
+  color: #ffb74d !important;
+}
+
+.dark-mode .grace-hint {
+  color: #ffb74d;
+}
+
+.advance-banner {
+  text-align: center;
+  margin: 0.5rem auto 0;
+  padding: 0.35rem 1rem;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.95rem;
+  color: #1565c0;
+  background: rgba(144, 202, 249, 0.2);
+  border: 1px solid #90caf9;
+}
+
+.dark-mode .advance-banner {
+  color: #90caf9;
+  background: rgba(21, 101, 192, 0.25);
+  border-color: #1565c0;
+}
+
+.side-badge {
+  display: inline-block;
+  min-width: 2.2em;
+  margin-right: 0.4em;
+  padding: 0.05em 0.45em;
+  border-radius: 6px;
+  font-size: 0.6em;
+  vertical-align: middle;
+  color: #fff;
+  background: #1976d2;
+}
+
+.timer-box h3 .side-badge {
+  font-weight: 600;
+}
+
+.display-sound-panel {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.35);
+}
+
+/* ===== 比赛记录页 ===== */
+.records-page {
+  min-height: 100vh;
+}
+
+.records-page .settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+.records-page.dark-mode {
+  background: #121212;
+  color: #eceff1;
+}
+
+/* ===== PWA：离线横幅 ===== */
+.offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  text-align: center;
+  font-size: 0.85rem;
+  padding: 0.3rem 1rem;
+  color: #fff;
+  background: #c62828;
+}
+
+/* ===== 手机适配（触屏与小屏） ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* 键盘快捷键提示对触屏无意义 */
+  .shortcut-hint,
+  .shortcut-hint--stage,
+  .shortcut-hint--free {
+    display: none;
+  }
+
+  .nav-btn,
+  .session-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  #timer .controls button {
+    min-height: 56px;
+    min-width: 56px;
+    font-size: 1.4rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #timer.light-mode h1,
+  #timer:not(.dark-mode) h1,
+  #timer.dark-mode h1,
+  .timer-box h1 {
+    font-size: clamp(56px, 18vw, 88px);
+  }
+
+  .timer-nav {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .nav-actions-group--timer {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .session-bar {
+    gap: 0.5rem;
+  }
+
+  .session-btn {
+    padding: 0.35rem 0.7rem;
+  }
+
+  .advance-banner {
+    font-size: 0.85rem;
+  }
+}
+
+
+

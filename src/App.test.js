@@ -27,8 +27,7 @@ test('error page strings are present', async () => {
     expect(i18n.t('errors.notFoundEyebrow')).toBe('404');
 });
 
-test('session and free-debate strings are present in all three languages', async () => {
-    expect(i18n.t('timer.session.start')).toMatch(/display sync/i);
+test('session and free-debate strings are present in all three languages', async () => {    expect(i18n.t('timer.session.start')).toMatch(/display sync/i);
     expect(i18n.t('timer.session.active')).toMatch(/synced/i);
     expect(i18n.t('timer.session.weak')).toMatch(/weak signal/i);
     expect(i18n.t('timer.session.enableShareFirst')).toMatch(/sharing/i);
@@ -49,4 +48,31 @@ test('session and free-debate strings are present in all three languages', async
     expect(i18n.t('timer.display.following')).toMatch(/direct/i);
     expect(i18n.t('timer.free.locked')).toMatch(/débat libre/i);
     expect(i18n.t('settings.freeTimer')).toMatch(/débat libre/i);
+});
+
+test('pwa strings are present', async () => {
+    expect(i18n.t('pwa.offline')).toMatch(/offline/i);
+    expect(i18n.t('pwa.install')).toMatch(/install/i);
+    await i18n.changeLanguage('zh-Hans');
+    expect(i18n.t('pwa.offline')).toMatch(/离线/);
+});
+
+test('stage enhancement strings are present in all three languages', async () => {
+    expect(i18n.t('settings.graceSeconds')).toMatch(/grace/i);
+    expect(i18n.t('settings.autoAdvance')).toMatch(/auto/i);
+    expect(i18n.t('settings.soundTimeUp')).toMatch(/time is up/i);
+    expect(i18n.t('settings.soundMustStop')).toMatch(/must stop/i);
+    expect(i18n.t('settings.soundOption.timeup')).toMatch(/ding/i);
+    expect(i18n.t('timer.graceHint')).toMatch(/wrapping/i);
+    expect(i18n.t('timer.advanceCountdown', { n: 3 })).toMatch(/3s|3 s/);
+    expect(i18n.t('timer.affBadge')).toBe('AFF');
+
+    await i18n.changeLanguage('zh-Hans');
+    expect(i18n.t('settings.graceSeconds')).toBe('宽限秒数');
+    expect(i18n.t('timer.graceHint')).toMatch(/收尾/);
+    expect(i18n.t('timer.advanceCountdown', { n: 3 })).toMatch(/3 秒/);
+
+    await i18n.changeLanguage('fr-CA');
+    expect(i18n.t('settings.teamNames')).toMatch(/équipes/);
+    expect(i18n.t('timer.graceHint')).toMatch(/conclusion/i);
 });

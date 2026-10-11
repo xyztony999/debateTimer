@@ -38,13 +38,17 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import TuneIcon from '@mui/icons-material/Tune';
+import Switch from '@mui/material/Switch';
+import GroupsIcon from '@mui/icons-material/Groups';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import SoundSettingsPanel from './components/SoundSettingsPanel';
+import GalleryService from './services/GalleryService';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ReorderIcon from '@mui/icons-material/Reorder';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import debateStagesData from './resources/debateTimeSettings.json';
 import timerSettingsData from './resources/debateTimerSettings.json';
@@ -67,8 +71,8 @@ function generateCustomId() {
 
 const EMPTY_LABELS = { 'zh-Hans': '', 'en': '', 'fr-CA': '' };
 
-function buildConfigSnapshot(debateStages, timerSettings, stageLabels, stageOrder) {
-    return JSON.stringify({ debateStages, timerSettings, stageLabels, stageOrder });
+function buildConfigSnapshot(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames) {
+    return JSON.stringify({ debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames });
 }
 
 function formatStageTime(seconds) {
@@ -92,6 +96,9 @@ const DebateSetting = () => {
     const [timerSettings, setTimerSettings] = useState({});
     const [stageLabels, setStageLabels] = useState({});
     const [stageOrder, setStageOrder] = useState([]);
+    const [stageGrace, setStageGrace] = useState({});
+    const [stageAutoAdvance, setStageAutoAdvance] = useState({});
+    const [teamNames, setTeamNames] = useState({ aff: '', neg: '' });
 
     const [configurationNames, setConfigurationNames] = useState([]);
     const [selectedConfigName, setSelectedConfigName] = useState(DEFAULT_CONFIGURATION_NAME);
@@ -107,9 +114,11 @@ const DebateSetting = () => {
     const [shareEnabled, setShareEnabled] = useState(false);
     const [shareToken, setShareToken] = useState(null);
     const [shareBusy, setShareBusy] = useState(false);
+    const [isPublic, setIsPublic] = useState(false);
+    const [visibilityBusy, setVisibilityBusy] = useState(false);
 
-    const markClean = useCallback((stages, settings, labels, order) => {
-        savedSnapshotRef.current = buildConfigSnapshot(stages, settings, labels, order);
+    const markClean = useCallback((stages, settings, labels, order, grace = {}, autoAdvance = {}, names = {}) => {
+        savedSnapshotRef.current = buildConfigSnapshot(stages, settings, labels, order, grace, autoAdvance, names);
     }, []);
 
     const isDirty = useCallback(() => (
@@ -118,8 +127,11 @@ const DebateSetting = () => {
             timerSettings,
             stageLabels,
             stageOrder,
+            stageGrace,
+            stageAutoAdvance,
+            teamNames,
         )
-    ), [debateStages, timerSettings, stageLabels, stageOrder]);
+    ), [debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames]);
 
     const getOrderedStages = () => {
         if (stageOrder.length > 0) {
@@ -140,11 +152,20 @@ const DebateSetting = () => {
     const applyConfigData = useCallback((data) => {
         const labels = data.stageLabels || {};
         const order = data.stageOrder || Object.keys(data.debateStages);
+        const grace = data.stageGrace || {};
+        const autoAdvance = data.stageAutoAdvance || {};
+        const names = {
+            aff: data.teamNames?.aff || '',
+            neg: data.teamNames?.neg || '',
+        };
         setDebateStages(data.debateStages);
         setTimerSettings(data.timerSettings);
         setStageLabels(labels);
         setStageOrder(order);
-        markClean(data.debateStages, data.timerSettings, labels, order);
+        setStageGrace(grace);
+        setStageAutoAdvance(autoAdvance);
+        setTeamNames(names);
+        markClean(data.debateStages, data.timerSettings, labels, order, grace, autoAdvance, names);
     }, [markClean]);
 
     const applyLocalFallback = useCallback(() => {
@@ -153,7 +174,10 @@ const DebateSetting = () => {
         setTimerSettings(timerSettingsData);
         setStageLabels({});
         setStageOrder(order);
-        markClean(debateStagesData, timerSettingsData, {}, order);
+        setStageGrace({});
+        setStageAutoAdvance({});
+        setTeamNames({ aff: '', neg: '' });
+        markClean(debateStagesData, timerSettingsData, {}, order, {}, {}, { aff: '', neg: '' });
     }, [markClean]);
 
     const refreshConfigurationList = useCallback(async () => {
@@ -176,6 +200,7 @@ const DebateSetting = () => {
             }
             setShareEnabled(Boolean(result.data.shareEnabled));
             setShareToken(result.data.shareToken || null);
+            setIsPublic(Boolean(result.data.isPublic));
             return true;
         }
         return false;
@@ -245,6 +270,7 @@ const DebateSetting = () => {
                 stageOrder,
                 stageLabels,
                 ownerId,
+                stageEnhancements(),
             );
             if (!result.success) {
                 notify(t('settings.templateCreateFailed', { message: result.message }), {
@@ -260,9 +286,10 @@ const DebateSetting = () => {
                 if (!ownerId) {
                     setStoredConfigurationName(name);
                 }
-                markClean(debateStages, timerSettings, stageLabels, stageOrder);
+                markClean(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames);
                 setShareEnabled(false);
                 setShareToken(null);
+                setIsPublic(false);
             }
             notify(t('settings.templateCreated', { name }), { severity: 'success' });
         } catch (error) {
@@ -312,6 +339,17 @@ const DebateSetting = () => {
             console.error('Error deleting template:', error);
             notify(t('settings.templateDeleteRetry'), { severity: 'error' });
         }
+    };
+
+    const handleVisibilityToggle = async (next) => {
+        setVisibilityBusy(true);
+        const result = await GalleryService.updateVisibility(selectedConfigName, next);
+        setVisibilityBusy(false);
+        if (!result.success) {
+            notify(result.message, { severity: 'error' });
+            return;
+        }
+        setIsPublic(Boolean(result.data.isPublic));
     };
 
     const displayShareUrl = shareEnabled && shareToken
@@ -371,6 +409,17 @@ const DebateSetting = () => {
         setTimerSettings({ ...timerSettings, [key]: value });
     };
 
+    const handleGraceChange = (key, value) => {
+        const clamped = Math.min(300, Math.max(0, parseInt(value, 10) || 0));
+        setStageGrace((prev) => ({ ...prev, [key]: clamped }));
+    };
+
+    const handleAutoAdvanceChange = (key, checked) => {
+        setStageAutoAdvance((prev) => ({ ...prev, [key]: checked }));
+    };
+
+    const stageEnhancements = () => ({ stageGrace, stageAutoAdvance, teamNames });
+
     const saveChanges = async () => {
         try {
             const result = await ConfigurationService.saveConfiguration(
@@ -380,9 +429,10 @@ const DebateSetting = () => {
                 stageOrder,
                 stageLabels,
                 ownerId,
+                stageEnhancements(),
             );
             if (result.success) {
-                markClean(debateStages, timerSettings, stageLabels, stageOrder);
+                markClean(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames);
                 notify(t('settings.savedSuccess', { name: selectedConfigName }), {
                     severity: 'success',
                 });
@@ -408,6 +458,9 @@ const DebateSetting = () => {
         setTimerSettings(timerSettingsData);
         setStageLabels({});
         setStageOrder(Object.keys(debateStagesData));
+        setStageGrace({});
+        setStageAutoAdvance({});
+        setTeamNames({ aff: '', neg: '' });
     };
 
     const addTimerItem = () => {
@@ -447,14 +500,20 @@ const DebateSetting = () => {
         const newDebateStages = { ...debateStages };
         const newTimerSettings = { ...timerSettings };
         const newStageLabels = { ...stageLabels };
+        const newStageGrace = { ...stageGrace };
+        const newStageAutoAdvance = { ...stageAutoAdvance };
 
         delete newDebateStages[itemName];
         delete newTimerSettings[itemName];
         delete newStageLabels[itemName];
+        delete newStageGrace[itemName];
+        delete newStageAutoAdvance[itemName];
 
         setDebateStages(newDebateStages);
         setTimerSettings(newTimerSettings);
         setStageLabels(newStageLabels);
+        setStageGrace(newStageGrace);
+        setStageAutoAdvance(newStageAutoAdvance);
         setStageOrder((prev) => prev.filter((stage) => stage !== itemName));
     };
 
@@ -725,6 +784,27 @@ const DebateSetting = () => {
                                 ) : (
                                     <Alert severity="info" variant="outlined">{t('share.hint')}</Alert>
                                 )}
+                                <Stack
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    spacing={1}
+                                    alignItems={{ sm: 'center' }}
+                                    justifyContent="space-between"
+                                    sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}
+                                >
+                                    <FormControlLabel
+                                        control={(
+                                            <Switch
+                                                checked={isPublic}
+                                                disabled={visibilityBusy || !selectedConfigName}
+                                                onChange={(e) => handleVisibilityToggle(e.target.checked)}
+                                            />
+                                        )}
+                                        label={isPublic ? t('settings.published') : t('settings.publishToGallery')}
+                                    />
+                                    <Button size="small" onClick={() => navigate('/gallery')}>
+                                        🌐 {t('gallery.title')}
+                                    </Button>
+                                </Stack>
                             </Stack>
                         </CardContent>
                     </Card>
@@ -780,33 +860,104 @@ const DebateSetting = () => {
                             <Grid container spacing={2}>
                                 {orderedStages.map((stage) => (
                                     <Grid key={stage} size={{ xs: 12, sm: 6, md: 4 }}>
-                                        <Stack direction="row" spacing={1} alignItems="center">
-                                            <FormControl fullWidth size="small">
-                                                <InputLabel id={`mode-${stage}`}>{displayName(stage)}</InputLabel>
-                                                <Select
-                                                    labelId={`mode-${stage}`}
-                                                    label={displayName(stage)}
-                                                    value={timerSettings[stage] || 'single'}
-                                                    onChange={(e) => handleTimerSettingChange(stage, e.target.value)}
-                                                >
-                                                    <MenuItem value="single">{t('settings.singleTimer')}</MenuItem>
-                                                    <MenuItem value="double">{t('settings.doubleTimer')}</MenuItem>
-                                                    <MenuItem value="free">{t('settings.freeTimer')}</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                            <Tooltip title={t('settings.deleteItemTitle')}>
-                                                <IconButton
-                                                    color="error"
-                                                    onClick={() => deleteTimerItem(stage)}
-                                                    aria-label={t('settings.deleteItemTitle')}
-                                                >
-                                                    <DeleteOutlinedIcon />
-                                                </IconButton>
-                                            </Tooltip>
+                                        <Stack direction="column" spacing={1}>
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id={`mode-${stage}`}>{displayName(stage)}</InputLabel>
+                                                    <Select
+                                                        labelId={`mode-${stage}`}
+                                                        label={displayName(stage)}
+                                                        value={timerSettings[stage] || 'single'}
+                                                        onChange={(e) => handleTimerSettingChange(stage, e.target.value)}
+                                                    >
+                                                        <MenuItem value="single">{t('settings.singleTimer')}</MenuItem>
+                                                        <MenuItem value="double">{t('settings.doubleTimer')}</MenuItem>
+                                                        <MenuItem value="free">{t('settings.freeTimer')}</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                                <Tooltip title={t('settings.deleteItemTitle')}>
+                                                    <IconButton
+                                                        color="error"
+                                                        onClick={() => deleteTimerItem(stage)}
+                                                        aria-label={t('settings.deleteItemTitle')}
+                                                    >
+                                                        <DeleteOutlinedIcon />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </Stack>
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                <TextField
+                                                    size="small"
+                                                    type="number"
+                                                    label={t('settings.graceSeconds')}
+                                                    value={stageGrace[stage] ?? 0}
+                                                    onChange={(e) => handleGraceChange(stage, e.target.value)}
+                                                    slotProps={{ htmlInput: { min: 0, max: 300 } }}
+                                                    sx={{ minWidth: 110 }}
+                                                />
+                                                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexGrow: 1 }}>
+                                                    <Switch
+                                                        size="small"
+                                                        checked={Boolean(stageAutoAdvance[stage])}
+                                                        onChange={(e) => handleAutoAdvanceChange(stage, e.target.checked)}
+                                                        inputProps={{ 'aria-label': t('settings.autoAdvance') }}
+                                                    />
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {t('settings.autoAdvance')}
+                                                    </Typography>
+                                                </Stack>
+                                            </Stack>
                                         </Stack>
                                     </Grid>
                                 ))}
                             </Grid>
+                        </CardContent>
+                    </Card>
+
+                    {/* Team Names */}
+                    <Card>
+                        <CardHeader
+                            avatar={<GroupsIcon color="primary" />}
+                            title={t('settings.teamNames')}
+                            subheader={t('settings.teamNamesDesc')}
+                        />
+                        <CardContent>
+                            <Grid container spacing={2}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label={t('settings.teamAff')}
+                                        value={teamNames.aff}
+                                        onChange={(e) => setTeamNames((prev) => ({ ...prev, aff: e.target.value }))}
+                                        slotProps={{ htmlInput: { maxLength: 20 } }}
+                                        placeholder={t('timer.affirmative')}
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label={t('settings.teamNeg')}
+                                        value={teamNames.neg}
+                                        onChange={(e) => setTeamNames((prev) => ({ ...prev, neg: e.target.value }))}
+                                        slotProps={{ htmlInput: { maxLength: 20 } }}
+                                        placeholder={t('timer.negative')}
+                                    />
+                                </Grid>
+                            </Grid>
+                        </CardContent>
+                    </Card>
+
+                    {/* Alert Sounds (device-local preference) */}
+                    <Card>
+                        <CardHeader
+                            avatar={<VolumeUpIcon color="primary" />}
+                            title={t('settings.soundTitle')}
+                            subheader={t('settings.soundDesc')}
+                        />
+                        <CardContent>
+                            <SoundSettingsPanel />
                         </CardContent>
                     </Card>
 

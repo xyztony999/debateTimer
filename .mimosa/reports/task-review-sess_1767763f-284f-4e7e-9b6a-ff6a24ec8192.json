@@ -1,6 +1,6 @@
 {
   "schema_version": "mimosa-task-review/v2",
-  "run_id": "20261010T150426738Z-9504-14e91ad25738",
+  "run_id": "20261011T094545632Z-44392-322cb3d995ee",
   "run_status": "completed",
   "errors": [],
   "coverage": {
@@ -9,16 +9,16 @@
     "scope": "hook_observed_diff",
     "baseline": {
       "complete": true,
-      "captured_files": 70,
+      "captured_files": 80,
       "candidate_limit": 5000,
       "truncated": false,
       "enumeration_error_count": 0,
       "snapshot_error_count": 0,
-      "compensated_target_count": 10
+      "compensated_target_count": 20
     },
     "change_tracking": {
-      "touched_observed": 10,
-      "touched_retained": 10,
+      "touched_observed": 20,
+      "touched_retained": 20,
       "truncated": false,
       "bash_mutation": false,
       "bash_discovered": 0,
@@ -26,14 +26,14 @@
       "bash_discovery_truncated": false
     },
     "candidates": {
-      "eligible_files": 10,
-      "selected_files": 10,
+      "eligible_files": 20,
+      "selected_files": 20,
       "limit": 20,
       "truncated": false
     },
     "scanning": {
-      "required_files": 10,
-      "scanned_files": 10,
+      "required_files": 20,
+      "scanned_files": 20,
       "skipped_files": 0,
       "failed_files": 0,
       "project_checks_required": 0,
@@ -49,280 +49,678 @@
     "reasons": [],
     "reasons_truncated": false
   },
-  "generated_at": "2026-10-10T15:04:26.738Z",
+  "generated_at": "2026-10-11T09:45:45.632Z",
   "session_id": "sess_1767763f-284f-4e7e-9b6a-ff6a24ec8192",
   "target": ".",
-  "revision": "4947aed8ad2a8d7a01742d5860f22b1e50f5fa14",
+  "revision": "dc93863de04751ca02a2c983324a11c3b306605f",
   "rules_version": "unavailable",
-  "diff_hash": "c0555b6aa2084317dc4a3e6a78e7d4e8ef09274c44682cfa2480a81c4e6245d9",
+  "diff_hash": "d8bf63a0f821ad584c724be7f6066f00077a92e7555d2d97fbaba822fae626eb",
   "diff": {
     "algorithm": "sha256",
-    "changed_file_count": 10,
+    "changed_file_count": 20,
     "changed_files": [
       {
         "file": "server/index.js",
         "ranges": [
           {
-            "start": 10,
-            "end": 10
+            "start": 15,
+            "end": 16
           },
           {
-            "start": 36,
-            "end": 36
+            "start": 78,
+            "end": 78
           },
           {
-            "start": 106,
-            "end": 107
+            "start": 104,
+            "end": 108
+          },
+          {
+            "start": 115,
+            "end": 115
+          },
+          {
+            "start": 117,
+            "end": 117
           }
         ],
-        "before_hash": "e02ebd0ef5933963fff16ef1a526feaf60c4c882c3afafa24ffd5d7d7be7f92a",
-        "after_hash": "05b31d3595b8814c3225ccc9389f6d784437d5902bd331d7af8eec2499a8563a"
+        "before_hash": "05b31d3595b8814c3225ccc9389f6d784437d5902bd331d7af8eec2499a8563a",
+        "after_hash": "9eeac61c1cd19c98ed32ff43fcbabe5e1888c59fce1ed7755350f0dbf9c85fb6"
       },
       {
         "file": "server/lib/configDocs.js",
         "ranges": [
           {
-            "start": 9,
-            "end": 36
+            "start": 7,
+            "end": 9
           },
           {
-            "start": 44,
-            "end": 44
+            "start": 21,
+            "end": 23
+          },
+          {
+            "start": 43,
+            "end": 94
+          },
+          {
+            "start": 103,
+            "end": 124
+          },
+          {
+            "start": 137,
+            "end": 139
+          },
+          {
+            "start": 143,
+            "end": 143
+          },
+          {
+            "start": 170,
+            "end": 170
+          },
+          {
+            "start": 182,
+            "end": 184
           }
         ],
-        "before_hash": "c998252dba65f70c7322e65e8cc1b08c397885afbcedf8b3ed1a68a9991d1c7f",
-        "after_hash": "a833db721df172bbfced44870d4f0db1b596c76de5071d71dec1791695b258e7"
+        "before_hash": "a833db721df172bbfced44870d4f0db1b596c76de5071d71dec1791695b258e7",
+        "after_hash": "5039e376cac9505e739518d0dbf66d1fb3a3b70dc76557502a8b138533a929a5"
       },
       {
-        "file": "server/lib/sseHub.js",
+        "file": "server/lib/matchLogs.js",
         "ranges": [
           {
-            "start": 36,
-            "end": 50
+            "start": 1,
+            "end": 172
           }
         ],
-        "before_hash": "cdf2ed475abcb671c3301d12efae7fdd41ed1a99dd7da80fb2265b5de68780e5",
-        "after_hash": "1cd69db4acfb57bc38ce1e1ca325fa4d9f94a806f063ac0410181013fc93099a"
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "b12a84d36e594360b17ae401dcb0495fab465a0915c1b1752b0798226980752b"
+      },
+      {
+        "file": "server/lib/matchLogs.test.js",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 67
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "26b18d3f540c3ab05765315828607ac9cdb9a48f6ed138725da6777af70706b9"
       },
       {
         "file": "server/lib/timerSessions.js",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 195
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "1074200f3fca0f79433825c2410fe585848ebc518e5c9832b59ea8b8a1138e41"
-      },
-      {
-        "file": "server/lib/timerSessions.test.js",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 186
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "6c37ec68885d6a6976dc08819b6219364c35f56755f5f91e87375977838b3db5"
-      },
-      {
-        "file": "server/routes/configurations.js",
-        "ranges": [
-          {
-            "start": 27,
-            "end": 27
-          },
-          {
-            "start": 211,
-            "end": 216
-          },
-          {
-            "start": 229,
-            "end": 304
-          }
-        ],
-        "before_hash": "5a751955cce9be82a3e0f47e73db7a92d7a87c52158f33e27468e8bd0ae6e470",
-        "after_hash": "453a1474d897f637d02019862b9ddcc3fc372eccd03bf302956a5b9fc28db573"
-      },
-      {
-        "file": "server/routes/display.js",
         "ranges": [
           {
             "start": 5,
             "end": 5
           },
           {
-            "start": 31,
-            "end": 36
+            "start": 7,
+            "end": 7
           },
           {
-            "start": 43,
-            "end": 71
+            "start": 169,
+            "end": 188
+          },
+          {
+            "start": 194,
+            "end": 197
+          },
+          {
+            "start": 204,
+            "end": 205
+          },
+          {
+            "start": 221,
+            "end": 224
           }
         ],
-        "before_hash": "0eeee27242d4b7a9a807c3e8622b5707032670ed633b5c5913096871f897694a",
-        "after_hash": "7c96e5daa80142c5ef8679b178a853b065066b666ee910027396f431857c4ad0"
+        "before_hash": "1074200f3fca0f79433825c2410fe585848ebc518e5c9832b59ea8b8a1138e41",
+        "after_hash": "579b1ad101e0d9e05e0b1df6e09411c3dbe97629b7149c0a03f65bb79aa7f254"
       },
       {
-        "file": "server/routes/sessionRoutes.test.js",
+        "file": "server/routes/configurations.js",
+        "ranges": [
+          {
+            "start": 305,
+            "end": 326
+          }
+        ],
+        "before_hash": "453a1474d897f637d02019862b9ddcc3fc372eccd03bf302956a5b9fc28db573",
+        "after_hash": "690eb86b8e1ebfcbf4b6fb1be973f2c550b4c535ce4c157787c86ca68eb189ed"
+      },
+      {
+        "file": "server/routes/gallery.js",
         "ranges": [
           {
             "start": 1,
-            "end": 214
+            "end": 112
           }
         ],
         "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "b6ff637bb3f52fe4b870091079eff136450ea286d3f506a83442e7097d777e75"
+        "after_hash": "95ca42bd9f8cd25bbfc4f513a83228d89ab08dc9a3c4b22038fec16a1808e4e2"
+      },
+      {
+        "file": "server/routes/matchLogs.js",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 143
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "2708ec6eada213278a83eccfde6ddaba83ebeb6057259f2f138b8b3e8800c567"
+      },
+      {
+        "file": "server/routes/matchLogsRoutes.test.js",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 172
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "f93f2416ec1e410bdd5161a540e79bd8bbcf25578bb8aac3b19ea44b0d118c95"
+      },
+      {
+        "file": "src/App.jsx",
+        "ranges": [
+          {
+            "start": 6,
+            "end": 6
+          },
+          {
+            "start": 13,
+            "end": 15
+          },
+          {
+            "start": 23,
+            "end": 23
+          },
+          {
+            "start": 28,
+            "end": 29
+          },
+          {
+            "start": 46,
+            "end": 61
+          }
+        ],
+        "before_hash": "d34ca4b8616f56ad381e6de79e7c456ece299a43808f7203c9a1d67ceb8b01fe",
+        "after_hash": "70ed48caf2511ab1f3f1bdbae1dc61d81bcfec4fda1a98b2604876ce553d4d26"
       },
       {
         "file": "src/App.test.js",
         "ranges": [
           {
-            "start": 29,
-            "end": 52
+            "start": 30,
+            "end": 30
+          },
+          {
+            "start": 52,
+            "end": 78
           }
         ],
-        "before_hash": "bef8d80b3bd7b719e904e6724d93263d1c1ec0017bc4d30571a23798869a89fc",
-        "after_hash": "45066ef9de6c87306864c96c94e1856e717b0ddda284bc0a9c5d85654116b326"
+        "before_hash": "45066ef9de6c87306864c96c94e1856e717b0ddda284bc0a9c5d85654116b326",
+        "after_hash": "c9290aa4f0617357ed661778d5c7767604fe08641448977f90f4be2e06634031"
+      },
+      {
+        "file": "src/components/PwaBits.jsx",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 69
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "d7dfc264f0c2a8f76a176fcc3caf1d8e67637ae26b2e599470e6f7d5d28a1524"
+      },
+      {
+        "file": "src/components/SoundSettingsPanel.jsx",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 113
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "c5644677d080e41e442e1e61da8633e919975318f284e9dee7c491cc41af3e4d"
+      },
+      {
+        "file": "src/DebateSetting.jsx",
+        "ranges": [
+          {
+            "start": 41,
+            "end": 45
+          },
+          {
+            "start": 74,
+            "end": 75
+          },
+          {
+            "start": 99,
+            "end": 101
+          },
+          {
+            "start": 117,
+            "end": 118
+          },
+          {
+            "start": 120,
+            "end": 121
+          },
+          {
+            "start": 130,
+            "end": 132
+          },
+          {
+            "start": 134,
+            "end": 134
+          },
+          {
+            "start": 155,
+            "end": 160
+          },
+          {
+            "start": 165,
+            "end": 168
+          },
+          {
+            "start": 177,
+            "end": 180
+          },
+          {
+            "start": 203,
+            "end": 203
+          },
+          {
+            "start": 273,
+            "end": 273
+          },
+          {
+            "start": 289,
+            "end": 289
+          },
+          {
+            "start": 292,
+            "end": 292
+          },
+          {
+            "start": 344,
+            "end": 354
+          },
+          {
+            "start": 412,
+            "end": 422
+          },
+          {
+            "start": 432,
+            "end": 432
+          },
+          {
+            "start": 435,
+            "end": 435
+          },
+          {
+            "start": 461,
+            "end": 463
+          },
+          {
+            "start": 503,
+            "end": 504
+          },
+          {
+            "start": 509,
+            "end": 510
+          },
+          {
+            "start": 515,
+            "end": 516
+          },
+          {
+            "start": 787,
+            "end": 807
+          },
+          {
+            "start": 863,
+            "end": 909
+          },
+          {
+            "start": 917,
+            "end": 963
+          }
+        ],
+        "before_hash": "82f1e4b4ef0fb2568fcea6c271a6e352361d1397d0ceb34bf14efe41f9185129",
+        "after_hash": "82fbf5ae0042747a96254637fe0c8ea94357e2b8685af44d21aec08691f83482"
       },
       {
         "file": "src/DebateTimer.jsx",
         "ranges": [
           {
-            "start": 2,
-            "end": 2
+            "start": 3,
+            "end": 5
           },
           {
-            "start": 45,
-            "end": 76
+            "start": 18,
+            "end": 18
           },
           {
-            "start": 133,
-            "end": 140
+            "start": 24,
+            "end": 29
           },
           {
-            "start": 184,
-            "end": 383
+            "start": 53,
+            "end": 62
           },
           {
-            "start": 386,
-            "end": 386
+            "start": 78,
+            "end": 82
           },
           {
-            "start": 409,
-            "end": 463
+            "start": 97,
+            "end": 104
           },
           {
-            "start": 477,
-            "end": 477
+            "start": 108,
+            "end": 211
           },
           {
-            "start": 490,
-            "end": 490
+            "start": 258,
+            "end": 261
           },
           {
-            "start": 517,
-            "end": 517
+            "start": 276,
+            "end": 278
           },
           {
-            "start": 519,
-            "end": 519
+            "start": 297,
+            "end": 304
           },
           {
-            "start": 586,
-            "end": 591
+            "start": 315,
+            "end": 322
           },
           {
-            "start": 610,
-            "end": 615
+            "start": 325,
+            "end": 325
           },
           {
-            "start": 630,
-            "end": 630
+            "start": 354,
+            "end": 364
           },
           {
-            "start": 657,
-            "end": 657
+            "start": 376,
+            "end": 379
           },
           {
-            "start": 665,
-            "end": 665
+            "start": 391,
+            "end": 395
           },
           {
-            "start": 672,
-            "end": 698
+            "start": 403,
+            "end": 408
           },
           {
-            "start": 786,
-            "end": 787
+            "start": 437,
+            "end": 437
           },
           {
-            "start": 790,
-            "end": 792
+            "start": 439,
+            "end": 439
           },
           {
-            "start": 814,
-            "end": 818
+            "start": 479,
+            "end": 480
           },
           {
-            "start": 826,
-            "end": 830
+            "start": 482,
+            "end": 482
           },
           {
-            "start": 881,
-            "end": 886
+            "start": 706,
+            "end": 706
           },
           {
-            "start": 948,
-            "end": 988
+            "start": 709,
+            "end": 710
           },
           {
-            "start": 993,
-            "end": 993
+            "start": 721,
+            "end": 721
           },
           {
-            "start": 1007,
-            "end": 1007
+            "start": 725,
+            "end": 734
           },
           {
-            "start": 1030,
-            "end": 1030
+            "start": 737,
+            "end": 737
           },
           {
-            "start": 1032,
-            "end": 1032
+            "start": 747,
+            "end": 747
           },
           {
-            "start": 1035,
-            "end": 1067
+            "start": 757,
+            "end": 765
           },
           {
-            "start": 1069,
-            "end": 1069
+            "start": 768,
+            "end": 768
           },
           {
-            "start": 1072,
-            "end": 1104
+            "start": 778,
+            "end": 778
           },
           {
-            "start": 1110,
-            "end": 1142
+            "start": 788,
+            "end": 796
           },
           {
-            "start": 1146,
-            "end": 1152
+            "start": 799,
+            "end": 860
+          },
+          {
+            "start": 868,
+            "end": 871
+          },
+          {
+            "start": 877,
+            "end": 887
+          },
+          {
+            "start": 900,
+            "end": 900
+          },
+          {
+            "start": 907,
+            "end": 907
+          },
+          {
+            "start": 910,
+            "end": 910
+          },
+          {
+            "start": 917,
+            "end": 917
+          },
+          {
+            "start": 920,
+            "end": 920
+          },
+          {
+            "start": 927,
+            "end": 927
+          },
+          {
+            "start": 930,
+            "end": 930
+          },
+          {
+            "start": 938,
+            "end": 938
+          },
+          {
+            "start": 943,
+            "end": 943
+          },
+          {
+            "start": 952,
+            "end": 952
+          },
+          {
+            "start": 957,
+            "end": 957
+          },
+          {
+            "start": 982,
+            "end": 1019
+          },
+          {
+            "start": 1102,
+            "end": 1106
+          },
+          {
+            "start": 1196,
+            "end": 1198
+          },
+          {
+            "start": 1215,
+            "end": 1215
+          },
+          {
+            "start": 1226,
+            "end": 1235
+          },
+          {
+            "start": 1266,
+            "end": 1275
+          },
+          {
+            "start": 1280,
+            "end": 1285
+          },
+          {
+            "start": 1290,
+            "end": 1298
+          },
+          {
+            "start": 1363,
+            "end": 1363
+          },
+          {
+            "start": 1369,
+            "end": 1369
+          },
+          {
+            "start": 1371,
+            "end": 1371
+          },
+          {
+            "start": 1378,
+            "end": 1384
+          },
+          {
+            "start": 1389,
+            "end": 1401
+          },
+          {
+            "start": 1437,
+            "end": 1449
+          },
+          {
+            "start": 1487,
+            "end": 1498
           }
         ],
-        "before_hash": "438a9f0fbadae7366dabd72173d8895cfc0b1c61bf534fab37ff5d976fc2c340",
-        "after_hash": "80971b60a92ec1339620e8d8acb64955619161a3c18354c4dcb1b43497c14c21"
+        "before_hash": "80971b60a92ec1339620e8d8acb64955619161a3c18354c4dcb1b43497c14c21",
+        "after_hash": "c45b0c9354c67d9cec01cc8bebdf4c6ab660e88a08aaf2f0bfa3026c34e2cb0b"
+      },
+      {
+        "file": "src/RecordDetailPage.jsx",
+        "ranges": [
+          {
+            "start": 10,
+            "end": 10
+          },
+          {
+            "start": 109,
+            "end": 109
+          }
+        ],
+        "before_hash": "44ec6282f0af2854d97096bb5d0c7ab9b6ff3b7e13427efcee3ec6f9d2b368b0",
+        "after_hash": "453de7c147503ae72af96bd02ebb62f0add882b3fa565c3de482660534eabbdc"
+      },
+      {
+        "file": "src/services/ConfigurationService.js",
+        "ranges": [
+          {
+            "start": 24,
+            "end": 24
+          },
+          {
+            "start": 30,
+            "end": 30
+          },
+          {
+            "start": 34,
+            "end": 34
+          }
+        ],
+        "before_hash": "e4572169b7701811f4c3a4bd5bb59b3b68e7f78b4048689d808cc8ae0598aab5",
+        "after_hash": "210b2d603a2d8aaf703cdf2d2e1f52e678e4f29dfbf7e3e11070ae692dc705a7"
+      },
+      {
+        "file": "src/services/configurationShared.js",
+        "ranges": [
+          {
+            "start": 9,
+            "end": 10
+          },
+          {
+            "start": 18,
+            "end": 33
+          },
+          {
+            "start": 47,
+            "end": 49
+          }
+        ],
+        "before_hash": "9898685b9e858b8e9f52cfd277188161bf1089489ebf5d18b8207fcfddef7a9a",
+        "after_hash": "08e02b6e138dd4223741126d6dae75a451f9224d84b8fbdca3cda70cb5c93cd4"
+      },
+      {
+        "file": "src/services/soundPrefs.js",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 101
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "c9d90ad040e52cfb50721781dc53d78e48a8e874368cb76064d37aafe1b27d15"
+      },
+      {
+        "file": "vite.config.js",
+        "ranges": [
+          {
+            "start": 4,
+            "end": 4
+          },
+          {
+            "start": 27,
+            "end": 56
+          }
+        ],
+        "before_hash": "2e6bb8821cc6bc9192e663582baf61f937eb0231ae1e112920c277c53bdfaa49",
+        "after_hash": "ed2a4487e3a6ece8b180a2b3f90581880296878c758a07e4f4b7810e3892662c"
       }
     ]
   },
   "timing": {
-    "started_at": "2026-10-10T15:04:24.993Z",
-    "completed_at": "2026-10-10T15:04:26.738Z",
-    "duration_ms": 1745,
+    "started_at": "2026-10-11T09:45:43.746Z",
+    "completed_at": "2026-10-11T09:45:45.632Z",
+    "duration_ms": 1886,
     "measurement": "hook_wall_clock"
   },
   "tokens": {
@@ -337,10 +735,10 @@
     "profile": "gate",
     "operation": "Stop",
     "outcome": "complete",
-    "latencyMs": 1745,
-    "peakMemoryBytes": 127709184,
+    "latencyMs": 1886,
+    "peakMemoryBytes": 136204288,
     "memoryMeasurement": "max-observed-process-rss",
-    "scannedFiles": 10,
+    "scannedFiles": 20,
     "cache": {
       "hits": 0,
       "misses": 0,
@@ -362,11 +760,263 @@
     "static_fix_verification": "observed_static_only",
     "runtime_verification": "not_performed"
   },
-  "finding_events": [],
+  "finding_events": [
+    {
+      "finding_id": "mimosa-b77720769a858ac01ebfcb9d",
+      "file": "server/routes/matchLogs.js",
+      "line": 40,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "越权访问（IDOR）",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-10-11T08:58:12.541Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "5d3598b94a52b4f52f0eb65223a549489ff6684d2adb6d09d8c5ab35258b9c4f",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-ee86d063f5c43de18bd8add1",
+      "file": "server/routes/matchLogs.js",
+      "line": 105,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-10-11T08:58:12.541Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "0fa80e4d95b2848b90a5545e5f4ba398e63c39b6ac6c31b0983374be4a813182",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-ee86d063f5c43de18bd8add1",
+      "file": "server/routes/matchLogs.js",
+      "line": 112,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-10-11T08:58:56.972Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "0fa80e4d95b2848b90a5545e5f4ba398e63c39b6ac6c31b0983374be4a813182",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-ee86d063f5c43de18bd8add1",
+      "file": "server/routes/matchLogs.js",
+      "line": 112,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-10-11T08:59:25.330Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "0fa80e4d95b2848b90a5545e5f4ba398e63c39b6ac6c31b0983374be4a813182",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-30a11395e511b393fa01962c",
+      "file": "server/routes/matchLogs.js",
+      "line": 116,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "blocked",
+      "decision": "deny",
+      "at": "2026-10-11T09:00:14.868Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "c1854b1c353541b0d8771058709fd825f7fa2a0f7f492897b93786034f3e1b2f",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-b77720769a858ac01ebfcb9d",
+      "file": "server/routes/matchLogs.js",
+      "line": 40,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "越权访问（IDOR）",
+      "status": "fixed_candidate",
+      "decision": "repair_observed",
+      "at": "2026-10-11T09:01:02.472Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "5d3598b94a52b4f52f0eb65223a549489ff6684d2adb6d09d8c5ab35258b9c4f",
+        "candidate_before_evidence_hash": "5d3598b94a52b4f52f0eb65223a549489ff6684d2adb6d09d8c5ab35258b9c4f",
+        "post_change_evidence_hash_at_previous_location": "d10b36aa74a59bcf4a88185837f658afaf3646eff2bb16c3928d0e9335e945d2",
+        "runtime_oracle": false,
+        "verification": {
+          "method": "mimosa-posttool-static-rescan",
+          "finding_absent": true,
+          "runtime_oracle": false
+        }
+      }
+    },
+    {
+      "finding_id": "mimosa-b77720769a858ac01ebfcb9d",
+      "file": "server/routes/matchLogs.js",
+      "line": 40,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "越权访问（IDOR）",
+      "status": "static_verified",
+      "decision": "static_rescan_passed",
+      "at": "2026-10-11T09:01:02.472Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "observed",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "5d3598b94a52b4f52f0eb65223a549489ff6684d2adb6d09d8c5ab35258b9c4f",
+        "candidate_before_evidence_hash": "5d3598b94a52b4f52f0eb65223a549489ff6684d2adb6d09d8c5ab35258b9c4f",
+        "post_change_evidence_hash_at_previous_location": "d10b36aa74a59bcf4a88185837f658afaf3646eff2bb16c3928d0e9335e945d2",
+        "runtime_oracle": false,
+        "verification": {
+          "method": "mimosa-posttool-static-rescan",
+          "finding_absent": true,
+          "runtime_oracle": false
+        }
+      }
+    },
+    {
+      "finding_id": "mimosa-ee86d063f5c43de18bd8add1",
+      "file": "server/routes/matchLogs.js",
+      "line": 112,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "fixed_candidate",
+      "decision": "repair_observed",
+      "at": "2026-10-11T09:01:02.472Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "0fa80e4d95b2848b90a5545e5f4ba398e63c39b6ac6c31b0983374be4a813182",
+        "candidate_before_evidence_hash": "0fa80e4d95b2848b90a5545e5f4ba398e63c39b6ac6c31b0983374be4a813182",
+        "post_change_evidence_hash_at_previous_location": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtime_oracle": false,
+        "verification": {
+          "method": "mimosa-posttool-static-rescan",
+          "finding_absent": true,
+          "runtime_oracle": false
+        }
+      }
+    },
+    {
+      "finding_id": "mimosa-ee86d063f5c43de18bd8add1",
+      "file": "server/routes/matchLogs.js",
+      "line": 112,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "static_verified",
+      "decision": "static_rescan_passed",
+      "at": "2026-10-11T09:01:02.472Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "observed",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "0fa80e4d95b2848b90a5545e5f4ba398e63c39b6ac6c31b0983374be4a813182",
+        "candidate_before_evidence_hash": "0fa80e4d95b2848b90a5545e5f4ba398e63c39b6ac6c31b0983374be4a813182",
+        "post_change_evidence_hash_at_previous_location": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtime_oracle": false,
+        "verification": {
+          "method": "mimosa-posttool-static-rescan",
+          "finding_absent": true,
+          "runtime_oracle": false
+        }
+      }
+    },
+    {
+      "finding_id": "mimosa-30a11395e511b393fa01962c",
+      "file": "server/routes/matchLogs.js",
+      "line": 116,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "fixed_candidate",
+      "decision": "repair_observed",
+      "at": "2026-10-11T09:01:02.472Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "c1854b1c353541b0d8771058709fd825f7fa2a0f7f492897b93786034f3e1b2f",
+        "candidate_before_evidence_hash": "c1854b1c353541b0d8771058709fd825f7fa2a0f7f492897b93786034f3e1b2f",
+        "post_change_evidence_hash_at_previous_location": "6d8d361d675b39736b8cadd4c052829cd54ac2d01292d3b23f29530e69514628",
+        "runtime_oracle": false,
+        "verification": {
+          "method": "mimosa-posttool-static-rescan",
+          "finding_absent": true,
+          "runtime_oracle": false
+        }
+      }
+    },
+    {
+      "finding_id": "mimosa-30a11395e511b393fa01962c",
+      "file": "server/routes/matchLogs.js",
+      "line": 116,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "XSS 跨站脚本",
+      "status": "static_verified",
+      "decision": "static_rescan_passed",
+      "at": "2026-10-11T09:01:02.472Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "observed",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "c1854b1c353541b0d8771058709fd825f7fa2a0f7f492897b93786034f3e1b2f",
+        "candidate_before_evidence_hash": "c1854b1c353541b0d8771058709fd825f7fa2a0f7f492897b93786034f3e1b2f",
+        "post_change_evidence_hash_at_previous_location": "6d8d361d675b39736b8cadd4c052829cd54ac2d01292d3b23f29530e69514628",
+        "runtime_oracle": false,
+        "verification": {
+          "method": "mimosa-posttool-static-rescan",
+          "finding_absent": true,
+          "runtime_oracle": false
+        }
+      }
+    }
+  ],
   "findings": [],
   "artifacts": {
-    "immutable_report": ".mimosa/reports/task-review-sess_1767763f-284f-4e7e-9b6a-ff6a24ec8192-20261010T150426738Z-9504-14e91ad25738.json",
+    "immutable_report": ".mimosa/reports/task-review-sess_1767763f-284f-4e7e-9b6a-ff6a24ec8192-20261011T094545632Z-44392-322cb3d995ee.json",
     "latest_report": ".mimosa/reports/task-review-sess_1767763f-284f-4e7e-9b6a-ff6a24ec8192.json",
-    "history_summary": ".mimosa/history/run-20261010T150426738Z-9504-14e91ad25738.json"
+    "history_summary": ".mimosa/history/run-20261011T094545632Z-44392-322cb3d995ee.json"
   }
 }

@@ -6,7 +6,7 @@ export function getApiBaseUrl() {
 }
 
 function isPublicPath(pathname) {
-    return pathname.startsWith('/login') || pathname.startsWith('/display');
+    return pathname.startsWith('/login') || pathname.startsWith('/display') || pathname.startsWith('/gallery');
 }
 
 export const apiClient = axios.create({

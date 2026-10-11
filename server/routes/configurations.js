@@ -302,5 +302,27 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth, t
         }
     });
 
+    // Publish / unpublish the template to the public gallery (owner only).
+    router.post('/:name/visibility', async (req, res) => {
+        try {
+            const existing = await findOwnConfig(req, res);
+            if (!existing) {
+                return;
+            }
+            const isPublic = req.body?.public === true;
+            await configurations.updateOne(
+                { _id: existing._id },
+                { $set: { isPublic, updatedAt: Date.now() } },
+            );
+            sse.broadcast({
+                ownerId: String(existing.ownerId),
+                name: existing.name,
+            });
+            res.json({ success: true, data: { isPublic } });
+        } catch (error) {
+            sendError(res, error, 'POST /api/configurations/:name/visibility');
+        }
+    });
+
     return router;
 }

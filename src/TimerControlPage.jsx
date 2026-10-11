@@ -111,11 +111,17 @@ export default function TimerControlPage() {
     const stageName = (stage) => stageDisplayName(t, stage, config.stageLabels, i18n.language);
 
     return (
-        <Box sx={{ minHeight: '100dvh', pb: 'calc(96px + env(safe-area-inset-bottom))' }}>
+        <Box
+            sx={{
+                minHeight: '100dvh',
+                pt: 'env(safe-area-inset-top)',
+                pb: 'calc(96px + env(safe-area-inset-bottom))',
+            }}
+        >
             <AppBar position="sticky" elevation={2}>
                 <Toolbar sx={{ gap: 1 }}>
                     <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 'auto' }}>
-                        🎯 {t('timer.title')}
+                        🎯 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('timer.title')}</Box>
                     </Typography>
 
                     <Button
@@ -126,7 +132,7 @@ export default function TimerControlPage() {
                         onClick={() => saveMatchRecord(false)}
                         title={t('records.saveHint')}
                     >
-                        {t('records.save')}
+                        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('records.save')}</Box>
                     </Button>
 
                     {sessionActive ? (
@@ -159,6 +165,7 @@ export default function TimerControlPage() {
                     <InstallButton className="ctl-install" />
 
                     <IconButton
+                        className="ctl-help-btn"
                         color="inherit"
                         onClick={(event) => setHelpAnchor(event.currentTarget)}
                         title={t('timer.shortcutsTitle')}
@@ -349,6 +356,7 @@ export default function TimerControlPage() {
 
             {/* 底部主操作栏：大按钮，触屏/快捷键双入口 */}
             <AppBar
+                className="ctl-action-bar"
                 position="fixed"
                 color="default"
                 elevation={4}

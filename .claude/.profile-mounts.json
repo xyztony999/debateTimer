@@ -1,0 +1,26 @@
+{
+  "apiVersion": 1,
+  "active": "debate-timer",
+  "stacks": [
+    "react-vite-web"
+  ],
+  "mounts": [
+    {
+      "layer": "react-vite-web",
+      "src": "profiles/react-vite-web/skills/frontend-specs",
+      "dst": ".claude/skills/frontend-specs",
+      "mode": "copy"
+    },
+    {
+      "layer": "react-vite-web",
+      "src": "profiles/react-vite-web/rules/frontend-rules.md",
+      "dst": ".claude/rules/frontend-rules.md",
+      "mode": "copy"
+    }
+  ],
+  "claudemd_imports": [
+    "@profiles/debate-timer/CLAUDE.md"
+  ],
+  "created_with": "engine-cli 0.4.0",
+  "ts": "2026-10-02T12:59:28.411Z"
+}

@@ -28,7 +28,27 @@
         "hintSingle": "空格 启停 · Shift+R 重置",
         "hintAff": "A 启停 · Shift+Q 重置",
         "hintNeg": "L 启停 · Shift+O 重置",
-        "hintStage": "← → 切换辩论阶段"
+        "hintStage": "← → 切换辩论阶段",
+        "hintFree": "A/L 启停 · 停一方自动走另一方",
+        "session": {
+            "title": "大屏同步",
+            "start": "开启大屏同步",
+            "stop": "结束同步",
+            "active": "大屏同步中",
+            "weak": "信号弱",
+            "ended": "同步已结束",
+            "enableShareFirst": "请先在设置中开启分享",
+            "copyUrl": "复制大屏链接",
+            "copied": "链接已复制"
+        },
+        "display": {
+            "following": "正在大屏跟随",
+            "weakSignal": "信号弱",
+            "sessionEnded": "同步已结束，已切换为独立计时"
+        },
+        "free": {
+            "locked": "自由辩论环节已结束"
+        }
     },
     "settings": {
         "backToTimer": "返回计时器",
@@ -96,7 +116,8 @@
         "saveRetry": "保存设置失败，请重试。",
         "enterItemName": "请输入计时项目名称",
         "itemExists": "该计时项目已存在",
-        "confirmDelete": "确定要删除计时项目“{{name}}”吗？"
+        "confirmDelete": "确定要删除计时项目“{{name}}”吗？",
+        "freeTimer": "自由辩论（自动切换）"
     },
     "auth": {
         "loginTitle": "登录",

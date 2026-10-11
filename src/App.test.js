@@ -26,3 +26,27 @@ test('error page strings are present', async () => {
     expect(i18n.t('errors.displayTitle')).toMatch(/unavailable/i);
     expect(i18n.t('errors.notFoundEyebrow')).toBe('404');
 });
+
+test('session and free-debate strings are present in all three languages', async () => {
+    expect(i18n.t('timer.session.start')).toMatch(/display sync/i);
+    expect(i18n.t('timer.session.active')).toMatch(/synced/i);
+    expect(i18n.t('timer.session.weak')).toMatch(/weak signal/i);
+    expect(i18n.t('timer.session.enableShareFirst')).toMatch(/sharing/i);
+    expect(i18n.t('timer.display.following')).toMatch(/live/i);
+    expect(i18n.t('timer.display.sessionEnded')).toMatch(/standalone/i);
+    expect(i18n.t('timer.free.locked')).toMatch(/concluded/i);
+    expect(i18n.t('timer.hintFree')).toMatch(/stopping one side/i);
+    expect(i18n.t('settings.freeTimer')).toMatch(/free debate/i);
+
+    await i18n.changeLanguage('zh-Hans');
+    expect(i18n.t('timer.session.start')).toBe('开启大屏同步');
+    expect(i18n.t('timer.display.following')).toBe('正在大屏跟随');
+    expect(i18n.t('timer.free.locked')).toBe('自由辩论环节已结束');
+    expect(i18n.t('settings.freeTimer')).toMatch(/自由辩论/);
+
+    await i18n.changeLanguage('fr-CA');
+    expect(i18n.t('timer.session.start')).toMatch(/synchro/i);
+    expect(i18n.t('timer.display.following')).toMatch(/direct/i);
+    expect(i18n.t('timer.free.locked')).toMatch(/débat libre/i);
+    expect(i18n.t('settings.freeTimer')).toMatch(/débat libre/i);
+});

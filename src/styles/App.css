@@ -1477,3 +1477,189 @@ button:not(:disabled):hover {
   }
 }
 
+/* ===== 计时会话（控制端）与大屏跟随（显示端） ===== */
+.session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.35rem 1.5rem;
+  flex-wrap: wrap;
+}
+
+.session-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  border: 1px solid #cfd8dc;
+  color: #607d8b;
+  background: rgba(207, 216, 220, 0.25);
+}
+
+.session-chip::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #b0bec5;
+}
+
+.session-chip--active {
+  border-color: #a5d6a7;
+  color: #2e7d32;
+  background: rgba(165, 214, 167, 0.2);
+}
+
+.session-chip--active::before {
+  background: #43a047;
+}
+
+.session-chip--weak {
+  border-color: #ffcc80;
+  color: #ef6c00;
+  background: rgba(255, 204, 128, 0.2);
+}
+
+.session-chip--weak::before {
+  background: #fb8c00;
+}
+
+.session-btn {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.session-btn:hover:not(:disabled) {
+  border-color: #90caf9;
+  background: rgba(144, 202, 249, 0.12);
+}
+
+.session-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.dark-mode .session-chip {
+  border-color: #546e7a;
+  color: #b0bec5;
+  background: rgba(84, 110, 126, 0.2);
+}
+
+.dark-mode .session-chip--active {
+  border-color: #2e7d32;
+  color: #a5d6a7;
+  background: rgba(46, 125, 50, 0.18);
+}
+
+.dark-mode .session-chip--weak {
+  border-color: #ef6c00;
+  color: #ffcc80;
+  background: rgba(239, 108, 0, 0.18);
+}
+
+.dark-mode .session-btn {
+  border-color: #546e7a;
+}
+
+.dark-mode .session-btn:hover:not(:disabled) {
+  border-color: #64b5f6;
+  background: rgba(100, 181, 246, 0.12);
+}
+
+.display-banner {
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 0.3rem 1rem;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+}
+
+.display-banner--following {
+  color: #2e7d32;
+  background: rgba(165, 214, 167, 0.18);
+  border-bottom-color: #a5d6a7;
+}
+
+.display-banner--weak {
+  color: #ef6c00;
+  background: rgba(255, 204, 128, 0.18);
+  border-bottom-color: #ffcc80;
+}
+
+.display-banner--ended {
+  color: #607d8b;
+  background: rgba(207, 216, 220, 0.2);
+  border-bottom-color: #cfd8dc;
+}
+
+.dark-mode .display-banner--following {
+  color: #a5d6a7;
+  background: rgba(46, 125, 50, 0.18);
+  border-bottom-color: #2e7d32;
+}
+
+.dark-mode .display-banner--weak {
+  color: #ffcc80;
+  background: rgba(239, 108, 0, 0.18);
+  border-bottom-color: #ef6c00;
+}
+
+.dark-mode .display-banner--ended {
+  color: #b0bec5;
+  background: rgba(84, 110, 126, 0.2);
+  border-bottom-color: #546e7a;
+}
+
+.session-notice {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #37474f;
+  color: #eceff1;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  max-width: min(90vw, 30rem);
+}
+
+/* 自由辩论：当前发言方高亮；双方时间耗尽后的锁定提示 */
+.timer-box.free-active {
+  border: 2px solid #90caf9;
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(144, 202, 249, 0.35);
+  padding: 0.25rem 0.5rem;
+}
+
+.dark-mode .timer-box.free-active {
+  border-color: #64b5f6;
+  box-shadow: 0 0 12px rgba(100, 181, 246, 0.3);
+}
+
+.free-locked {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #c62828;
+  margin: 0.5rem 0 0;
+}
+
+.dark-mode .free-locked {
+  color: #ef9a9a;
+}
+
+.shortcut-hint--free {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+

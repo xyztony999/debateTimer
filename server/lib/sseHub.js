@@ -33,7 +33,21 @@ export function createSseHub() {
         }
     }
 
-    return { add, broadcast };
+    // Named event to every display client subscribed to one share token
+    // (timer state snapshots and session lifecycle). Unrelated to broadcast().
+    function sendToToken(shareToken, event = 'change', payload = {}) {
+        if (!shareToken) {
+            return;
+        }
+        const frame = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+        for (const client of clients) {
+            if (client.shareToken && client.shareToken === shareToken) {
+                client.res.write(frame);
+            }
+        }
+    }
+
+    return { add, broadcast, sendToToken };
 }
 
 export function initSseResponse(res) {

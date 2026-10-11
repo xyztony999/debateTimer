@@ -1,0 +1,6 @@
+{
+  "env": {
+    "ACTIVE_PROFILE": "debate-timer",
+    "ACTIVE_STACKS": "react-vite-web"
+  }
+}

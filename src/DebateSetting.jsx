@@ -791,6 +791,7 @@ const DebateSetting = () => {
                                                 >
                                                     <MenuItem value="single">{t('settings.singleTimer')}</MenuItem>
                                                     <MenuItem value="double">{t('settings.doubleTimer')}</MenuItem>
+                                                    <MenuItem value="free">{t('settings.freeTimer')}</MenuItem>
                                                 </Select>
                                             </FormControl>
                                             <Tooltip title={t('settings.deleteItemTitle')}>
@@ -874,6 +875,7 @@ const DebateSetting = () => {
                                         >
                                             <MenuItem value="single">{t('settings.singleTimer')}</MenuItem>
                                             <MenuItem value="double">{t('settings.doubleTimer')}</MenuItem>
+                                            <MenuItem value="free">{t('settings.freeTimer')}</MenuItem>
                                         </Select>
                                     </FormControl>
                                     <Button
@@ -957,7 +959,9 @@ const DebateSetting = () => {
                                                 secondary={`${formatStageTime(debateStages[stage] || 0)} · ${
                                                     timerSettings[stage] === 'double'
                                                         ? t('settings.doubleTimer')
-                                                        : t('settings.singleTimer')
+                                                        : timerSettings[stage] === 'free'
+                                                            ? t('settings.freeTimer')
+                                                            : t('settings.singleTimer')
                                                 }`}
                                             />
                                         </ListItem>

@@ -1,4 +1,5 @@
 import React, {useState, useEffect, Fragment, useCallback, useRef} from 'react';
+import TimerSessionService from './services/TimerSessionService';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import end_sound from './resources/notify.wav';
@@ -40,6 +41,38 @@ const DebateTimer = ({ shareToken = null }) => {
     const [isTimeUp, setIsTimeUp] = useState(false);
     const [isAffTimeUp, setIsAffTimeUp] = useState(false);
     const [isNegTimeUp, setIsNegTimeUp] = useState(false);
+
+    // --- Control session (operator side) / follow mode (display side) ---
+    const [shareInfo, setShareInfo] = useState(null);       // { shareEnabled, shareToken } of current config
+    const shareInfoRef = useRef(null);
+    const [sessionState, setSessionState] = useState('idle'); // idle | starting | active | weak
+    const [sessionNotice, setSessionNotice] = useState(null);
+    const sessionRef = useRef(null);                        // { shareToken, displayUrl, failures }
+    const seqRef = useRef(0);
+    const [following, setFollowing] = useState(false);      // display is driven by a live session
+    const [displayBanner, setDisplayBanner] = useState(null); // following | weak | ended
+    const bannerTimerRef = useRef(null);
+    const lastStateAtRef = useRef(0);
+    const followingRef = useRef(false);
+    const autoSwitchRef = useRef(true);                     // free-debate auto switch armed
+    const latestRef = useRef({});
+
+    // Mirror the latest timer state for event handlers and intervals that
+    // must not re-register on every tick. Defined before the effects below so
+    // they observe fresh values in the same commit.
+    useEffect(() => {
+        followingRef.current = following;
+        latestRef.current = {
+            selectedStage,
+            timeLeft,
+            timeLeftAff,
+            timeLeftNeg,
+            running,
+            runningAff,
+            runningNeg,
+            debateSingleDoubleTimerSettings,
+        };
+    });
 
     // 获取按顺序排列的计时器项目
     const getOrderedStages = () => {
@@ -97,6 +130,14 @@ const DebateTimer = ({ shareToken = null }) => {
         setDebateStages(newDebateStages);
         setDebateSingleDoubleTimerSettings(newTimerSettings);
         setStageLabels(data.stageLabels || {});
+        setShareInfo({
+            shareEnabled: Boolean(data.shareEnabled),
+            shareToken: data.shareToken || null,
+        });
+        shareInfoRef.current = {
+            shareEnabled: Boolean(data.shareEnabled),
+            shareToken: data.shareToken || null,
+        };
         selectedConfigNameRef.current = configName;
         if (persistName) {
             setStoredConfigurationName(configName);
@@ -140,8 +181,209 @@ const DebateTimer = ({ shareToken = null }) => {
         }
     }, [applyLoadedData]);
 
+    // ------------------------------------------------------------------
+    // Timer session: snapshot building (controller), snapshot adoption
+    // (display), and reporting with a 2s heartbeat.
+    // ------------------------------------------------------------------
+
+    const buildSnapshot = useCallback(() => {
+        const s = latestRef.current;
+        const modeValue = s.debateSingleDoubleTimerSettings[s.selectedStage];
+        const stageMode = modeValue === TimerSetting.single
+            ? 'single'
+            : modeValue === TimerSetting.free ? 'free' : 'double';
+        const single = stageMode === 'single';
+        return {
+            seq: (seqRef.current += 1),
+            stageId: s.selectedStage,
+            stageMode,
+            remainingAffMs: (single ? s.timeLeft : s.timeLeftAff) * 1000,
+            remainingNegMs: (single ? s.timeLeft : s.timeLeftNeg) * 1000,
+            runningAff: single ? s.running : s.runningAff,
+            runningNeg: single ? false : s.runningNeg,
+            activeSide: stageMode === 'free'
+                ? (s.runningAff ? 'aff' : s.runningNeg ? 'neg' : 'none')
+                : 'none',
+        };
+    }, []);
+
+    const adoptSnapshot = useCallback((snapshot) => {
+        if (!snapshot || !snapshot.stageId) {
+            return;
+        }
+        seqRef.current = Math.max(seqRef.current, Number(snapshot.seq) || 0);
+        const secondsAff = Math.max(0, Math.floor((snapshot.remainingAffMs || 0) / 1000));
+        const secondsNeg = Math.max(0, Math.floor((snapshot.remainingNegMs || 0) / 1000));
+        const single = snapshot.stageMode === 'single';
+        setSelectedStage(snapshot.stageId);
+        setTimeLeft(secondsAff);
+        setTimeLeftAff(secondsAff);
+        setTimeLeftNeg(single ? secondsAff : secondsNeg);
+        setRunning(single ? Boolean(snapshot.runningAff) : false);
+        setRunningAff(single ? false : Boolean(snapshot.runningAff));
+        setRunningNeg(single ? false : Boolean(snapshot.runningNeg));
+        setIsTimeUp(single && secondsAff <= 0);
+        setIsAffTimeUp(secondsAff <= 0);
+        setIsNegTimeUp((single ? secondsAff : secondsNeg) <= 0);
+    }, []);
+
+    const reportSnapshot = useCallback(async () => {
+        const session = sessionRef.current;
+        if (!session) {
+            return;
+        }
+        const result = await TimerSessionService.reportSnapshot(
+            selectedConfigNameRef.current,
+            buildSnapshot(),
+        );
+        if (!sessionRef.current) {
+            return; // session was stopped while the request was in flight
+        }
+        if (result.success) {
+            session.failures = 0;
+            setSessionState('active');
+            return;
+        }
+        session.failures = (session.failures || 0) + 1;
+        if (session.failures >= 2) {
+            setSessionState('weak');
+        }
+        if ([400, 403, 404].includes(result.status)) {
+            // Session is gone (expired, superseded, or access denied).
+            sessionRef.current = null;
+            setSessionState('idle');
+            setSessionNotice(t('timer.session.ended'));
+        }
+    }, [buildSnapshot, t]);
+
+    const handleStartSession = useCallback(async () => {
+        if (sessionRef.current || sessionState === 'starting') {
+            return;
+        }
+        if (!user) {
+            setSessionNotice(t('timer.session.enableShareFirst'));
+            return;
+        }
+        if (!shareInfo?.shareEnabled) {
+            setSessionNotice(t('timer.session.enableShareFirst'));
+            return;
+        }
+        setSessionState('starting');
+        const result = await TimerSessionService.startSession(selectedConfigNameRef.current);
+        if (!result.success) {
+            setSessionState('idle');
+            setSessionNotice(result.message);
+            return;
+        }
+        sessionRef.current = {
+            shareToken: result.data.shareToken,
+            displayUrl: result.data.displayUrl,
+            failures: 0,
+        };
+        seqRef.current = result.data.snapshot?.seq ?? 0;
+        setSessionState('active');
+        reportSnapshot();
+    }, [user, shareInfo, sessionState, reportSnapshot, t]);
+
+    const handleStopSession = useCallback(async () => {
+        const wasActive = Boolean(sessionRef.current);
+        sessionRef.current = null;
+        setSessionState('idle');
+        if (wasActive) {
+            const result = await TimerSessionService.stopSession(selectedConfigNameRef.current);
+            if (!result.success) {
+                setSessionNotice(result.message);
+            }
+        }
+    }, []);
+
+    // After a page refresh (or template switch), silently resume a session
+    // that is still alive server-side: adopt its snapshot and keep reporting.
+    const restoreLiveSession = useCallback(async () => {
+        const info = shareInfoRef.current;
+        if (!info?.shareEnabled || !info.shareToken || sessionRef.current) {
+            return;
+        }
+        const result = await TimerSessionService.loadDisplayState(info.shareToken);
+        if (!result.success || !result.data.active) {
+            return;
+        }
+        adoptSnapshot(result.data.snapshot);
+        sessionRef.current = {
+            shareToken: info.shareToken,
+            displayUrl: `/display/${info.shareToken}`,
+            failures: 0,
+        };
+        setSessionState('active');
+    }, [adoptSnapshot]);
+
+    const handleCopyDisplayUrl = useCallback(async () => {        const path = sessionRef.current?.displayUrl
+            ?? (shareInfo?.shareToken ? `/display/${shareInfo.shareToken}` : null);
+        if (!path) {
+            return;
+        }
+        const url = `${window.location.origin}${path}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setSessionNotice(t('timer.session.copied'));
+        } catch {
+            setSessionNotice(url);
+        }
+    }, [shareInfo, t]);
+
+    // Report on every discrete state transition (start/stop/reset/stage
+    // switch); per-second drift is carried by the heartbeat snapshots below.
+    useEffect(() => {
+        if (isDisplay || !sessionRef.current) {
+            return;
+        }
+        reportSnapshot();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [running, runningAff, runningNeg, selectedStage, isTimeUp, isAffTimeUp, isNegTimeUp]);
+
+    // Heartbeat: keeps the session alive server-side and re-syncs times.
+    useEffect(() => {
+        if (isDisplay || (sessionState !== 'active' && sessionState !== 'weak')) {
+            return undefined;
+        }
+        const id = window.setInterval(() => {
+            reportSnapshot();
+        }, 2000);
+        return () => window.clearInterval(id);
+    }, [sessionState, reportSnapshot, isDisplay]);
+
+    // Auto-dismiss the transient snackbar / banner notices.
+    useEffect(() => {
+        if (!sessionNotice) {
+            return undefined;
+        }
+        const id = window.setTimeout(() => setSessionNotice(null), 4000);
+        return () => window.clearTimeout(id);
+    }, [sessionNotice]);
+
+    // Weak-signal detection on the display: no snapshot for 5s while following.
+    useEffect(() => {
+        if (!isDisplay || !following) {
+            return undefined;
+        }
+        lastStateAtRef.current = Date.now();
+        const id = window.setInterval(() => {
+            if (Date.now() - lastStateAtRef.current > 5000) {
+                setDisplayBanner((prev) => (prev === 'following' ? 'weak' : prev));
+            }
+        }, 1000);
+        return () => window.clearInterval(id);
+    }, [isDisplay, following]);
+
+    useEffect(() => () => {
+        if (bannerTimerRef.current) {
+            window.clearTimeout(bannerTimerRef.current);
+        }
+    }, []);
+
     useEffect(() => {
         let unsubscribe;
+        let stateUnsubscribe;
 
         const toNames = (list) => (list || []).map((item) => item.name);
 
@@ -164,6 +406,61 @@ const DebateTimer = ({ shareToken = null }) => {
                             setDisplayState(next.notFound ? 'missing' : 'error');
                         }
                     });
+
+                    // Live follow: adopt the running session (if any) and
+                    // keep re-adopting controller snapshots.
+                    const stateResult = await TimerSessionService.loadDisplayState(shareToken);
+                    if (stateResult.success && stateResult.data.active) {
+                        lastStateAtRef.current = Date.now();
+                        adoptSnapshot(stateResult.data.snapshot);
+                        setFollowing(true);
+                        setDisplayBanner('following');
+                    }
+                    stateUnsubscribe = TimerSessionService.onDisplayState(shareToken, {
+                        onState: (snapshot) => {
+                            lastStateAtRef.current = Date.now();
+                            setFollowing(true);
+                            setDisplayBanner('following');
+                            adoptSnapshot(snapshot);
+                        },
+                        onSession: (event) => {
+                            if (event.type === 'started') {
+                                setFollowing(true);
+                                setDisplayBanner('following');
+                                return;
+                            }
+                            if (event.type === 'ended' || event.type === 'expired') {
+                                setFollowing(false);
+                                setRunning(false);
+                                setRunningAff(false);
+                                setRunningNeg(false);
+                                setDisplayBanner('ended');
+                                if (bannerTimerRef.current) {
+                                    window.clearTimeout(bannerTimerRef.current);
+                                }
+                                bannerTimerRef.current = window.setTimeout(() => {
+                                    setDisplayBanner(null);
+                                }, 8000);
+                            }
+                        },
+                        onOpen: async () => {
+                            const sync = await TimerSessionService.loadDisplayState(shareToken);
+                            if (!sync.success) {
+                                return;
+                            }
+                            if (sync.data.active) {
+                                lastStateAtRef.current = Date.now();
+                                setFollowing(true);
+                                adoptSnapshot(sync.data.snapshot);
+                            } else if (followingRef.current) {
+                                setFollowing(false);
+                                setRunning(false);
+                                setRunningAff(false);
+                                setRunningNeg(false);
+                                setDisplayBanner('ended');
+                            }
+                        },
+                    });
                     return;
                 }
 
@@ -177,6 +474,7 @@ const DebateTimer = ({ shareToken = null }) => {
                 const preferred = getStoredConfigurationName();
                 const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
                 await loadConfiguration(target);
+                restoreLiveSession();
 
                 unsubscribe = ConfigurationService.onConfigurationsChange(async (list) => {
                     const nextNames = toNames(list);
@@ -189,6 +487,7 @@ const DebateTimer = ({ shareToken = null }) => {
                             : nextNames[0]);
                     if (!nextTarget) return;
                     await loadConfiguration(nextTarget);
+                    restoreLiveSession();
                 });
             } catch (error) {
                 console.error('Error initializing configuration:', error);
@@ -215,8 +514,9 @@ const DebateTimer = ({ shareToken = null }) => {
 
         return () => {
             if (unsubscribe) unsubscribe();
+            if (stateUnsubscribe) stateUnsubscribe();
         };
-    }, [loadConfiguration, formatTimerSettings, shareToken, applyLoadedData]);
+    }, [loadConfiguration, formatTimerSettings, shareToken, applyLoadedData, adoptSnapshot, restoreLiveSession]);
 
     const endSoundRef = useRef(null);
     const warn30SoundRef = useRef(null);
@@ -283,6 +583,12 @@ const DebateTimer = ({ shareToken = null }) => {
             setRunningAff(false);
             setIsAffTimeUp(true);
             playSound('end');
+            // Free debate: running out yields the floor to the other side.
+            const s = latestRef.current;
+            if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
+                && autoSwitchRef.current && s.timeLeftNeg > 0) {
+                setRunningNeg(true);
+            }
         }
         return () => clearInterval(interval);
     }, [runningAff, timeLeftAff, playSound]);
@@ -301,6 +607,12 @@ const DebateTimer = ({ shareToken = null }) => {
             setRunningNeg(false);
             setIsNegTimeUp(true);
             playSound('end');
+            // Free debate: running out yields the floor to the other side.
+            const s = latestRef.current;
+            if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
+                && autoSwitchRef.current && s.timeLeftAff > 0) {
+                setRunningAff(true);
+            }
         }
         return () => clearInterval(interval);
     }, [runningNeg, timeLeftNeg, playSound]);
@@ -315,6 +627,7 @@ const DebateTimer = ({ shareToken = null }) => {
         if (!stage || !debateStages.hasOwnProperty(stage)) {
             return;
         }
+        autoSwitchRef.current = false;
         setSelectedStage(stage);
         const time = debateStages[stage];
         setTimeLeft(time);
@@ -341,6 +654,7 @@ const DebateTimer = ({ shareToken = null }) => {
     };
 
     const resetAffTimer = () => {
+        autoSwitchRef.current = false;
         setRunningAff(false);
         setIsAffTimeUp(false);
         setTimeLeftAff(debateStages[selectedStage]);
@@ -348,10 +662,38 @@ const DebateTimer = ({ shareToken = null }) => {
     };
 
     const resetNegTimer = () => {
+        autoSwitchRef.current = false;
         setRunningNeg(false);
         setIsNegTimeUp(false);
         setTimeLeftNeg(debateStages[selectedStage]);
         document.getElementById('clockNeg')?.classList.remove('time-30s-blinking');
+    };
+
+    // Free-debate toggles: explicitly starting a side arms the auto switch;
+    // explicitly stopping a side hands the floor to the other side.
+    const startAff = () => {
+        autoSwitchRef.current = true;
+        setRunningAff(true);
+    };
+    const stopAff = () => {
+        setRunningAff(false);
+        const s = latestRef.current;
+        if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
+            && autoSwitchRef.current && s.timeLeftNeg > 0 && !s.runningNeg) {
+            setRunningNeg(true);
+        }
+    };
+    const startNeg = () => {
+        autoSwitchRef.current = true;
+        setRunningNeg(true);
+    };
+    const stopNeg = () => {
+        setRunningNeg(false);
+        const s = latestRef.current;
+        if (s.debateSingleDoubleTimerSettings[s.selectedStage] === TimerSetting.free
+            && autoSwitchRef.current && s.timeLeftAff > 0 && !s.runningAff) {
+            setRunningAff(true);
+        }
     };
 
     const goToAdjacentStage = useCallback((direction) => {
@@ -441,9 +783,13 @@ const DebateTimer = ({ shareToken = null }) => {
             return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
         };
 
-        const isDouble = debateSingleDoubleTimerSettings[selectedStage] === TimerSetting.double;
+        const modeValue = debateSingleDoubleTimerSettings[selectedStage];
+        const isDouble = modeValue === TimerSetting.double || modeValue === TimerSetting.free;
 
         const handleKeyPress = (event) => {
+            if (followingRef.current) {
+                return; // read-only while a control session drives this screen
+            }
             if (event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) {
                 return;
             }
@@ -465,7 +811,11 @@ const DebateTimer = ({ shareToken = null }) => {
             if (isDouble) {
                 if (!withShift && (key === 'a' || key === 'A')) {
                     event.preventDefault();
-                    setRunningAff((prev) => !prev);
+                    if (runningAff) {
+                        stopAff();
+                    } else {
+                        startAff();
+                    }
                 } else if (withShift && (key === 'q' || key === 'Q')) {
                     event.preventDefault();
                     if (!runningAff) {
@@ -473,7 +823,11 @@ const DebateTimer = ({ shareToken = null }) => {
                     }
                 } else if (!withShift && (key === 'l' || key === 'L')) {
                     event.preventDefault();
-                    setRunningNeg((prev) => !prev);
+                    if (runningNeg) {
+                        stopNeg();
+                    } else {
+                        startNeg();
+                    }
                 } else if (withShift && (key === 'o' || key === 'O')) {
                     event.preventDefault();
                     if (!runningNeg) {
@@ -523,6 +877,12 @@ const DebateTimer = ({ shareToken = null }) => {
     if (isDisplay && (displayState === 'missing' || displayState === 'error')) {
         return <StatusPage variant="display" />;
     }
+
+    const currentMode = debateSingleDoubleTimerSettings[selectedStage];
+    const isFreeMode = currentMode === TimerSetting.free;
+    const isDualMode = currentMode === TimerSetting.double || isFreeMode;
+    const isFreeLocked = isFreeMode && isAffTimeUp && isNegTimeUp;
+    const activeSide = runningAff ? 'aff' : runningNeg ? 'neg' : 'none';
 
     return (
         <Fragment>
@@ -585,10 +945,52 @@ const DebateTimer = ({ shareToken = null }) => {
                 </div>
 
 
+                {/* Session control bar (controller) / follow banner (display) */}
+                {!isDisplay ? (
+                    <div className="session-bar" role="toolbar" aria-label={t('timer.session.title')}>
+                        <span className={`session-chip session-chip--${sessionState}`}>
+                            {sessionState === 'active' ? t('timer.session.active')
+                                : sessionState === 'weak' ? t('timer.session.weak')
+                                    : sessionState === 'starting' ? '…' : ''}
+                        </span>
+                        {(sessionState === 'active' || sessionState === 'weak') ? (
+                            <Fragment>
+                                <button type="button" className="session-btn" onClick={handleCopyDisplayUrl}>
+                                    🔗 {t('timer.session.copyUrl')}
+                                </button>
+                                <button type="button" className="session-btn" onClick={handleStopSession}>
+                                    ⏹ {t('timer.session.stop')}
+                                </button>
+                            </Fragment>
+                        ) : (
+                            <button
+                                type="button"
+                                className="session-btn"
+                                disabled={sessionState === 'starting'}
+                                onClick={handleStartSession}
+                            >
+                                📡 {t('timer.session.start')}
+                            </button>
+                        )}
+                    </div>
+                ) : null}
+                {isDisplay && displayBanner ? (
+                    <div className={`display-banner display-banner--${displayBanner}`} role="status">
+                        {displayBanner === 'following' ? t('timer.display.following')
+                            : displayBanner === 'weak' ? t('timer.display.weakSignal')
+                                : t('timer.display.sessionEnded')}
+                    </div>
+                ) : null}
+                {sessionNotice ? (
+                    <div className="session-notice" role="status">{sessionNotice}</div>
+                ) : null}
+
+
                 <select
                     className="timer-stage-select"
                     value={selectedStage}
                     onChange={handleStageSelect}
+                    disabled={following}
                     aria-label={t('timer.stage')}
                 >
                     {getOrderedStages().map((stage) => (
@@ -602,7 +1004,7 @@ const DebateTimer = ({ shareToken = null }) => {
                     ))}
                 </select>
                 <h2>{stageDisplayName(t, selectedStage, stageLabels, i18n.language)}</h2>
-                {(selectedStage === 'sound_check') ? (
+                {(!following && selectedStage === 'sound_check') ? (
                     <div>
                         <button type="button" onClick={() => {
                             setRunning(false);
@@ -625,103 +1027,128 @@ const DebateTimer = ({ shareToken = null }) => {
                 )}
 
                 {/* 根据选定的阶段显示不同的计时器和控制按钮 */}
-                {(debateSingleDoubleTimerSettings[selectedStage]===TimerSetting.double) ? (
+                {isDualMode ? (
                     <div className='debate-timers-container'>
-                        <div className='timer-box'>
+                        <div className={`timer-box${isFreeMode && activeSide === 'aff' ? ' free-active' : ''}`}>
                             <h3>{t('timer.affirmative')}</h3>
                             <h1 className={isAffTimeUp ? 'blinking' : ''} id='clockAff'>{formatTime(timeLeftAff)}</h1>
-                            <div className='controls'>
-                                <button
-                                    className={!runningAff ? 'active' : ''}
-                                    onClick={() => setRunningAff(true)}
-                                    disabled={runningAff}
-                                    title={t('timer.shortcutAffToggle')}
-                                >
-                                    ▶️
-                                </button>
-                                <button
-                                    className={runningAff ? 'active' : ''}
-                                    onClick={() => setRunningAff(false)}
-                                    disabled={!runningAff}
-                                    title={t('timer.shortcutAffToggle')}
-                                >
-                                    ⏸️
-                                </button>
-                                <button
-                                    className={!runningAff ? 'active' : ''}
-                                    onClick={resetAffTimer}
-                                    disabled={runningAff}
-                                    title={t('timer.shortcutAffReset')}
-                                >
-                                    🔃
-                                </button>
-                            </div>
-                            <p className="shortcut-hint">{t('timer.hintAff')}</p>
+                            {following ? (
+                                <p className="shortcut-hint">{t('timer.display.following')}</p>
+                            ) : (
+                                <Fragment>
+                                    <div className='controls'>
+                                        <button
+                                            className={!runningAff ? 'active' : ''}
+                                            onClick={startAff}
+                                            disabled={runningAff}
+                                            title={t('timer.shortcutAffToggle')}
+                                        >
+                                            ▶️
+                                        </button>
+                                        <button
+                                            className={runningAff ? 'active' : ''}
+                                            onClick={stopAff}
+                                            disabled={!runningAff}
+                                            title={t('timer.shortcutAffToggle')}
+                                        >
+                                            ⏸️
+                                        </button>
+                                        <button
+                                            className={!runningAff ? 'active' : ''}
+                                            onClick={resetAffTimer}
+                                            disabled={runningAff}
+                                            title={t('timer.shortcutAffReset')}
+                                        >
+                                            🔃
+                                        </button>
+                                    </div>
+                                    <p className="shortcut-hint">{t('timer.hintAff')}</p>
+                                </Fragment>
+                            )}
                         </div>
-                        <div className='timer-box'>
+                        <div className={`timer-box${isFreeMode && activeSide === 'neg' ? ' free-active' : ''}`}>
                             <h3>{t('timer.negative')}</h3>
                             <h1 className={isNegTimeUp ? 'blinking' : ''} id='clockNeg'>{formatTime(timeLeftNeg)}</h1>
-                            <div className='controls'>
-                                <button
-                                    className={!runningNeg ? 'active' : ''}
-                                    onClick={() => setRunningNeg(true)}
-                                    disabled={runningNeg}
-                                    title={t('timer.shortcutNegToggle')}
-                                >
-                                    ▶️
-                                </button>
-                                <button
-                                    className={runningNeg ? 'active' : ''}
-                                    onClick={() => setRunningNeg(false)}
-                                    disabled={!runningNeg}
-                                    title={t('timer.shortcutNegToggle')}
-                                >
-                                    ⏸️
-                                </button>
-                                <button
-                                    className={!runningNeg ? 'active' : ''}
-                                    onClick={resetNegTimer}
-                                    disabled={runningNeg}
-                                    title={t('timer.shortcutNegReset')}
-                                >
-                                    🔃
-                                </button>
-                            </div>
-                            <p className="shortcut-hint">{t('timer.hintNeg')}</p>
+                            {following ? (
+                                <p className="shortcut-hint">{t('timer.display.following')}</p>
+                            ) : (
+                                <Fragment>
+                                    <div className='controls'>
+                                        <button
+                                            className={!runningNeg ? 'active' : ''}
+                                            onClick={startNeg}
+                                            disabled={runningNeg}
+                                            title={t('timer.shortcutNegToggle')}
+                                        >
+                                            ▶️
+                                        </button>
+                                        <button
+                                            className={runningNeg ? 'active' : ''}
+                                            onClick={stopNeg}
+                                            disabled={!runningNeg}
+                                            title={t('timer.shortcutNegToggle')}
+                                        >
+                                            ⏸️
+                                        </button>
+                                        <button
+                                            className={!runningNeg ? 'active' : ''}
+                                            onClick={resetNegTimer}
+                                            disabled={runningNeg}
+                                            title={t('timer.shortcutNegReset')}
+                                        >
+                                            🔃
+                                        </button>
+                                    </div>
+                                    <p className="shortcut-hint">{t('timer.hintNeg')}</p>
+                                </Fragment>
+                            )}
                         </div>
                     </div>
                 ) : (
                     <div className='timer-box'>
                         <h1 className={isTimeUp ? 'blinking' : 'timer'} id='clock'>{formatTime(timeLeft)}</h1>
-                        <div className='controls'>
-                            <button
-                                className={!running ? 'active' : ''}
-                                onClick={() => setRunning(true)}
-                                disabled={running}
-                                title={t('timer.shortcutSingleToggle')}
-                            >
-                                ▶️
-                            </button>
-                            <button
-                                className={running ? 'active' : ''}
-                                onClick={() => setRunning(false)}
-                                disabled={!running}
-                                title={t('timer.shortcutSingleToggle')}
-                            >
-                                ⏸️
-                            </button>
-                            <button
-                                className={!running ? 'active' : ''}
-                                onClick={resetSingleTimer}
-                                disabled={running}
-                                title={t('timer.shortcutSingleReset')}
-                            >
-                                🔃
-                            </button>
-                        </div>
-                        <p className="shortcut-hint">{t('timer.hintSingle')}</p>
+                        {following ? (
+                            <p className="shortcut-hint">{t('timer.display.following')}</p>
+                        ) : (
+                            <Fragment>
+                                <div className='controls'>
+                                    <button
+                                        className={!running ? 'active' : ''}
+                                        onClick={() => setRunning(true)}
+                                        disabled={running}
+                                        title={t('timer.shortcutSingleToggle')}
+                                    >
+                                        ▶️
+                                    </button>
+                                    <button
+                                        className={running ? 'active' : ''}
+                                        onClick={() => setRunning(false)}
+                                        disabled={!running}
+                                        title={t('timer.shortcutSingleToggle')}
+                                    >
+                                        ⏸️
+                                    </button>
+                                    <button
+                                        className={!running ? 'active' : ''}
+                                        onClick={resetSingleTimer}
+                                        disabled={running}
+                                        title={t('timer.shortcutSingleReset')}
+                                    >
+                                        🔃
+                                    </button>
+                                </div>
+                                <p className="shortcut-hint">{t('timer.hintSingle')}</p>
+                            </Fragment>
+                        )}
                     </div>
                 )}
+
+                {isFreeLocked ? (
+                    <p className="free-locked">{t('timer.free.locked')}</p>
+                ) : null}
+                {isFreeMode && !following ? (
+                    <p className="shortcut-hint shortcut-hint--free">{t('timer.hintFree')}</p>
+                ) : null}
 
                 <p className="shortcut-hint shortcut-hint--stage">{t('timer.hintStage')}</p>
 

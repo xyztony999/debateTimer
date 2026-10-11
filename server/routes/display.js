@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { isShareVisible, toDisplayResponse } from '../lib/configDocs.js';
 import { initSseResponse } from '../lib/sseHub.js';
 
-export function createDisplayRouter({ configurations, sse }) {
+export function createDisplayRouter({ configurations, sse, timerSessions }) {
     const router = Router();
 
     async function findShared(token) {
@@ -28,8 +28,43 @@ export function createDisplayRouter({ configurations, sse }) {
             }
             initSseResponse(res);
             sse.add({ res, shareToken: req.params.token });
+            // Replay the current snapshot so late subscribers catch up
+            // immediately instead of waiting for the next report.
+            const session = timerSessions.get(doc.shareToken);
+            if (session) {
+                res.write(`event: state\ndata: ${JSON.stringify(session.lastSnapshot)}\n\n`);
+            }
         } catch (error) {
             console.error('GET /api/display/:token/stream', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    });
+
+    router.get('/:token/state', async (req, res) => {
+        try {
+            const doc = await findShared(req.params.token);
+            if (!doc) {
+                res.status(404).json({
+                    success: false,
+                    message: 'Display link not found',
+                });
+                return;
+            }
+            const session = timerSessions.get(doc.shareToken);
+            if (!session) {
+                res.json({ success: true, data: { active: false } });
+                return;
+            }
+            res.json({
+                success: true,
+                data: {
+                    active: true,
+                    startedAt: session.startedAt,
+                    snapshot: session.lastSnapshot,
+                },
+            });
+        } catch (error) {
+            console.error('GET /api/display/:token/state', error);
             res.status(500).json({ success: false, message: error.message });
         }
     });

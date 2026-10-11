@@ -93,6 +93,10 @@ function normalizeDocument(name, rawData) {
         timerSettings: migrated.timerSettings,
         stageOrder: migrated.stageOrder,
         stageLabels: data.stageLabels || {},
+        // Optional stage-enhancement fields (schema v3) pass through when present.
+        ...(data.stageGrace ? { stageGrace: data.stageGrace } : {}),
+        ...(data.stageAutoAdvance ? { stageAutoAdvance: data.stageAutoAdvance } : {}),
+        ...(data.teamNames ? { teamNames: data.teamNames } : {}),
         createdAt: toMillis(data.createdAt) ?? now,
         updatedAt: toMillis(data.updatedAt) ?? now,
     };

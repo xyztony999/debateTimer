@@ -81,7 +81,9 @@ run() {
         return 0
     fi
     log "+ $*"
-    "$@"
+    # 9>&-：不把部署锁的 fd 传给子进程。否则长驻 API（nohup npm start / pm2 守护）
+    # 会继承 flock 句柄，deploy.sh 退出后锁仍被占用，后续部署全部误报「已有部署在进行」。
+    "$@" 9>&-
 }
 
 need_frontend() {

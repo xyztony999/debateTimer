@@ -21,6 +21,17 @@ jobs:
           script: |
             set -euo pipefail
             APP_DIR=/www/wwwroot/debatetimer-api
+
+            # Baota installs Node under its own prefix; non-interactive SSH
+            # shells do not include it (same discovery as deploy.sh).
+            for dir in /www/server/nodejs/*/bin; do
+              if [ -x "$dir/node" ]; then
+                export PATH="$dir:$PATH"
+                break
+              fi
+            done
+            command -v node >/dev/null 2>&1 || { echo "node not found"; exit 1; }
+
             cd "$APP_DIR"
             git fetch origin
             git checkout deploy/production

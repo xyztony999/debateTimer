@@ -159,6 +159,18 @@
   border: 1px solid var(--dt-muted);
 }
 
+/* 触屏：键盘提示无意义；顶栏图标按钮触达区 ≥44px */
+@media (hover: none) and (pointer: coarse) {
+  .dt-note {
+    display: none;
+  }
+
+  .dt-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 @media (max-width: 768px) {
   .dt-clocks {
     flex-direction: column;

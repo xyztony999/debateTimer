@@ -116,3 +116,25 @@
     flex-direction: column;
   }
 }
+
+/* ===== 触屏与小屏收纳（bundle D 口径 + AppBar 防挤压） ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* 快捷键帮助入口讲的全是键盘操作，触屏隐藏 */
+  .ctl-help-btn {
+    display: none;
+  }
+
+  .st-step {
+    min-height: 44px;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* 底部主操作栏：窄屏双按钮平分不溢出 */
+  .ctl-action-bar .MuiButton-root {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}

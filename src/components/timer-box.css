@@ -158,3 +158,26 @@
   outline: 2px solid var(--tb-accent);
   outline-offset: 2px;
 }
+
+/* ===== 触屏设备（bundle D 验收口径恢复）=====
+   键盘提示无意义；计时主按钮触达区 ≥56px。 */
+@media (hover: none) and (pointer: coarse) {
+  .tb-hint {
+    display: none;
+  }
+
+  .tb-btn {
+    min-height: 56px;
+    min-width: 56px;
+    font-size: 1.25rem;
+    padding: 0.55rem 1.15rem;
+  }
+}
+
+/* 小屏秒表字号：对齐旧验收口径 clamp(56px, 18vw, 88px)；
+   display（投影）变体保持 24vh 不缩。 */
+@media (max-width: 480px) {
+  .tb-clock {
+    font-size: clamp(56px, 18vw, 88px);
+  }
+}

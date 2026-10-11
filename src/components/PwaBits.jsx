@@ -34,7 +34,7 @@ export function OfflineBanner() {
 }
 
 /** Install entry shown when the browser fires beforeinstallprompt. */
-export function InstallButton({ className = 'nav-btn' }) {
+export function InstallButton({ className = '' }) {
     const { t } = useTranslation();
     const [prompt, setPrompt] = useState(null);
 

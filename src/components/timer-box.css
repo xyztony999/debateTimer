@@ -1,0 +1,160 @@
+/* TimerBox — shared clock face for the control page and the display page.
+   Scoped under .tb- so it never collides with App.css global rules. */
+
+.tb-box {
+  --tb-fg: #1f2933;
+  --tb-muted: #7b8794;
+  --tb-accent: #1e3a5f;
+  --tb-card: rgba(255, 255, 255, 0.92);
+  --tb-ring: rgba(30, 58, 95, 0.22);
+  --tb-btn: #1e3a5f;
+  --tb-btn-hover: #2c5077;
+  --tb-btn-off: #9aa5b1;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  padding: clamp(0.75rem, 2vh, 1.5rem) 1rem;
+  border-radius: 16px;
+  background: var(--tb-card);
+  border: 2px solid transparent;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+/* Free debate: the side holding the floor */
+.tb-box.tb-active {
+  border-color: var(--tb-accent);
+  box-shadow: 0 0 0 4px var(--tb-ring), 0 4px 14px rgba(15, 23, 42, 0.12);
+  transform: translateY(-2px);
+}
+
+.dark-mode .tb-box {
+  --tb-fg: #f1f5f9;
+  --tb-muted: #9aa5b1;
+  --tb-accent: #90caf9;
+  --tb-card: rgba(26, 35, 50, 0.92);
+  --tb-ring: rgba(144, 202, 249, 0.25);
+  --tb-btn: #90caf9;
+  --tb-btn-hover: #a9d2fb;
+  --tb-btn-off: #5b6673;
+}
+
+.tb-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-size: clamp(1rem, 2.2vh, 1.35rem);
+  font-weight: 600;
+  color: var(--tb-fg);
+}
+
+.tb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75em;
+  padding: 0.1em 0.45em;
+  border-radius: 999px;
+  font-size: 0.8em;
+  background: var(--tb-accent);
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.dark-mode .tb-badge {
+  color: #0f1419;
+}
+
+.tb-clock {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  color: var(--tb-fg);
+  font-size: clamp(3.5rem, 13vh, 6.5rem);
+  font-weight: 700;
+}
+
+.tb-box--display .tb-clock {
+  font-size: clamp(6rem, 24vh, 15rem);
+  font-weight: 800;
+}
+
+.tb-box--display .tb-head {
+  font-size: clamp(1.5rem, 4.5vh, 2.5rem);
+}
+
+@keyframes tb-blink {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.tb-clock--locked {
+  color: #e53935 !important;
+  animation: tb-blink 1s step-start 0s infinite;
+}
+
+.tb-clock--warn {
+  animation: tb-blink 1.5s step-start 0s infinite;
+}
+
+.tb-clock--grace {
+  color: #fb8c00 !important;
+  animation: tb-blink 1.5s step-start 0s infinite;
+}
+
+.tb-grace-hint {
+  margin: 0.4rem 0 0;
+  color: #fb8c00;
+  font-size: clamp(0.85rem, 1.8vh, 1.1rem);
+  font-weight: 600;
+}
+
+.tb-hint {
+  margin: 0.55rem 0 0;
+  color: var(--tb-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  user-select: none;
+}
+
+.tb-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.tb-btn {
+  min-width: 3.25rem;
+  padding: 0.45rem 1rem;
+  font-size: 1.05rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--tb-btn);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.dark-mode .tb-btn {
+  color: #0f1419;
+}
+
+.tb-btn:not(:disabled):hover {
+  background: var(--tb-btn-hover);
+}
+
+.tb-btn:disabled {
+  background: var(--tb-btn-off);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tb-btn--live {
+  outline: 2px solid var(--tb-accent);
+  outline-offset: 2px;
+}

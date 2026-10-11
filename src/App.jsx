@@ -5,11 +5,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 import './styles/App.css';
 import { OfflineBanner } from './components/PwaBits';
 
-const DebateTimer = lazy(() => import('./DebateTimer'));
+const TimerControlPage = lazy(() => import('./TimerControlPage'));
 const SettingsPage = lazy(() => import('./DebateSetting'));
 const LoginPage = lazy(() => import('./LoginPage'));
 const AdminPage = lazy(() => import('./AdminPage'));
-const DisplayTimer = lazy(() => import('./DisplayTimer'));
+const TimerDisplayPage = lazy(() => import('./TimerDisplayPage'));
 const RecordsPage = lazy(() => import('./RecordsPage'));
 const RecordDetailPage = lazy(() => import('./RecordDetailPage'));
 const GalleryPage = lazy(() => import('./GalleryPage'));
@@ -24,14 +24,14 @@ function App() {
                     <Suspense fallback={null}>
                         <Routes>
                             <Route path="/login" element={<LoginPage />} />
-                            <Route path="/display/:token" element={<DisplayTimer />} />
+                            <Route path="/display/:token" element={<TimerDisplayPage />} />
                             <Route path="/gallery" element={<GalleryPage />} />
                             <Route path="/gallery/:id" element={<GalleryPage />} />
                             <Route
                                 path="/"
                                 element={(
                                     <ProtectedRoute>
-                                        <DebateTimer />
+                                        <TimerControlPage />
                                     </ProtectedRoute>
                                 )}
                             />

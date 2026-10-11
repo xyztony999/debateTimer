@@ -184,3 +184,52 @@ test('capacity limit rejects with 409', () => {
     }
     expect(caught?.status).toBe(409);
 });
+
+test('snapshot phases default to running and validate grace consistency', () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+    const session = reg.get('tok1');
+
+    const base = {
+        seq: 1,
+        stageId: 'free_debate',
+        stageMode: 'free',
+        remainingAffMs: 0,
+        remainingNegMs: 61000,
+        runningAff: false,
+        runningNeg: true,
+        activeSide: 'neg',
+    };
+    // No phase fields: defaults to running/grace 0.
+    const plain = validateSnapshot(base, session);
+    expect(plain.phaseAff).toBe('running');
+    expect(plain.graceAffMs).toBe(0);
+
+    // Grace phase requires graceMs > 0.
+    expect(() => validateSnapshot({ ...base, seq: 2, phaseAff: 'grace' }, session)).toThrow(/mismatch/);
+    expect(() => validateSnapshot({ ...base, seq: 2, phaseAff: 'running', graceAffMs: 5000 }, session)).toThrow(/mismatch/);
+    expect(() => validateSnapshot({ ...base, seq: 2, phaseAff: 'grace', graceAffMs: 300001 }, session)).toThrow(/range/);
+
+    const grace = validateSnapshot({ ...base, seq: 2, phaseAff: 'grace', graceAffMs: 8000 }, session);
+    expect(grace.phaseAff).toBe('grace');
+    expect(grace.graceAffMs).toBe(8000);
+    expect(grace.phaseNeg).toBe('running');
+
+    // Single mode collapses neg phase/grace into aff.
+    const single = validateSnapshot({
+        seq: 3,
+        stageId: 'sound_check',
+        stageMode: 'single',
+        remainingAffMs: 0,
+        remainingNegMs: 999,
+        runningAff: false,
+        runningNeg: true,
+        activeSide: 'aff',
+        phaseAff: 'grace',
+        phaseNeg: 'running',
+        graceAffMs: 7000,
+        graceNegMs: 0,
+    }, session);
+    expect(single.phaseNeg).toBe('grace');
+    expect(single.graceNegMs).toBe(7000);
+});

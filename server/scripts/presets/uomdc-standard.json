@@ -1,0 +1,51 @@
+{
+    "configurations": {
+        "UOMDC 标准赛制": {
+            "schemaVersion": 2,
+            "debateStages": {
+                "sound_check": 30,
+                "aff_c1": 210,
+                "neg_x_aff_c1": 90,
+                "neg_c1": 210,
+                "aff_x_neg_c1": 90,
+                "aff_rebuttal_2": 120,
+                "neg_rebuttal_2": 120,
+                "crossfire_2v2": 180,
+                "aff_poii": 90,
+                "neg_poii": 90,
+                "aff_poii_sum": 120,
+                "neg_poii_sum": 120,
+                "tactical_pause": 60,
+                "free_debate": 240,
+                "neg_closing": 210,
+                "aff_closing": 210
+            },
+            "timerSettings": {
+                "sound_check": "single",
+                "aff_c1": "single",
+                "neg_x_aff_c1": "single",
+                "neg_c1": "single",
+                "aff_x_neg_c1": "single",
+                "aff_rebuttal_2": "single",
+                "neg_rebuttal_2": "single",
+                "crossfire_2v2": "double",
+                "aff_poii": "single",
+                "neg_poii": "single",
+                "aff_poii_sum": "single",
+                "neg_poii_sum": "single",
+                "tactical_pause": "single",
+                "free_debate": "free",
+                "neg_closing": "single",
+                "aff_closing": "single"
+            },
+            "stageOrder": [
+                "sound_check", "aff_c1", "neg_x_aff_c1", "neg_c1", "aff_x_neg_c1",
+                "aff_rebuttal_2", "neg_rebuttal_2", "crossfire_2v2", "aff_poii",
+                "neg_poii", "aff_poii_sum", "neg_poii_sum", "tactical_pause",
+                "free_debate", "neg_closing", "aff_closing"
+            ],
+            "stageGrace": { "aff_c1": 15, "neg_c1": 15, "free_debate": 0, "neg_closing": 15, "aff_closing": 15 },
+            "stageAutoAdvance": { "sound_check": true, "tactical_pause": true }
+        }
+    }
+}

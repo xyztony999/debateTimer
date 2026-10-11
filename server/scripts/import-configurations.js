@@ -21,6 +21,7 @@ Options:
   --owner <username>  Existing account that will own the imported templates (required unless --dry-run)
   --dry-run           Parse and preview only, do not write to MongoDB
   --force             Overwrite existing templates with the same name for that owner
+  --public            Publish the imported templates to the public gallery (isPublic: true)
 
 Environment (server/.env):
   MONGODB_URI / MONGODB_USER / MONGODB_PASSWORD ...
@@ -39,6 +40,7 @@ function parseArgs(argv) {
         owner: null,
         dryRun: false,
         force: false,
+        public: false,
     };
 
     for (let i = 0; i < argv.length; i += 1) {
@@ -55,6 +57,8 @@ function parseArgs(argv) {
             options.dryRun = true;
         } else if (arg === '--force') {
             options.force = true;
+        } else if (arg === '--public') {
+            options.public = true;
         } else {
             throw new Error(`Unknown argument: ${arg}`);
         }
@@ -97,12 +101,13 @@ function toOwnedDoc(doc, ownerId) {
         stageLabels: doc.stageLabels || {},
         shareToken: null,
         shareEnabled: false,
+        isPublic: makePublic === true,
         createdAt: doc.createdAt ?? now,
         updatedAt: now,
     };
 }
 
-async function importIntoMongo(docs, { dryRun, force, owner }) {
+async function importIntoMongo(docs, { dryRun, force, owner, public: makePublic }) {
     if (docs.length === 0) {
         console.log('Nothing to import.');
         return;

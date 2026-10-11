@@ -48,7 +48,11 @@
         },
         "free": {
             "locked": "Débat libre terminé"
-        }
+        },
+        "affBadge": "AFF",
+        "negBadge": "NÉG",
+        "graceHint": "Conclusion…",
+        "advanceCountdown": "Phase suivante dans {{n}} s · touche pour annuler"
     },
     "settings": {
         "backToTimer": "Retour au chronomètre",
@@ -117,7 +121,29 @@
         "enterItemName": "Entrez un nom de phase.",
         "itemExists": "Cette phase existe déjà.",
         "confirmDelete": "Supprimer la phase « {{name}} » ?",
-        "freeTimer": "Débat libre (auto)"
+        "freeTimer": "Débat libre (auto)",
+        "graceSeconds": "Grâce (s)",
+        "autoAdvance": "Passage auto à la phase suivante",
+        "teamNames": "Noms des équipes",
+        "teamNamesDesc": "Noms affichés des deux côtés (vide = défaut)",
+        "teamAff": "Nom pour l’affirmative",
+        "teamNeg": "Nom pour la négative",
+        "soundTitle": "Sons d’alerte",
+        "soundDesc": "Cloche et volume par nœud (cet appareil)",
+        "soundWarn30": "Rappel 30 s",
+        "soundTimeUp": "Temps écoulé",
+        "soundMustStop": "Fin obligatoire",
+        "soundPreview": "Écouter",
+        "soundReset": "Rétablir",
+        "soundVolume": "Volume",
+        "soundOption": {
+            "split": "Cloche d’alerte",
+            "notify": "Bip long",
+            "timeup": "Ding simple",
+            "chime": "Carillon"
+        },
+        "publishToGallery": "Publier dans la galerie",
+        "published": "Publié dans la galerie"
     },
     "auth": {
         "loginTitle": "Connexion",
@@ -204,5 +230,56 @@
         "free_debate": "Débat libre",
         "neg_closing": "Discours de clôture (contre)",
         "aff_closing": "Discours de clôture (pour)"
+    },
+    "records": {
+        "title": "Historique des matchs",
+        "short": "Historique",
+        "subtitle": "Temps réels et dépassements par phase",
+        "empty": "Aucun match enregistré. Terminez un match puis « Enregistrer » sur la page chrono.",
+        "loadFailed": "Échec du chargement",
+        "retry": "Réessayer",
+        "loadMore": "Charger plus",
+        "savedAt": "Enregistré le",
+        "template": "Modèle",
+        "teams": "Équipes",
+        "stageCount": "{{n}} phases",
+        "overruns": "{{n}} dépassements",
+        "backToList": "Retour à la liste",
+        "notFound": "Introuvable",
+        "stage": "Phase",
+        "mode": "Mode",
+        "planned": "Prévu",
+        "plannedTotal": "Total prévu",
+        "actual": "Réel",
+        "actualTotal": "Total réel",
+        "actualAff": "Réel {{team}}",
+        "actualNeg": "Réel {{team}}",
+        "overrun": "Dépassement",
+        "truncated": "Tronqué",
+        "save": "Enregistrer",
+        "saveHint": "Enregistrer le match en cours",
+        "saved": "Match enregistré",
+        "saveFailed": "Échec — réessayez",
+        "deleteConfirmTitle": "Supprimer le match",
+        "deleteConfirm": "Action irréversible. Supprimer ce match ?"
+    },
+    "gallery": {
+        "title": "Galerie de modèles",
+        "empty": "Aucun modèle public. Publiez le vôtre ou utilisez le script d’import.",
+        "stageCount": "{{n}} phases",
+        "copySuffix": "(copie)",
+        "copy": "Copier dans mes modèles",
+        "copyName": "Nom du nouveau modèle",
+        "copyFailed": "Échec de la copie",
+        "loginToCopy": "Connectez-vous pour copier",
+        "loadFailed": "Échec du chargement",
+        "unpublish": "Dépublier",
+        "unpublishConfirm": "Dépublier « {{name}} » de la galerie ?",
+        "publicChip": "Public"
+    },
+    "pwa": {
+        "offline": "Hors ligne : chrono disponible, synchro indisponible",
+        "install": "Installer",
+        "installHint": "Installer pour un chrono hors ligne"
     }
 }

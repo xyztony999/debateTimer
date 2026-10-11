@@ -1,0 +1,49 @@
+{
+    "configurations": {
+        "英国议会制 BP（样例）": {
+            "schemaVersion": 2,
+            "debateStages": {
+                "bp_pm": 420,
+                "bp_lo": 420,
+                "bp_dpm": 420,
+                "bp_dlo": 420,
+                "bp_poi": 15,
+                "bp_gov_whip": 420,
+                "bp_op_whip": 420,
+                "bp_op_reply": 240,
+                "bp_gov_reply": 240
+            },
+            "timerSettings": {
+                "bp_pm": "single",
+                "bp_lo": "single",
+                "bp_dpm": "single",
+                "bp_dlo": "single",
+                "bp_poi": "single",
+                "bp_gov_whip": "single",
+                "bp_op_whip": "single",
+                "bp_op_reply": "single",
+                "bp_gov_reply": "single"
+            },
+            "stageOrder": [
+                "bp_pm", "bp_lo", "bp_dpm", "bp_dlo",
+                "bp_poi", "bp_gov_whip", "bp_op_whip",
+                "bp_op_reply", "bp_gov_reply"
+            ],
+            "stageGrace": {
+                "bp_pm": 30, "bp_lo": 30, "bp_dpm": 30, "bp_dlo": 30,
+                "bp_gov_whip": 30, "bp_op_whip": 30
+            },
+            "stageLabels": {
+                "bp_pm": { "zh-Hans": "首相发言（正方开篇）", "en": "Prime Minister", "fr-CA": "Premier ministre" },
+                "bp_lo": { "zh-Hans": "反对党领袖发言（反方开篇）", "en": "Leader of the Opposition", "fr-CA": "Chef de l'opposition" },
+                "bp_dpm": { "zh-Hans": "副首相发言", "en": "Deputy Prime Minister", "fr-CA": "Vice-premier ministre" },
+                "bp_dlo": { "zh-Hans": "反对党副领袖发言", "en": "Deputy Leader of the Opposition", "fr-CA": "Vice-chef de l'opposition" },
+                "bp_poi": { "zh-Hans": "质询（POI）", "en": "Point of Information", "fr-CA": "Point d'information" },
+                "bp_gov_whip": { "zh-Hans": "政府党鞭发言", "en": "Government Whip", "fr-CA": "Whip du gouvernement" },
+                "bp_op_whip": { "zh-Hans": "反对党党鞭发言", "en": "Opposition Whip", "fr-CA": "Whip de l'opposition" },
+                "bp_op_reply": { "zh-Hans": "反方总结陈词", "en": "Opposition Reply", "fr-CA": "Réplique de l'opposition" },
+                "bp_gov_reply": { "zh-Hans": "正方总结陈词", "en": "Government Reply", "fr-CA": "Réplique du gouvernement" }
+            }
+        }
+    }
+}

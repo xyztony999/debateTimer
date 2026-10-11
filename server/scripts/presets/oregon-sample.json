@@ -1,0 +1,45 @@
+{
+    "configurations": {
+        "奥瑞冈制（样例）": {
+            "schemaVersion": 2,
+            "debateStages": {
+                "or_aff_open": 180,
+                "or_neg_x_aff": 120,
+                "or_neg_open": 180,
+                "or_aff_x_neg": 120,
+                "or_aff_sum2": 150,
+                "or_neg_sum2": 150,
+                "or_free": 240,
+                "or_neg_close": 180,
+                "or_aff_close": 180
+            },
+            "timerSettings": {
+                "or_aff_open": "single",
+                "or_neg_x_aff": "single",
+                "or_neg_open": "single",
+                "or_aff_x_neg": "single",
+                "or_aff_sum2": "single",
+                "or_neg_sum2": "single",
+                "or_free": "free",
+                "or_neg_close": "single",
+                "or_aff_close": "single"
+            },
+            "stageOrder": [
+                "or_aff_open", "or_neg_x_aff", "or_neg_open", "or_aff_x_neg",
+                "or_aff_sum2", "or_neg_sum2", "or_free", "or_neg_close", "or_aff_close"
+            ],
+            "stageGrace": { "or_aff_open": 15, "or_neg_open": 15, "or_neg_close": 15, "or_aff_close": 15 },
+            "stageLabels": {
+                "or_aff_open": { "zh-Hans": "正方一辩立论", "en": "Affirmative constructive", "fr-CA": "Construction affirmative" },
+                "or_neg_x_aff": { "zh-Hans": "反方质询正方一辩", "en": "Cross-examination by negative", "fr-CA": "Contre-interrogatoire négative" },
+                "or_neg_open": { "zh-Hans": "反方一辩立论", "en": "Negative constructive", "fr-CA": "Construction négative" },
+                "or_aff_x_neg": { "zh-Hans": "正方质询反方一辩", "en": "Cross-examination by affirmative", "fr-CA": "Contre-interrogatoire affirmative" },
+                "or_aff_sum2": { "zh-Hans": "正方二辩驳论", "en": "Affirmative rebuttal", "fr-CA": "Réfutation affirmative" },
+                "or_neg_sum2": { "zh-Hans": "反方二辩驳论", "en": "Negative rebuttal", "fr-CA": "Réfutation négative" },
+                "or_free": { "zh-Hans": "自由辩论", "en": "Free debate", "fr-CA": "Débat libre" },
+                "or_neg_close": { "zh-Hans": "反方总结陈词", "en": "Negative closing", "fr-CA": "Conclusion négative" },
+                "or_aff_close": { "zh-Hans": "正方总结陈词", "en": "Affirmative closing", "fr-CA": "Conclusion affirmative" }
+            }
+        }
+    }
+}

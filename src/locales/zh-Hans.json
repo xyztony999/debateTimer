@@ -48,7 +48,11 @@
         },
         "free": {
             "locked": "自由辩论环节已结束"
-        }
+        },
+        "affBadge": "正",
+        "negBadge": "反",
+        "graceHint": "收尾中…",
+        "advanceCountdown": "{{n}} 秒后进入下一阶段 · 按任意键取消"
     },
     "settings": {
         "backToTimer": "返回计时器",
@@ -117,7 +121,29 @@
         "enterItemName": "请输入计时项目名称",
         "itemExists": "该计时项目已存在",
         "confirmDelete": "确定要删除计时项目“{{name}}”吗？",
-        "freeTimer": "自由辩论（自动切换）"
+        "freeTimer": "自由辩论（自动切换）",
+        "graceSeconds": "宽限秒数",
+        "autoAdvance": "自动进入下一阶段",
+        "teamNames": "队名",
+        "teamNamesDesc": "正反方显示名，展示于计时器与大屏（留空用默认）",
+        "teamAff": "正方队名",
+        "teamNeg": "反方队名",
+        "soundTitle": "提示音",
+        "soundDesc": "按节点选择铃声与音量（本设备偏好）",
+        "soundWarn30": "30 秒提醒",
+        "soundTimeUp": "时间到",
+        "soundMustStop": "必须停",
+        "soundPreview": "试听",
+        "soundReset": "恢复默认",
+        "soundVolume": "音量",
+        "soundOption": {
+            "split": "提示铃",
+            "notify": "长鸣",
+            "timeup": "单响铃",
+            "chime": "双音铃"
+        },
+        "publishToGallery": "发布到模板广场",
+        "published": "已在模板广场公开"
     },
     "auth": {
         "loginTitle": "登录",
@@ -204,5 +230,56 @@
         "free_debate": "自由辩论",
         "neg_closing": "反方四辩总结陈词",
         "aff_closing": "正方四辩总结陈词"
+    },
+    "records": {
+        "title": "比赛记录",
+        "short": "记录",
+        "subtitle": "每场比赛的阶段实绩与超时复盘",
+        "empty": "还没有比赛记录。完成一场比赛后，在计时页点击「保存记录」。",
+        "loadFailed": "加载失败",
+        "retry": "重试",
+        "loadMore": "加载更多",
+        "savedAt": "保存时间",
+        "template": "模板",
+        "teams": "队名",
+        "stageCount": "{{n}} 个阶段",
+        "overruns": "超时 {{n}} 次",
+        "backToList": "返回列表",
+        "notFound": "记录不存在",
+        "stage": "阶段",
+        "mode": "模式",
+        "planned": "计划",
+        "plannedTotal": "计划总计",
+        "actual": "实际",
+        "actualTotal": "实际总计",
+        "actualAff": "{{team}} 实际",
+        "actualNeg": "{{team}} 实际",
+        "overrun": "超时",
+        "truncated": "已截断",
+        "save": "保存记录",
+        "saveHint": "保存当前比赛的过程记录",
+        "saved": "比赛记录已保存",
+        "saveFailed": "保存失败，可重试",
+        "deleteConfirmTitle": "删除比赛记录",
+        "deleteConfirm": "删除后不可恢复，确认删除这条比赛记录？"
+    },
+    "gallery": {
+        "title": "模板广场",
+        "empty": "广场还没有公开模板。发布你的赛制，或在服务器用导入脚本预置。",
+        "stageCount": "{{n}} 个阶段",
+        "copySuffix": "(副本)",
+        "copy": "复制到我的模板",
+        "copyName": "新模板名称",
+        "copyFailed": "复制失败",
+        "loginToCopy": "登录后复制",
+        "loadFailed": "加载失败",
+        "unpublish": "下架",
+        "unpublishConfirm": "确认将「{{name}}」从模板广场下架？",
+        "publicChip": "广场公开"
+    },
+    "pwa": {
+        "offline": "离线模式：计时可用，云同步暂不可用",
+        "install": "安装",
+        "installHint": "安装到桌面/主屏幕，离线也能计时"
     }
 }

@@ -48,7 +48,11 @@
         },
         "free": {
             "locked": "Free debate concluded"
-        }
+        },
+        "affBadge": "AFF",
+        "negBadge": "NEG",
+        "graceHint": "Wrapping up…",
+        "advanceCountdown": "Next stage in {{n}}s · press any key to cancel"
     },
     "settings": {
         "backToTimer": "Back to timer",
@@ -117,7 +121,29 @@
         "enterItemName": "Enter a stage name.",
         "itemExists": "That stage already exists.",
         "confirmDelete": "Delete stage “{{name}}”?",
-        "freeTimer": "Free debate (auto switch)"
+        "freeTimer": "Free debate (auto switch)",
+        "graceSeconds": "Grace (s)",
+        "autoAdvance": "Auto advance to next stage",
+        "teamNames": "Team names",
+        "teamNamesDesc": "Display names for both sides on the timer and display (blank = default)",
+        "teamAff": "Affirmative name",
+        "teamNeg": "Negative name",
+        "soundTitle": "Alert sounds",
+        "soundDesc": "Per-node bell and volume (this device only)",
+        "soundWarn30": "30-second warning",
+        "soundTimeUp": "Time is up",
+        "soundMustStop": "Must stop",
+        "soundPreview": "Preview",
+        "soundReset": "Reset to default",
+        "soundVolume": "Volume",
+        "soundOption": {
+            "split": "Alert bell",
+            "notify": "Long beep",
+            "timeup": "Single ding",
+            "chime": "Two-tone chime"
+        },
+        "publishToGallery": "Publish to gallery",
+        "published": "Published to gallery"
     },
     "auth": {
         "loginTitle": "Sign in",
@@ -204,5 +230,56 @@
         "free_debate": "Free debate",
         "neg_closing": "Negative closing",
         "aff_closing": "Affirmative closing"
+    },
+    "records": {
+        "title": "Match records",
+        "short": "Records",
+        "subtitle": "Per-stage actuals and overruns for review",
+        "empty": "No match records yet. Finish a match and press “Save record” on the timer page.",
+        "loadFailed": "Failed to load",
+        "retry": "Retry",
+        "loadMore": "Load more",
+        "savedAt": "Saved at",
+        "template": "Template",
+        "teams": "Teams",
+        "stageCount": "{{n}} stages",
+        "overruns": "{{n}} overruns",
+        "backToList": "Back to list",
+        "notFound": "Record not found",
+        "stage": "Stage",
+        "mode": "Mode",
+        "planned": "Planned",
+        "plannedTotal": "Planned total",
+        "actual": "Actual",
+        "actualTotal": "Actual total",
+        "actualAff": "{{team}} actual",
+        "actualNeg": "{{team}} actual",
+        "overrun": "Overrun",
+        "truncated": "Truncated",
+        "save": "Save record",
+        "saveHint": "Save the current match progress",
+        "saved": "Match record saved",
+        "saveFailed": "Save failed — you can retry",
+        "deleteConfirmTitle": "Delete match record",
+        "deleteConfirm": "This cannot be undone. Delete this match record?"
+    },
+    "gallery": {
+        "title": "Template gallery",
+        "empty": "No public templates yet. Publish yours, or seed presets via the import script.",
+        "stageCount": "{{n}} stages",
+        "copySuffix": "(copy)",
+        "copy": "Copy to my templates",
+        "copyName": "New template name",
+        "copyFailed": "Copy failed",
+        "loginToCopy": "Sign in to copy",
+        "loadFailed": "Failed to load",
+        "unpublish": "Unpublish",
+        "unpublishConfirm": "Unpublish “{{name}}” from the gallery?",
+        "publicChip": "Public"
+    },
+    "pwa": {
+        "offline": "Offline: timer works, cloud sync unavailable",
+        "install": "Install",
+        "installHint": "Install to desktop/home screen for offline timing"
     }
 }

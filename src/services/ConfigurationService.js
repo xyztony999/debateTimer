@@ -21,16 +21,17 @@ function attachShareMeta(parsed, raw) {
         ...parsed,
         shareEnabled: Boolean(raw?.shareEnabled),
         shareToken: raw?.shareToken || null,
+        isPublic: Boolean(raw?.isPublic),
         ownerId: raw?.ownerId || null,
     };
 }
 
 class ConfigurationService {
-    async saveConfiguration(name, debateStages, timerSettings, stageOrder = null, stageLabels = {}, ownerId) {
+    async saveConfiguration(name, debateStages, timerSettings, stageOrder = null, stageLabels = {}, ownerId, extras = {}) {
         try {
             const { data, status } = await apiClient.put(
                 configurationsPath(name),
-                buildConfigurationPayload(name, debateStages, timerSettings, stageOrder, stageLabels),
+                buildConfigurationPayload(name, debateStages, timerSettings, stageOrder, stageLabels, extras),
                 ownerParams(ownerId),
             );
             if (!data.success) {

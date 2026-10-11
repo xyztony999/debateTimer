@@ -1,0 +1,167 @@
+/* TimerDisplayPage — projector-facing lightweight view. No MUI, no nav.
+   Scoped under .dt- ; dark mode rides on the existing body.dark-mode. */
+
+.dt-display {
+  --dt-fg: #1f2933;
+  --dt-muted: #7b8794;
+  --dt-bg: #f0f2f5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--dt-bg);
+  color: var(--dt-fg);
+}
+
+.dark-mode .dt-display {
+  --dt-fg: #f1f5f9;
+  --dt-muted: #9aa5b1;
+  --dt-bg: #0f1419;
+}
+
+/* Top strip: status banner + local actions */
+.dt-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.9rem;
+}
+
+.dt-banner {
+  padding: 0.25rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  visibility: hidden;
+}
+
+.dt-banner--following {
+  visibility: visible;
+  background: rgba(46, 125, 50, 0.14);
+  color: #2e7d32;
+}
+
+.dark-mode .dt-banner--following {
+  background: rgba(102, 187, 106, 0.16);
+  color: #81c784;
+}
+
+.dt-banner--weak {
+  visibility: visible;
+  background: rgba(230, 81, 0, 0.14);
+  color: #e65100;
+}
+
+.dark-mode .dt-banner--weak {
+  background: rgba(255, 152, 0, 0.18);
+  color: #ffb74d;
+}
+
+.dt-banner--ended {
+  visibility: visible;
+  background: rgba(198, 40, 40, 0.12);
+  color: #c62828;
+}
+
+.dark-mode .dt-banner--ended {
+  background: rgba(239, 83, 80, 0.16);
+  color: #ef5350;
+}
+
+.dt-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dt-icon-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--dt-muted);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dt-fg);
+  font-size: 1.05rem;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.dt-icon-btn:hover {
+  opacity: 1;
+}
+
+/* Language switcher inside the display bar */
+.dt-lang .lang-switcher-select {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  border: 1px solid var(--dt-muted);
+  background-color: transparent;
+  color: var(--dt-fg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237b8794' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Main stage area */
+.dt-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(0.75rem, 3vh, 2rem);
+  padding: 0 1.5rem calc(2rem + env(safe-area-inset-bottom));
+}
+
+.dt-stage-name {
+  font-size: clamp(1.5rem, 5vh, 3rem);
+  font-weight: 700;
+  text-align: center;
+}
+
+.dt-clocks {
+  display: flex;
+  gap: clamp(1rem, 3vw, 2.5rem);
+  width: 100%;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.dt-clocks > :only-child {
+  flex: 0 1 60rem;
+}
+
+.dt-note {
+  margin: 0;
+  color: var(--dt-muted);
+  font-size: clamp(0.95rem, 2vh, 1.2rem);
+  text-align: center;
+}
+
+.dt-note--locked {
+  color: #e53935;
+  font-weight: 700;
+}
+
+/* Sound panel popover area */
+.dt-sound-panel {
+  position: fixed;
+  top: 3.2rem;
+  right: 1rem;
+  z-index: 30;
+  max-width: min(92vw, 22rem);
+  padding: 1rem;
+  border-radius: 14px;
+  background: var(--dt-bg);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--dt-muted);
+}
+
+@media (max-width: 768px) {
+  .dt-clocks {
+    flex-direction: column;
+    align-items: center;
+  }
+}

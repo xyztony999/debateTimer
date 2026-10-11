@@ -1,0 +1,118 @@
+/* TimerControlPage layout pieces that MUI doesn't cover:
+   the horizontal stage timeline (st-) and the clock area. */
+
+.stage-timeline {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.15rem 0.6rem;
+  scrollbar-width: thin;
+}
+
+.st-step {
+  --st-fg: #44515e;
+  --st-bg: rgba(30, 58, 95, 0.06);
+  --st-border: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+  max-width: 13rem;
+  padding: 0.45rem 0.85rem;
+  border: 2px solid var(--st-border);
+  border-radius: 999px;
+  background: var(--st-bg);
+  color: var(--st-fg);
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.st-step:hover {
+  background: rgba(30, 58, 95, 0.14);
+}
+
+.dark-mode .st-step {
+  --st-fg: #c6d2e0;
+  --st-bg: rgba(144, 202, 249, 0.08);
+}
+
+.dark-mode .st-step:hover {
+  background: rgba(144, 202, 249, 0.18);
+}
+
+.st-step--current {
+  --st-fg: #ffffff;
+  --st-bg: #1e3a5f;
+  --st-border: #1e3a5f;
+  font-weight: 700;
+}
+
+.st-step--current .st-idx {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.dark-mode .st-step--current {
+  --st-fg: #0f1419;
+  --st-bg: #90caf9;
+  --st-border: #90caf9;
+}
+
+.dark-mode .st-step--current .st-idx {
+  background: rgba(15, 20, 25, 0.18);
+  color: #0f1419;
+}
+
+.st-idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: rgba(30, 58, 95, 0.14);
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.dark-mode .st-idx {
+  background: rgba(144, 202, 249, 0.16);
+}
+
+.st-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Clock area: dual boxes share the row, single keeps narrow and centered */
+.clock-area {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: stretch;
+  margin-top: 0.75rem;
+}
+
+/* PWA install button inside the AppBar (self-hides without the prompt) */
+.ctl-install {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.clock-area > :only-child {
+  flex: 0 1 34rem;
+}
+
+@media (max-width: 768px) {
+  .clock-area {
+    flex-direction: column;
+  }
+}

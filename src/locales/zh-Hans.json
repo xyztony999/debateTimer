@@ -44,7 +44,9 @@
         "display": {
             "following": "正在大屏跟随",
             "weakSignal": "信号弱",
-            "sessionEnded": "同步已结束，已切换为独立计时"
+            "sessionEnded": "同步已结束，已切换为独立计时",
+            "fullscreen": "全屏",
+            "exitFullscreen": "退出全屏"
         },
         "free": {
             "locked": "自由辩论环节已结束"
@@ -52,7 +54,14 @@
         "affBadge": "正",
         "negBadge": "反",
         "graceHint": "收尾中…",
-        "advanceCountdown": "{{n}} 秒后进入下一阶段 · 按任意键取消"
+        "advanceCountdown": "{{n}} 秒后进入下一阶段 · 按任意键取消",
+        "op": {
+            "start": "开始",
+            "pause": "暂停",
+            "reset": "重置"
+        },
+        "shortcutsTitle": "快捷键",
+        "timeline": "比赛流程"
     },
     "settings": {
         "backToTimer": "返回计时器",

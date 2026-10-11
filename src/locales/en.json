@@ -44,7 +44,9 @@
         "display": {
             "following": "Live from controller",
             "weakSignal": "Weak signal",
-            "sessionEnded": "Sync ended — standalone mode"
+            "sessionEnded": "Sync ended — standalone mode",
+            "fullscreen": "Fullscreen",
+            "exitFullscreen": "Exit fullscreen"
         },
         "free": {
             "locked": "Free debate concluded"
@@ -52,7 +54,14 @@
         "affBadge": "AFF",
         "negBadge": "NEG",
         "graceHint": "Wrapping up…",
-        "advanceCountdown": "Next stage in {{n}}s · press any key to cancel"
+        "advanceCountdown": "Next stage in {{n}}s · press any key to cancel",
+        "op": {
+            "start": "Start",
+            "pause": "Pause",
+            "reset": "Reset"
+        },
+        "shortcutsTitle": "Keyboard shortcuts",
+        "timeline": "Match flow"
     },
     "settings": {
         "backToTimer": "Back to timer",

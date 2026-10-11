@@ -44,7 +44,9 @@
         "display": {
             "following": "Diffusion en direct",
             "weakSignal": "Signal faible",
-            "sessionEnded": "Synchro terminée — mode autonome"
+            "sessionEnded": "Synchro terminée — mode autonome",
+            "fullscreen": "Plein écran",
+            "exitFullscreen": "Quitter le plein écran"
         },
         "free": {
             "locked": "Débat libre terminé"
@@ -52,7 +54,14 @@
         "affBadge": "AFF",
         "negBadge": "NÉG",
         "graceHint": "Conclusion…",
-        "advanceCountdown": "Phase suivante dans {{n}} s · touche pour annuler"
+        "advanceCountdown": "Phase suivante dans {{n}} s · touche pour annuler",
+        "op": {
+            "start": "Démarrer",
+            "pause": "Pause",
+            "reset": "Réinitialiser"
+        },
+        "shortcutsTitle": "Raccourcis clavier",
+        "timeline": "Déroulé du débat"
     },
     "settings": {
         "backToTimer": "Retour au chronomètre",

@@ -86,7 +86,7 @@ async function loadFromFile(filePath) {
     return docs;
 }
 
-function toOwnedDoc(doc, ownerId) {
+function toOwnedDoc(doc, ownerId, makePublic) {
     const name = typeof doc.name === 'string' && doc.name.trim()
         ? doc.name
         : String(doc._id);
@@ -143,37 +143,42 @@ async function importIntoMongo(docs, { dryRun, force, owner, public: makePublic 
     let updated = 0;
     let skipped = 0;
 
-    for (const doc of docs) {
-        const payload = toOwnedDoc(doc, ownerDoc._id);
-        const existing = await collection.findOne(
-            { ownerId: ownerDoc._id, name: payload.name },
-            { projection: { _id: 1, createdAt: 1 } },
-        );
-        if (existing && !force) {
-            skipped += 1;
-            console.log(`Skipped existing template: ${payload.name} (use --force to overwrite)`);
-            continue;
-        }
-
-        if (existing) {
-            await collection.replaceOne(
-                { _id: existing._id },
-                {
-                    ...payload,
-                    _id: existing._id,
-                    createdAt: existing.createdAt ?? payload.createdAt,
-                },
+    try {
+        for (const doc of docs) {
+            const payload = toOwnedDoc(doc, ownerDoc._id, makePublic);
+            const existing = await collection.findOne(
+                { ownerId: ownerDoc._id, name: payload.name },
+                { projection: { _id: 1, createdAt: 1 } },
             );
-            updated += 1;
-        } else {
-            await collection.insertOne(payload);
-            inserted += 1;
-        }
-    }
+            if (existing && !force) {
+                skipped += 1;
+                console.log(`Skipped existing template: ${payload.name} (use --force to overwrite)`);
+                continue;
+            }
 
-    await collection.createIndex({ ownerId: 1, name: 1 }, { unique: true });
-    await collection.createIndex({ updatedAt: -1 });
-    await client.close();
+            if (existing) {
+                await collection.replaceOne(
+                    { _id: existing._id },
+                    {
+                        ...payload,
+                        _id: existing._id,
+                        createdAt: existing.createdAt ?? payload.createdAt,
+                    },
+                );
+                updated += 1;
+            } else {
+                await collection.insertOne(payload);
+                inserted += 1;
+            }
+        }
+
+        await collection.createIndex({ ownerId: 1, name: 1 }, { unique: true });
+        await collection.createIndex({ updatedAt: -1 });
+    } finally {
+        // Always release the connection — a live Mongo client keeps the
+        // process (and CI SSH step) hanging after an error.
+        await client.close();
+    }
 
     console.log(`\nImport complete for ${username}: ${inserted} inserted, ${updated} updated, ${skipped} skipped.`);
 }

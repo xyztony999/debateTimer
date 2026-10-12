@@ -40,6 +40,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const [following, setFollowing] = useState(false);
     const [displayBanner, setDisplayBanner] = useState(null); // following | weak | ended
     const [captureCount, setCaptureCount] = useState(0);
+    // --- C-02-06 console follow: discovered session prompt + follow token ---
+    const [pendingSession, setPendingSession] = useState(false);
+    const [followToken, setFollowToken] = useState(null);
 
     const sessionRef = useRef(null); // { shareToken, displayUrl, failures }
     const seqRef = useRef(0);
@@ -48,6 +51,8 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const bannerTimerRef = useRef(null);
     const captureRef = useRef(null);
     const matchAutoSavedRef = useRef(false);
+    const pendingDismissedRef = useRef(false);
+    const followTokenRef = useRef(null);
 
     // Latest-state mirror for event handlers, intervals, and SSE callbacks
     // that must not re-register on every tick.
@@ -290,6 +295,10 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (sessionRef.current || sessionState === 'starting') {
             return;
         }
+        // A follower cannot start its own session on top of the live one.
+        if (followTokenRef.current) {
+            return;
+        }
         if (!user) {
             setSessionNotice(t('timer.session.enableShareFirst'));
             return;
@@ -329,17 +338,53 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         }
     }, [saveMatchRecord]);
 
-    // After a page refresh (or template switch), silently resume a session
-    // that is still alive server-side: adopt its snapshot and keep reporting.
-    const restoreLiveSession = useCallback(async () => {
+    // After a page refresh (or template switch), probe for a live session
+    // owned by this user (another device remote-controlling). Found → ask
+    // the page whether to follow or take over (C-02-06); no silent resume.
+    const probeForLiveSession = useCallback(async () => {
+        if (pendingDismissedRef.current || followTokenRef.current) {
+            return;
+        }
         const info = stateRef.current?.config;
         if (!info?.shareEnabled || !info.shareToken || sessionRef.current) {
             return;
         }
         const result = await TimerSessionService.loadDisplayState(info.shareToken);
+        if (result.success && result.data.active) {
+            setPendingSession(true);
+        }
+    }, []);
+
+    // Follow: this page mirrors the live session read-only (display-side
+    // snapshot adoption + SSE), keeping its own console/remote layout.
+    const startFollowing = useCallback(() => {
+        const info = stateRef.current?.config;
+        if (!info?.shareToken) {
+            return;
+        }
+        setPendingSession(false);
+        followTokenRef.current = info.shareToken;
+        setFollowToken(info.shareToken);
+    }, []);
+
+    // Take over: adopt the current snapshot and resume reporting from this
+    // page. The previous controller loses on the next heartbeat (stale seq
+    // → session-ended) and falls back to standalone. Must drop the follow
+    // subscription first, or the old controller's SSE stream keeps
+    // overwriting this page's freshly-taken-over state.
+    const takeoverSession = useCallback(async () => {
+        const info = stateRef.current?.config;
+        if (!info?.shareToken) {
+            return;
+        }
+        const result = await TimerSessionService.loadDisplayState(info.shareToken);
+        setPendingSession(false);
         if (!result.success || !result.data.active) {
             return;
         }
+        followTokenRef.current = null;
+        setFollowToken(null);
+        setFollowing(false);
         adoptFromSnapshot(result.data.snapshot);
         sessionRef.current = {
             shareToken: info.shareToken,
@@ -349,12 +394,17 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         setSessionState('active');
     }, [adoptFromSnapshot]);
 
+    const dismissPendingSession = useCallback(() => {
+        pendingDismissedRef.current = true;
+        setPendingSession(false);
+    }, []);
+
     useEffect(() => {
         if (isDisplay || Object.keys(config.stages).length === 0) {
             return;
         }
-        restoreLiveSession();
-    }, [config, isDisplay, restoreLiveSession]);
+        probeForLiveSession();
+    }, [config, isDisplay, probeForLiveSession]);
 
     const handleCopyDisplayUrl = useCallback(async () => {
         const path = sessionRef.current?.displayUrl
@@ -432,16 +482,18 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     }, []);
 
     // Display follow: adopt the running session (if any) and keep
-    // re-adopting controller snapshots over SSE.
+    // re-adopting controller snapshots over SSE. On console pages the
+    // follow token arrives via C-02-06 (user chose "跟随").
+    const activeFollowToken = shareToken || followToken;
     useEffect(() => {
-        if (!shareToken || status !== 'ok') {
+        if (!activeFollowToken || status !== 'ok') {
             return undefined;
         }
         let stateUnsubscribe;
         let cancelled = false;
 
         (async () => {
-            const stateResult = await TimerSessionService.loadDisplayState(shareToken);
+            const stateResult = await TimerSessionService.loadDisplayState(activeFollowToken);
             if (cancelled) {
                 return;
             }
@@ -451,7 +503,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                 setFollowing(true);
                 setDisplayBanner('following');
             }
-            stateUnsubscribe = TimerSessionService.onDisplayState(shareToken, {
+            stateUnsubscribe = TimerSessionService.onDisplayState(activeFollowToken, {
                 onState: (snapshot) => {
                     lastStateAtRef.current = Date.now();
                     setFollowing(true);
@@ -468,6 +520,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                         setFollowing(false);
                         dispatch({ type: 'STOP_ALL' });
                         setDisplayBanner('ended');
+                        if (!isDisplay) {
+                            // Console follower: surface the fallback via the
+                            // shared notice channel (banner is display-only).
+                            setSessionNotice(t('timer.session.ended'));
+                        }
                         if (bannerTimerRef.current) {
                             window.clearTimeout(bannerTimerRef.current);
                         }
@@ -477,7 +534,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                     }
                 },
                 onOpen: async () => {
-                    const sync = await TimerSessionService.loadDisplayState(shareToken);
+                    const sync = await TimerSessionService.loadDisplayState(activeFollowToken);
                     if (!sync.success) {
                         return;
                     }
@@ -500,7 +557,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                 stateUnsubscribe();
             }
         };
-    }, [shareToken, status, adoptFromSnapshot]);
+    }, [activeFollowToken, status, adoptFromSnapshot, isDisplay, t]);
 
     // ------------------------------------------------------------------
     // Per-side actions for buttons and shortcuts.
@@ -551,6 +608,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         sessionNotice,
         setSessionNotice,
         captureCount,
+        // C-02-06 console follow: discovery prompt + follow/takeover
+        pendingSession,
+        startFollowing,
+        takeoverSession,
+        dismissPendingSession,
         // actions
         actions,
         handleStartSession,

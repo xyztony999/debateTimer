@@ -60,6 +60,11 @@
             "pause": "Pause",
             "reset": "Réinitialiser"
         },
+        "remote": {
+            "affSpeaking": "Parle (aff.)",
+            "negSpeaking": "Parle (nég.)",
+            "pressToStart": "Toucher pour démarrer"
+        },
         "shortcutsTitle": "Raccourcis clavier",
         "timeline": "Déroulé du débat"
     },

@@ -87,7 +87,7 @@ export default function RecordDetailPage() {
 
     return (
         <Container maxWidth="md" sx={{ pb: 4 }}>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ py: 2 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', py: 2 }}>
                 <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/records')}>
                     {t('records.backToList')}
                 </Button>

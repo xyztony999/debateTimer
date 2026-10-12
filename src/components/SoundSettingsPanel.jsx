@@ -57,7 +57,7 @@ export default function SoundSettingsPanel() {
     return (
         <Stack spacing={2}>
             {ALERT_NODES.map((node) => (
-                <Grid container key={node} spacing={1} alignItems="center">
+                <Grid container key={node} spacing={1} sx={{ alignItems: 'center' }}>
                     <Grid size={{ xs: 12, sm: 3.5 }}>
                         <Typography variant="body2">{t(NODE_LABEL_KEYS[node])}</Typography>
                     </Grid>

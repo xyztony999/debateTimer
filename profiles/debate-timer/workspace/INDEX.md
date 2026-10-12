@@ -37,4 +37,10 @@ modules:
       requirement: { status: complete, note: "合并简报 05-reports/2026-10-11-bundleD-design-brief.md（决策 D-C1~C5）" }
       design: { status: complete, note: "AA v1.4（P-03）+ FL 附录注记；无 API 变更；Gate 1 PASS（简报内联）" }
       code: { status: complete, note: "vite-plugin-pwa（API network-only）+ manifest/图标 + 离线横幅/安装入口 + 触屏 CSS；52 tests/lint 0/build ✓（sw.js 产物）；Gate 2 WARN-可交付（05-reports/2026-10-11-gate2-bundleD.md）" }
+  - name: remote-layout
+    title: "遥控器专版布局（C-01-08：操作端手机竖屏形态）"
+    stages:
+      requirement: { status: complete, note: "D0（05-reports/2026-10-12-D0-remote-layout.md，决策 R-C1~R-C4 全推荐项）" }
+      design: { status: complete, note: "AA v1.5 + FL v1.4（C-01-08）+ prd/remote-layout + PageSpec C-01-08；API 零变更；Gate 1 PASS（05-reports/2026-10-12-gate1-remote-layout.md）" }
+      code: { status: complete, note: "TimerControlPage 遥控器分支（useMediaQuery 竖屏自动）+ RemoteClock + rm- 样式 + 3 i18n key；lint 0/87 tests/build ✓；B3 浏览器验收过（三形态/对切/旋转回落/暗色）；Gate 2 WARN-可交付（05-reports/2026-10-12-gate2-remote-layout.md，真机复验待部署后）" }
 ---

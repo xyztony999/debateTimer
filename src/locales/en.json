@@ -60,6 +60,11 @@
             "pause": "Pause",
             "reset": "Reset"
         },
+        "remote": {
+            "affSpeaking": "Aff. speaking",
+            "negSpeaking": "Neg. speaking",
+            "pressToStart": "Tap to start"
+        },
         "shortcutsTitle": "Keyboard shortcuts",
         "timeline": "Match flow"
     },

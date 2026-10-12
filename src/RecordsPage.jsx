@@ -81,7 +81,7 @@ export default function RecordsPage() {
                     />
                     <CardContent>
                         {state === 'loading' ? (
-                            <Stack alignItems="center" sx={{ py: 4 }}>
+                            <Stack sx={{ alignItems: 'center', py: 4 }}>
                                 <CircularProgress size={28} />
                             </Stack>
                         ) : state === 'error' ? (
@@ -98,8 +98,8 @@ export default function RecordsPage() {
                                         key={record.id}
                                         direction="row"
                                         spacing={2}
-                                        alignItems="center"
                                         sx={{
+                                            alignItems: 'center',
                                             cursor: 'pointer',
                                             p: 1,
                                             borderRadius: 1,

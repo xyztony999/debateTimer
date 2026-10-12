@@ -43,4 +43,10 @@ modules:
       requirement: { status: complete, note: "D0（05-reports/2026-10-12-D0-remote-layout.md，决策 R-C1~R-C4 全推荐项）" }
       design: { status: complete, note: "AA v1.5 + FL v1.4（C-01-08）+ prd/remote-layout + PageSpec C-01-08；API 零变更；Gate 1 PASS（05-reports/2026-10-12-gate1-remote-layout.md）" }
       code: { status: complete, note: "TimerControlPage 遥控器分支（useMediaQuery 竖屏自动）+ RemoteClock + rm- 样式 + 3 i18n key；lint 0/87 tests/build ✓；B3 浏览器验收过（三形态/对切/旋转回落/暗色）；Gate 2 WARN-可交付（05-reports/2026-10-12-gate2-remote-layout.md，真机复验待部署后）" }
+  - name: console-follow
+    title: "控制台跟随与接管（C-02-06）+ 遥控器间距修正（真机反馈包）"
+    stages:
+      requirement: { status: complete, note: "D0（05-reports/2026-10-12-D0-console-follow.md，FB-1 修正 + FB-2 联动形态用户确认）" }
+      design: { status: complete, note: "AA v1.6（C-02-06）+ FL v1.5 + prd/console-follow + C-02 PageSpec v1.4；API 零变更；Gate 1 PASS（05-reports/2026-10-12-gate1-console-follow.md）" }
+      code: { status: todo, note: "待 Gate 1 后进入代码阶段" }
 ---

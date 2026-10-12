@@ -7,6 +7,8 @@
   overflow-x: auto;
   padding: 0.35rem 0.15rem 0.6rem;
   scrollbar-width: thin;
+  /* 基础态：居中对齐（safe center 溢出时不裁左缘），配自动居中滚动 */
+  justify-content: safe center;
 }
 
 .st-step {
@@ -17,18 +19,21 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  /* 等宽铺满：与容器两端对齐，宽窄不随名称参差 */
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0.45rem 0.45rem;
+  /* 基础态：自然宽度显示完整阶段名（PageSpec v1.3 D2'） */
+  flex: 0 0 auto;
+  max-width: 13rem;
+  padding: 0.45rem 0.85rem;
   border: 2px solid var(--st-border);
   border-radius: 999px;
   background: var(--st-bg);
   color: var(--st-fg);
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+/* 超宽屏曾试等宽铺满，但 Container lg(1152px) 封顶使每格恒 ~61px（1 字可读性差），
+   v1.3 统一为全名横滑 + safe center，详见 PageSpec C-02 §10 D4' */
 
 .st-step:hover {
   background: rgba(30, 58, 95, 0.14);
@@ -48,9 +53,6 @@
   --st-bg: #1e3a5f;
   --st-border: #1e3a5f;
   font-weight: 700;
-  font-size: 0.92rem;
-  /* 选中胶囊加宽承载完整阶段名（阶段名唯一显示处，见 PageSpec v1.2 D1/D2） */
-  flex-grow: 2.6;
 }
 
 .st-step--current .st-idx {
@@ -120,19 +122,7 @@
   .clock-area {
     flex-direction: column;
   }
-
-  /* 等宽胶囊在窄屏不可用（16 项均分过窄）：回退自然宽度 + 横滑 + 居中对齐 */
-  .stage-timeline {
-    justify-content: safe center;
-  }
-
-  .st-step {
-    flex: 0 0 auto;
-  }
-
-  .st-step--current {
-    flex-grow: 1;
-  }
+  /* 时间线在所有宽度均为自然宽度 + safe center（v1.3 基础态），无需窄屏回退 */
 }
 
 /* ===== 触屏与小屏收纳（bundle D 口径 + AppBar 防挤压） ===== */

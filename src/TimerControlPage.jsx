@@ -16,6 +16,7 @@ import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PublicIcon from '@mui/icons-material/Public';
@@ -31,16 +32,42 @@ import { InstallButton } from './components/PwaBits';
 import TimerBox from './components/TimerBox';
 import useDebateTimer from './timer/useDebateTimer';
 import useTimerKeyboardShortcuts from './timer/useTimerKeyboardShortcuts';
+import { formatTime } from './timer/engine';
 import { stageDisplayName } from './utils/stageDisplayName';
 import { useColorMode } from './context/ColorModeContext';
 import { useAuth } from './context/AuthContext';
 import './timer/timer-control.css';
 
+/** Compact clock chip for the remote layout's dual-clock strip. */
+function RemoteClock({ teamLabel, badge, sideState, blinking, live }) {
+    const inGrace = sideState.phase === 'grace';
+    const timeClass = [
+        'rm-clock-time',
+        sideState.phase === 'locked' ? 'rm-clock-time--locked' : '',
+        inGrace ? 'rm-clock-time--grace' : '',
+        blinking ? 'rm-clock-time--warn' : '',
+    ].filter(Boolean).join(' ');
+    return (
+        <div className={`rm-clock${live ? ' rm-clock--live' : ''}`}>
+            <div className="rm-clock-name">
+                <div className="rm-clock-team">
+                    <span className="rm-badge">{badge}</span>
+                    {teamLabel}
+                </div>
+            </div>
+            <div className={timeClass}>
+                {formatTime(inGrace ? sideState.graceLeft : sideState.remaining)}
+            </div>
+        </div>
+    );
+}
+
 /**
  * Operator console (控制端): AppBar with session controls, a clickable
  * stage timeline, the shared clock faces, and a bottom action bar with
  * large touch-friendly buttons. Runs the same useDebateTimer runtime as
- * the display page.
+ * the display page. Phones in portrait (≤600px) get the C-01-08 remote
+ * layout instead — same runtime, thumb-first presentation.
  */
 export default function TimerControlPage() {
     const navigate = useNavigate();
@@ -49,6 +76,8 @@ export default function TimerControlPage() {
     const { user, logout } = useAuth();
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [helpAnchor, setHelpAnchor] = useState(null);
+    // C-01-08 remote layout: portrait phones switch presentation automatically.
+    const isRemote = useMediaQuery('(max-width:600px) and (orientation: portrait)');
 
     const {
         config,
@@ -105,17 +134,78 @@ export default function TimerControlPage() {
         };
     }, []);
 
+    // 融合式导航（PageSpec v1.2 D3）：切换阶段后把选中胶囊滚到时间线中央
+    useEffect(() => {
+        document.querySelector('.st-step--current')
+            ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, [state.stageId]);
+
     const sessionActive = sessionState === 'active' || sessionState === 'weak';
     const affLabel = config.teamNames.aff || t('timer.affirmative');
     const negLabel = config.teamNames.neg || t('timer.negative');
     const stageName = (stage) => stageDisplayName(t, stage, config.stageLabels, i18n.language);
+
+    // Shared between both layout branches.
+    const stageTimeline = (
+        <Box
+            className="stage-timeline"
+            role="tablist"
+            aria-label={t('timer.timeline')}
+        >
+            {orderedStages.map((stage, index) => (
+                <button
+                    key={stage}
+                    type="button"
+                    role="tab"
+                    aria-selected={stage === state.stageId}
+                    className={[
+                        'st-step',
+                        stage === state.stageId ? 'st-step--current' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => actions.applyStage(stage)}
+                    title={stageName(stage)}
+                >
+                    <span className="st-idx">{index + 1}</span>
+                    <span className="st-name">{stageName(stage)}</span>
+                </button>
+            ))}
+        </Box>
+    );
+
+    const contextRow = (state.stageId === 'sound_check' || state.advance != null) ? (
+        <Stack spacing={1.5} sx={{ alignItems: 'center', mt: 1.5 }}>
+            {state.stageId === 'sound_check' ? (
+                <Stack direction="row" spacing={1}>
+                    <Button variant="outlined" onClick={actions.soundCheck30}>
+                        {t('timer.test30sSound')}
+                    </Button>
+                    <Button variant="outlined" onClick={actions.soundCheckEnd}>
+                        {t('timer.testEndSound')}
+                    </Button>
+                </Stack>
+            ) : null}
+            {state.advance != null ? (
+                <Alert severity="info" role="status">
+                    {t('timer.advanceCountdown', { n: state.advance })}
+                </Alert>
+            ) : null}
+        </Stack>
+    ) : null;
+
+    // Remote layout: mirror the single clock onto both chips (single stages).
+    const remoteAff = derived.isDual ? state.sides.aff : state.sides.single;
+    const remoteNeg = derived.isDual ? state.sides.neg : state.sides.single;
+    const remoteAffBlink = derived.isDual ? derived.blinking.aff : derived.blinking.single;
+    const remoteAffLive = derived.isDual && derived.activeSide === 'aff';
 
     return (
         <Box
             sx={{
                 minHeight: '100dvh',
                 pt: 'env(safe-area-inset-top)',
-                pb: 'calc(96px + env(safe-area-inset-bottom))',
+                pb: isRemote
+                    ? 'env(safe-area-inset-bottom)'
+                    : 'calc(96px + env(safe-area-inset-bottom))',
             }}
         >
             <AppBar position="sticky" elevation={2}>
@@ -244,179 +334,298 @@ export default function TimerControlPage() {
                 </MenuItem>
             </Menu>
 
-            <Container maxWidth="lg" sx={{ pt: 2 }}>
-                {/* 阶段时间线：点击切换，当前高亮 */}
-                <Box
-                    className="stage-timeline"
-                    role="tablist"
-                    aria-label={t('timer.timeline')}
+            {isRemote ? (
+                /* ===== C-01-08 遥控器布局（竖屏自动）：钟条 → 语境 → 主操作 → 阶段横滑 ===== */
+                <Container
+                    maxWidth="sm"
+                    sx={{
+                        pt: 1,
+                        pb: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 'calc(100dvh - 64px)',
+                    }}
                 >
-                    {orderedStages.map((stage, index) => (
-                        <button
-                            key={stage}
-                            type="button"
-                            role="tab"
-                            aria-selected={stage === state.stageId}
-                            className={[
-                                'st-step',
-                                stage === state.stageId ? 'st-step--current' : '',
-                            ].filter(Boolean).join(' ')}
-                            onClick={() => actions.applyStage(stage)}
-                            title={stageName(stage)}
-                        >
-                            <span className="st-idx">{index + 1}</span>
-                            <span className="st-name">{stageName(stage)}</span>
-                        </button>
-                    ))}
-                </Box>
+                    <div className="rm-clocks">
+                        <RemoteClock
+                            teamLabel={affLabel}
+                            badge={t('timer.affBadge')}
+                            sideState={remoteAff}
+                            blinking={remoteAffBlink}
+                            live={remoteAffLive}
+                        />
+                        <RemoteClock
+                            teamLabel={negLabel}
+                            badge={t('timer.negBadge')}
+                            sideState={remoteNeg}
+                            blinking={derived.isDual ? derived.blinking.neg : derived.blinking.single}
+                            live={derived.isDual && derived.activeSide === 'neg'}
+                        />
+                    </div>
 
-                {/* 阶段语境区：试铃 / 自动推进倒计时 */}
-                <Stack spacing={1.5} alignItems="center" sx={{ mt: 1.5, mb: 0.5 }}>
-                    <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
+                    <Typography
+                        variant="subtitle1"
+                        component="h2"
+                        sx={{ textAlign: 'center', fontWeight: 600, mt: 1.25 }}
+                    >
                         {stageName(state.stageId)}
                     </Typography>
-                    {state.stageId === 'sound_check' ? (
-                        <Stack direction="row" spacing={1}>
-                            <Button variant="outlined" onClick={actions.soundCheck30}>
-                                {t('timer.test30sSound')}
-                            </Button>
-                            <Button variant="outlined" onClick={actions.soundCheckEnd}>
-                                {t('timer.testEndSound')}
-                            </Button>
-                        </Stack>
-                    ) : null}
-                    {state.advance != null ? (
-                        <Alert severity="info" role="status">
-                            {t('timer.advanceCountdown', { n: state.advance })}
-                        </Alert>
-                    ) : null}
-                </Stack>
+                    {contextRow}
 
-                {/* 时钟区 */}
-                <Box className="clock-area">
-                    {derived.isDual ? (
-                        <React.Fragment>
+                    <div className="rm-main">
+                        {derived.isFree ? (
+                            <React.Fragment>
+                                <div className="rm-side-row">
+                                    <button
+                                        type="button"
+                                        className={`rm-big-btn${state.sides.aff.running ? ' rm-big-btn--live' : ''}`}
+                                        disabled={state.sides.aff.phase === 'locked'}
+                                        onClick={actions.toggleAff}
+                                    >
+                                        <span className="rm-big-icon">{state.sides.aff.running ? '⏸' : '▶'}</span>
+                                        {state.sides.aff.running
+                                            ? t('timer.remote.affSpeaking')
+                                            : t('timer.remote.pressToStart')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`rm-big-btn${state.sides.neg.running ? ' rm-big-btn--live' : ''}`}
+                                        disabled={state.sides.neg.phase === 'locked'}
+                                        onClick={actions.toggleNeg}
+                                    >
+                                        <span className="rm-big-icon">{state.sides.neg.running ? '⏸' : '▶'}</span>
+                                        {state.sides.neg.running
+                                            ? t('timer.remote.negSpeaking')
+                                            : t('timer.remote.pressToStart')}
+                                    </button>
+                                </div>
+                                {derived.freeLocked ? (
+                                    <p className="rm-locked-note" role="status">{t('timer.free.locked')}</p>
+                                ) : null}
+                                <div className="rm-reset-row">
+                                    <button
+                                        type="button"
+                                        className="rm-reset-btn"
+                                        disabled={state.sides.aff.running}
+                                        onClick={actions.resetAff}
+                                    >
+                                        ↺ {t('timer.affBadge')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="rm-reset-btn"
+                                        disabled={state.sides.neg.running}
+                                        onClick={actions.resetNeg}
+                                    >
+                                        ↺ {t('timer.negBadge')}
+                                    </button>
+                                </div>
+                            </React.Fragment>
+                        ) : derived.isDual ? (
+                            <React.Fragment>
+                                <div className="rm-side-row">
+                                    <button
+                                        type="button"
+                                        className={`rm-big-btn${state.sides.aff.running ? ' rm-big-btn--live' : ''}`}
+                                        disabled={state.sides.aff.phase === 'locked'}
+                                        onClick={actions.toggleAff}
+                                    >
+                                        <span className="rm-big-icon">{state.sides.aff.running ? '⏸' : '▶'}</span>
+                                        {state.sides.aff.running
+                                            ? `${t('timer.op.pause')} · ${t('timer.affBadge')}`
+                                            : `${t('timer.op.start')} · ${t('timer.affBadge')}`}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`rm-big-btn${state.sides.neg.running ? ' rm-big-btn--live' : ''}`}
+                                        disabled={state.sides.neg.phase === 'locked'}
+                                        onClick={actions.toggleNeg}
+                                    >
+                                        <span className="rm-big-icon">{state.sides.neg.running ? '⏸' : '▶'}</span>
+                                        {state.sides.neg.running
+                                            ? `${t('timer.op.pause')} · ${t('timer.negBadge')}`
+                                            : `${t('timer.op.start')} · ${t('timer.negBadge')}`}
+                                    </button>
+                                </div>
+                                <div className="rm-reset-row">
+                                    <button
+                                        type="button"
+                                        className="rm-reset-btn"
+                                        disabled={state.sides.aff.running}
+                                        onClick={actions.resetAff}
+                                    >
+                                        ↺ {t('timer.affBadge')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="rm-reset-btn"
+                                        disabled={state.sides.neg.running}
+                                        onClick={actions.resetNeg}
+                                    >
+                                        ↺ {t('timer.negBadge')}
+                                    </button>
+                                </div>
+                            </React.Fragment>
+                        ) : (
+                            <React.Fragment>
+                                <button
+                                    type="button"
+                                    className={`rm-big-btn rm-master-btn${state.sides.single.running ? ' rm-big-btn--live' : ''}`}
+                                    disabled={state.sides.single.phase === 'locked'}
+                                    onClick={actions.toggleSingle}
+                                >
+                                    <span className="rm-big-icon">{state.sides.single.running ? '⏸' : '▶'}</span>
+                                    {state.sides.single.running ? t('timer.op.pause') : t('timer.op.start')}
+                                </button>
+                                <div className="rm-reset-row">
+                                    <button
+                                        type="button"
+                                        className="rm-reset-btn"
+                                        disabled={state.sides.single.running}
+                                        onClick={actions.resetSingle}
+                                    >
+                                        ↺ {t('timer.op.reset')}
+                                    </button>
+                                </div>
+                            </React.Fragment>
+                        )}
+                    </div>
+
+                    {stageTimeline}
+                </Container>
+            ) : (
+                <Container maxWidth="lg" sx={{ pt: 2 }}>
+                    {stageTimeline}
+                    {contextRow}
+
+                    {/* 时钟区 */}
+                    <Box className="clock-area">
+                        {derived.isDual ? (
+                            <React.Fragment>
+                                <TimerBox
+                                    sideState={state.sides.aff}
+                                    blinking={derived.blinking.aff}
+                                    active={derived.isFree && derived.activeSide === 'aff'}
+                                    title={affLabel}
+                                    badge={t('timer.affBadge')}
+                                    graceText={t('timer.graceHint')}
+                                    hint={t('timer.hintAff')}
+                                    startTitle={t('timer.shortcutAffToggle')}
+                                    stopTitle={t('timer.shortcutAffToggle')}
+                                    resetTitle={t('timer.shortcutAffReset')}
+                                    onStart={actions.startAff}
+                                    onStop={actions.stopAff}
+                                    onReset={actions.resetAff}
+                                />
+                                <TimerBox
+                                    sideState={state.sides.neg}
+                                    blinking={derived.blinking.neg}
+                                    active={derived.isFree && derived.activeSide === 'neg'}
+                                    title={negLabel}
+                                    badge={t('timer.negBadge')}
+                                    graceText={t('timer.graceHint')}
+                                    hint={t('timer.hintNeg')}
+                                    startTitle={t('timer.shortcutNegToggle')}
+                                    stopTitle={t('timer.shortcutNegToggle')}
+                                    resetTitle={t('timer.shortcutNegReset')}
+                                    onStart={actions.startNeg}
+                                    onStop={actions.stopNeg}
+                                    onReset={actions.resetNeg}
+                                />
+                            </React.Fragment>
+                        ) : (
                             <TimerBox
-                                sideState={state.sides.aff}
-                                blinking={derived.blinking.aff}
-                                active={derived.isFree && derived.activeSide === 'aff'}
-                                title={affLabel}
-                                badge={t('timer.affBadge')}
+                                sideState={state.sides.single}
+                                blinking={derived.blinking.single}
                                 graceText={t('timer.graceHint')}
-                                hint={t('timer.hintAff')}
-                                startTitle={t('timer.shortcutAffToggle')}
-                                stopTitle={t('timer.shortcutAffToggle')}
-                                resetTitle={t('timer.shortcutAffReset')}
-                                onStart={actions.startAff}
-                                onStop={actions.stopAff}
-                                onReset={actions.resetAff}
+                                hint={t('timer.hintSingle')}
+                                startTitle={t('timer.shortcutSingleToggle')}
+                                stopTitle={t('timer.shortcutSingleToggle')}
+                                resetTitle={t('timer.shortcutSingleReset')}
+                                onStart={actions.toggleSingle}
+                                onStop={actions.toggleSingle}
+                                onReset={actions.resetSingle}
                             />
-                            <TimerBox
-                                sideState={state.sides.neg}
-                                blinking={derived.blinking.neg}
-                                active={derived.isFree && derived.activeSide === 'neg'}
-                                title={negLabel}
-                                badge={t('timer.negBadge')}
-                                graceText={t('timer.graceHint')}
-                                hint={t('timer.hintNeg')}
-                                startTitle={t('timer.shortcutNegToggle')}
-                                stopTitle={t('timer.shortcutNegToggle')}
-                                resetTitle={t('timer.shortcutNegReset')}
-                                onStart={actions.startNeg}
-                                onStop={actions.stopNeg}
-                                onReset={actions.resetNeg}
-                            />
-                        </React.Fragment>
-                    ) : (
-                        <TimerBox
-                            sideState={state.sides.single}
-                            blinking={derived.blinking.single}
-                            graceText={t('timer.graceHint')}
-                            hint={t('timer.hintSingle')}
-                            startTitle={t('timer.shortcutSingleToggle')}
-                            stopTitle={t('timer.shortcutSingleToggle')}
-                            resetTitle={t('timer.shortcutSingleReset')}
-                            onStart={actions.toggleSingle}
-                            onStop={actions.toggleSingle}
-                            onReset={actions.resetSingle}
-                        />
-                    )}
-                </Box>
+                        )}
+                    </Box>
 
-                {derived.freeLocked ? (
-                    <Typography
-                        color="error"
-                        sx={{ textAlign: 'center', mt: 2, fontWeight: 600 }}
-                        role="status"
-                    >
-                        {t('timer.free.locked')}
-                    </Typography>
-                ) : null}
-            </Container>
+                    {derived.freeLocked ? (
+                        <Typography
+                            color="error"
+                            sx={{ textAlign: 'center', mt: 2, fontWeight: 600 }}
+                            role="status"
+                        >
+                            {t('timer.free.locked')}
+                        </Typography>
+                    ) : null}
+                </Container>
+            )}
 
-            {/* 底部主操作栏：大按钮，触屏/快捷键双入口 */}
-            <AppBar
-                className="ctl-action-bar"
-                position="fixed"
-                color="default"
-                elevation={4}
-                sx={{ top: 'auto', bottom: 0, py: 1.25, px: 2 }}
-            >
-                <Toolbar disableGutters sx={{ justifyContent: 'center', gap: 2 }}>
-                    {derived.isDual ? (
-                        <React.Fragment>
-                            <Button
-                                variant={state.sides.aff.running ? 'outlined' : 'contained'}
-                                size="large"
-                                onClick={actions.toggleAff}
-                                sx={{ minWidth: 170 }}
-                            >
-                                {state.sides.aff.running
-                                    ? `⏸ ${t('timer.op.pause')} · ${t('timer.affBadge')}`
-                                    : `▶ ${t('timer.op.start')} · ${t('timer.affBadge')}`}
-                            </Button>
-                            <Button
-                                variant={state.sides.neg.running ? 'outlined' : 'contained'}
-                                size="large"
-                                onClick={actions.toggleNeg}
-                                sx={{ minWidth: 170 }}
-                            >
-                                {state.sides.neg.running
-                                    ? `⏸ ${t('timer.op.pause')} · ${t('timer.negBadge')}`
-                                    : `▶ ${t('timer.op.start')} · ${t('timer.negBadge')}`}
-                            </Button>
-                        </React.Fragment>
-                    ) : (
-                        <React.Fragment>
-                            <Button
-                                variant={state.sides.single.running ? 'outlined' : 'contained'}
-                                size="large"
-                                onClick={actions.toggleSingle}
-                                sx={{ minWidth: 170 }}
-                            >
-                                {state.sides.single.running
-                                    ? `⏸ ${t('timer.op.pause')}`
-                                    : `▶ ${t('timer.op.start')}`}
-                            </Button>
-                            <Button
-                                variant="outlined"
-                                size="large"
-                                onClick={actions.resetSingle}
-                                disabled={state.sides.single.running}
-                            >
-                                ↺ {t('timer.op.reset')}
-                            </Button>
-                        </React.Fragment>
-                    )}
-                </Toolbar>
-            </AppBar>
+            {/* 底部主操作栏：大按钮，触屏/快捷键双入口（遥控器布局自带主操作区，不渲染） */}
+            {!isRemote ? (
+                <AppBar
+                    className="ctl-action-bar"
+                    position="fixed"
+                    color="default"
+                    elevation={4}
+                    sx={{ top: 'auto', bottom: 0, py: 1.25, px: 2 }}
+                >
+                    <Toolbar disableGutters sx={{ justifyContent: 'center', gap: 2 }}>
+                        {derived.isDual ? (
+                            <React.Fragment>
+                                <Button
+                                    variant={state.sides.aff.running ? 'outlined' : 'contained'}
+                                    size="large"
+                                    onClick={actions.toggleAff}
+                                    sx={{ minWidth: 170 }}
+                                >
+                                    {state.sides.aff.running
+                                        ? `⏸ ${t('timer.op.pause')} · ${t('timer.affBadge')}`
+                                        : `▶ ${t('timer.op.start')} · ${t('timer.affBadge')}`}
+                                </Button>
+                                <Button
+                                    variant={state.sides.neg.running ? 'outlined' : 'contained'}
+                                    size="large"
+                                    onClick={actions.toggleNeg}
+                                    sx={{ minWidth: 170 }}
+                                >
+                                    {state.sides.neg.running
+                                        ? `⏸ ${t('timer.op.pause')} · ${t('timer.negBadge')}`
+                                        : `▶ ${t('timer.op.start')} · ${t('timer.negBadge')}`}
+                                </Button>
+                            </React.Fragment>
+                        ) : (
+                            <React.Fragment>
+                                <Button
+                                    variant={state.sides.single.running ? 'outlined' : 'contained'}
+                                    size="large"
+                                    onClick={actions.toggleSingle}
+                                    sx={{ minWidth: 170 }}
+                                >
+                                    {state.sides.single.running
+                                        ? `⏸ ${t('timer.op.pause')}`
+                                        : `▶ ${t('timer.op.start')}`}
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    size="large"
+                                    onClick={actions.resetSingle}
+                                    disabled={state.sides.single.running}
+                                >
+                                    ↺ {t('timer.op.reset')}
+                                </Button>
+                            </React.Fragment>
+                        )}
+                    </Toolbar>
+                </AppBar>
+            ) : null}
 
             {sessionNotice ? (
                 <Box
                     role="status"
                     sx={{
                         position: 'fixed',
-                        bottom: 96,
+                        bottom: isRemote ? 24 : 96,
                         left: '50%',
                         transform: 'translateX(-50%)',
                         zIndex: (theme) => theme.zIndex.snackbar - 1,

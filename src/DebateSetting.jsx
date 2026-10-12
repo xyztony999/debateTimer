@@ -677,7 +677,7 @@ const DebateSetting = () => {
                         />
                         <CardContent>
                             <Stack spacing={2.5}>
-                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'flex-start' } }}>
                                     <FormControl fullWidth size="small">
                                         <InputLabel id="template-select-label">
                                             {t('settings.templateCurrent')}
@@ -710,7 +710,7 @@ const DebateSetting = () => {
                                     </Button>
                                 </Stack>
 
-                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'flex-start' } }}>
                                     <TextField
                                         fullWidth
                                         size="small"
@@ -756,7 +756,7 @@ const DebateSetting = () => {
                                     label={shareEnabled ? t('share.enabled') : t('share.disabled')}
                                 />
                                 {shareEnabled && displayShareUrl ? (
-                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' } }}>
                                         <TextField
                                             fullWidth
                                             size="small"
@@ -787,9 +787,13 @@ const DebateSetting = () => {
                                 <Stack
                                     direction={{ xs: 'column', sm: 'row' }}
                                     spacing={1}
-                                    alignItems={{ sm: 'center' }}
-                                    justifyContent="space-between"
-                                    sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}
+                                    sx={{
+                                        alignItems: { sm: 'center' },
+                                        justifyContent: 'space-between',
+                                        borderTop: '1px solid',
+                                        borderColor: 'divider',
+                                        pt: 2,
+                                    }}
                                 >
                                     <FormControlLabel
                                         control={(
@@ -861,7 +865,7 @@ const DebateSetting = () => {
                                 {orderedStages.map((stage) => (
                                     <Grid key={stage} size={{ xs: 12, sm: 6, md: 4 }}>
                                         <Stack direction="column" spacing={1}>
-                                            <Stack direction="row" spacing={1} alignItems="center">
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                                                 <FormControl fullWidth size="small">
                                                     <InputLabel id={`mode-${stage}`}>{displayName(stage)}</InputLabel>
                                                     <Select
@@ -885,7 +889,7 @@ const DebateSetting = () => {
                                                     </IconButton>
                                                 </Tooltip>
                                             </Stack>
-                                            <Stack direction="row" spacing={1} alignItems="center">
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                                                 <TextField
                                                     size="small"
                                                     type="number"
@@ -895,7 +899,7 @@ const DebateSetting = () => {
                                                     slotProps={{ htmlInput: { min: 0, max: 300 } }}
                                                     sx={{ minWidth: 110 }}
                                                 />
-                                                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexGrow: 1 }}>
+                                                <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1, alignItems: 'center' }}>
                                                     <Switch
                                                         size="small"
                                                         checked={Boolean(stageAutoAdvance[stage])}
@@ -1006,7 +1010,7 @@ const DebateSetting = () => {
                                     </Grid>
                                 </Grid>
 
-                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
                                     <TextField
                                         size="small"
                                         type="number"
@@ -1129,8 +1133,7 @@ const DebateSetting = () => {
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
                         spacing={2}
-                        justifyContent="center"
-                        sx={{ pt: 1, pb: 2 }}
+                        sx={{ justifyContent: 'center', pt: 1, pb: 2 }}
                     >
                         <Button
                             variant="outlined"

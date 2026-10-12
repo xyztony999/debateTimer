@@ -15,15 +15,17 @@
   --st-border: transparent;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  flex: 0 0 auto;
-  max-width: 13rem;
-  padding: 0.45rem 0.85rem;
+  justify-content: center;
+  gap: 0.35rem;
+  /* 等宽铺满：与容器两端对齐，宽窄不随名称参差 */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.45rem 0.45rem;
   border: 2px solid var(--st-border);
   border-radius: 999px;
   background: var(--st-bg);
   color: var(--st-fg);
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
@@ -46,6 +48,9 @@
   --st-bg: #1e3a5f;
   --st-border: #1e3a5f;
   font-weight: 700;
+  font-size: 0.92rem;
+  /* 选中胶囊加宽承载完整阶段名（阶段名唯一显示处，见 PageSpec v1.2 D1/D2） */
+  flex-grow: 2.6;
 }
 
 .st-step--current .st-idx {
@@ -115,6 +120,19 @@
   .clock-area {
     flex-direction: column;
   }
+
+  /* 等宽胶囊在窄屏不可用（16 项均分过窄）：回退自然宽度 + 横滑 + 居中对齐 */
+  .stage-timeline {
+    justify-content: safe center;
+  }
+
+  .st-step {
+    flex: 0 0 auto;
+  }
+
+  .st-step--current {
+    flex-grow: 1;
+  }
 }
 
 /* ===== 触屏与小屏收纳（bundle D 口径 + AppBar 防挤压） ===== */
@@ -137,4 +155,233 @@
     flex: 1 1 0;
     min-width: 0;
   }
+}
+
+/* ===== 遥控器布局（C-01-08，竖屏 ≤600px 自动；rm- 前缀） ===== */
+
+/* 双钟条：紧凑卡片，状态色沿用引擎派生态 */
+.rm-clocks {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.rm-clock {
+  --rmc-fg: #1f2933;
+  --rmc-card: rgba(255, 255, 255, 0.92);
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: var(--rmc-card);
+  border: 2px solid transparent;
+}
+
+.dark-mode .rm-clock {
+  --rmc-fg: #f1f5f9;
+  --rmc-card: rgba(26, 35, 50, 0.92);
+}
+
+.rm-clock--live {
+  border-color: #1e3a5f;
+}
+
+.dark-mode .rm-clock--live {
+  border-color: #90caf9;
+}
+
+.rm-clock-name {
+  min-width: 0;
+  text-align: left;
+}
+
+.rm-clock-team {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--rmc-fg);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  padding: 0.05em 0.35em;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  background: #1e3a5f;
+  color: #fff;
+  flex: 0 0 auto;
+}
+
+.dark-mode .rm-badge {
+  background: #90caf9;
+  color: #0f1419;
+}
+
+.rm-clock-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.3rem, 5.5vw, 1.8rem);
+  font-weight: 700;
+  color: var(--rmc-fg);
+  line-height: 1;
+}
+
+@keyframes rm-blink {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.rm-clock-time--locked {
+  color: #e53935 !important;
+  animation: rm-blink 1s step-start 0s infinite;
+}
+
+.rm-clock-time--grace {
+  color: #fb8c00 !important;
+  animation: rm-blink 1.5s step-start 0s infinite;
+}
+
+.rm-clock-time--warn {
+  animation: rm-blink 1.5s step-start 0s infinite;
+}
+
+/* 主操作区：占满剩余高度，按钮落在拇指区 */
+.rm-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  justify-content: center;
+  padding-bottom: 0.5rem;
+}
+
+.rm-side-row {
+  display: flex;
+  gap: 0.75rem;
+  flex: 1;
+  align-items: stretch;
+}
+
+/* 双大钮对切 / 双侧钮 */
+.rm-big-btn {
+  --rmb-fg: #fff;
+  --rmb-bg: #1e3a5f;
+  --rmb-live-bg: #2e7d32;
+  flex: 1;
+  min-width: 0;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border: none;
+  border-radius: 20px;
+  background: var(--rmb-bg);
+  color: var(--rmb-fg);
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
+}
+
+.rm-big-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.dark-mode .rm-big-btn {
+  --rmb-fg: #0f1419;
+  --rmb-bg: #90caf9;
+  --rmb-live-bg: #81c784;
+}
+
+.rm-big-btn--live {
+  background: var(--rmb-live-bg);
+  outline: 3px solid rgba(255, 255, 255, 0.35);
+  outline-offset: -6px;
+}
+
+.dark-mode .rm-big-btn--live {
+  outline-color: rgba(15, 20, 25, 0.25);
+}
+
+.rm-big-btn:disabled {
+  background: #9aa5b1;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dark-mode .rm-big-btn:disabled {
+  background: #5b6673;
+  color: #0f1419;
+}
+
+.rm-big-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+/* 巨型主钮（single）：≥ 屏高 30% */
+.rm-master-btn {
+  min-height: 30vh;
+  font-size: 1.45rem;
+}
+
+.rm-master-btn .rm-big-icon {
+  font-size: 2.8rem;
+}
+
+/* 次级重置行 */
+.rm-reset-row {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.rm-reset-btn {
+  --rmr-fg: #1f2933;
+  --rmr-card: rgba(255, 255, 255, 0.92);
+  min-width: 88px;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 12px;
+  background: var(--rmr-card);
+  color: var(--rmr-fg);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.dark-mode .rm-reset-btn {
+  --rmr-fg: #f1f5f9;
+  --rmr-card: rgba(26, 35, 50, 0.92);
+}
+
+.rm-reset-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rm-locked-note {
+  margin: 0;
+  text-align: center;
+  color: #e53935;
+  font-weight: 700;
+  font-size: 0.95rem;
 }

@@ -138,7 +138,7 @@ export default function GalleryPage() {
 
             <Container maxWidth="md" sx={{ pb: 4 }}>
                 {state === 'error' ? (
-                    <Stack spacing={2} alignItems="center" sx={{ py: 4 }}>
+                    <Stack spacing={2} sx={{ alignItems: 'center', py: 4 }}>
                         <Alert severity="error">{t('gallery.loadFailed')}</Alert>
                         <Button onClick={() => load()}>{t('records.retry')}</Button>
                     </Stack>
@@ -194,7 +194,7 @@ export default function GalleryPage() {
                             </Stack>
                             <Stack spacing={0.5}>
                                 {(detail.stageOrder || Object.keys(detail.debateStages || {})).map((stage) => (
-                                    <Stack key={stage} direction="row" justifyContent="space-between">
+                                    <Stack key={stage} direction="row" sx={{ justifyContent: 'space-between' }}>
                                         <Typography variant="body2">
                                             {stageLabel(stage, detail.stageLabels, i18n.language)}
                                         </Typography>

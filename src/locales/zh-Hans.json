@@ -60,6 +60,11 @@
             "pause": "暂停",
             "reset": "重置"
         },
+        "remote": {
+            "affSpeaking": "正方发言",
+            "negSpeaking": "反方发言",
+            "pressToStart": "点击开始"
+        },
         "shortcutsTitle": "快捷键",
         "timeline": "比赛流程"
     },

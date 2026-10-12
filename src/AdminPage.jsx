@@ -201,7 +201,7 @@ export default function AdminPage() {
                                                 {row.disabled ? t('admin.disabled') : t('admin.active')}
                                             </TableCell>
                                             <TableCell align="right">
-                                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
                                                     <Button
                                                         size="small"
                                                         disabled={row.id === user?.id}
@@ -280,7 +280,7 @@ export default function AdminPage() {
                                                 ) : null}
                                             </TableCell>
                                             <TableCell align="right">
-                                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
                                                     <Button
                                                         size="small"
                                                         onClick={() => navigate(`/settings?ownerId=${encodeURIComponent(row.ownerId)}`)}

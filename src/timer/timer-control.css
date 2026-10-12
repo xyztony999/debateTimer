@@ -254,6 +254,8 @@
   gap: 0.75rem;
   flex: 1;
   justify-content: center;
+  /* FB-1: 与语境位（试铃按钮/推进横幅）保持呼吸间距 */
+  margin-top: 0.75rem;
   padding-bottom: 0.5rem;
 }
 

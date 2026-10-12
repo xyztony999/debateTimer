@@ -48,5 +48,5 @@ modules:
     stages:
       requirement: { status: complete, note: "D0（05-reports/2026-10-12-D0-console-follow.md，FB-1 修正 + FB-2 联动形态用户确认）" }
       design: { status: complete, note: "AA v1.6（C-02-06）+ FL v1.5 + prd/console-follow + C-02 PageSpec v1.4；API 零变更；Gate 1 PASS（05-reports/2026-10-12-gate1-console-follow.md）" }
-      code: { status: todo, note: "待 Gate 1 后进入代码阶段" }
+      code: { status: complete, note: "useDebateTimer 探测询问化/跟随/接管 + TimerControlPage 弹层与双布局只读态 + 5 i18n key + FB-1 间距；两处缺陷代码内修复（i18n 插值/接管清订阅）；双标签浏览器验收全过（弹层→跟随→镜像→接管→退位）；Gate 2 WARN-可交付（05-reports/2026-10-12-gate2-console-follow.md）" }
 ---

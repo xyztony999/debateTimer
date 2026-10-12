@@ -39,7 +39,12 @@
             "ended": "Synchro terminée",
             "enableShareFirst": "Activez d’abord le partage dans les paramètres",
             "copyUrl": "Copier le lien écran",
-            "copied": "Lien copié"
+            "copied": "Lien copié",
+            "foundTitle": "Session de télécommande détectée",
+            "foundBody": "« {{name}} » en cours. Suivre ou prendre le contrôle sur cet appareil.",
+            "follow": "Suivre",
+            "takeover": "Prendre le contrôle",
+            "following": "Suit la télécommande"
         },
         "display": {
             "following": "Diffusion en direct",

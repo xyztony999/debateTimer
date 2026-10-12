@@ -39,7 +39,12 @@
             "ended": "Sync ended",
             "enableShareFirst": "Enable sharing in settings first",
             "copyUrl": "Copy display link",
-            "copied": "Link copied"
+            "copied": "Link copied",
+            "foundTitle": "Remote session detected",
+            "foundBody": "\"{{name}}\" is running. Follow or take over on this device.",
+            "follow": "Follow",
+            "takeover": "Take over",
+            "following": "Following remote"
         },
         "display": {
             "following": "Live from controller",

@@ -7,6 +7,9 @@ function fakeSse() {
         sendToToken: (token, event, payload) => {
             sent.push({ token, event, payload });
         },
+        sendToOwner: (ownerId, event, payload) => {
+            sent.push({ token: `owner:${ownerId}`, event, payload });
+        },
     };
 }
 
@@ -248,7 +251,7 @@ test('pushCommand relays valid commands with monotonic seq over SSE', () => {
     expect(cmd2.commandSeq).toBe(2);
     expect(cmd2.stageId).toBe('free_debate');
 
-    const commands = sse.sent.filter((s) => s.event === 'command');
+    const commands = sse.sent.filter((s) => s.event === 'command' && s.token === 'tok1');
     expect(commands).toHaveLength(2);
     expect(commands[0].payload).toMatchObject({ type: 'toggle', side: 'aff', commandSeq: 1 });
     expect(commands[0].token).toBe('tok1');
@@ -291,7 +294,9 @@ test('command queue caps at 32 and empties on host report', () => {
     });
     // Queue consumed → room again.
     expect(() => reg.pushCommand('tok1', { type: 'toggle', side: 'single' })).not.toThrow();
-    expect(sse.sent.filter((s) => s.event === 'command')).toHaveLength(33);
+    expect(sse.sent.filter((s) => s.event === 'command' && s.token === 'tok1')).toHaveLength(33);
+    // Owner stream relays the same frames to the host console.
+    expect(sse.sent.some((s) => s.event === 'command' && s.token === 'owner:owner1')).toBe(true);
 });
 
 test('soundCheck command validates kind', () => {
@@ -316,7 +321,7 @@ test('relaySignal transparently forwards frames with from/to routing', () => {
     reg.create({ doc: configDoc() });
 
     reg.relaySignal('tok1', { to: 'host', payload: { type: 'offer', sdp: 'v=0...' } });
-    const frames = sse.sent.filter((s) => s.event === 'signal');
+    const frames = sse.sent.filter((s) => s.event === 'signal' && s.token === 'tok1');
     expect(frames).toHaveLength(1);
     expect(frames[0].payload).toMatchObject({ from: 'remote', to: 'host' });
     expect(frames[0].payload.payload).toEqual({ type: 'offer', sdp: 'v=0...' });
@@ -336,4 +341,32 @@ test('relaySignal caps payload at 32KB', () => {
     reg.create({ doc: configDoc() });
     const big = { blob: 'x'.repeat(33 * 1024) };
     expect(() => reg.relaySignal('tok1', { to: 'host', payload: big })).toThrow(/too large/);
+});
+
+// ---------------------------------------------------------------------------
+// Pairing (C-02)
+// ---------------------------------------------------------------------------
+
+test('pairByCode matches owner sessions by 4-digit code', () => {
+    const { reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+    expect(session.pairingCode).toMatch(/^\d{4}$/);
+
+    const found = reg.pairByCode('owner1', session.pairingCode);
+    expect(found.sessionId).toBe(session.sessionId);
+    expect(found.configName).toBe('default');
+});
+
+test('pairByCode rejects other owners, bad codes, and dead sessions', () => {
+    const { reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+
+    expect(reg.pairByCode('owner2', session.pairingCode)).toBeNull();
+    // Malformed codes throw (client validation), well-formed unknowns return null.
+    expect(() => reg.pairByCode('owner1', '12ab')).toThrow(/4 digits/);
+    expect(() => reg.pairByCode('owner1', '123')).toThrow(/4 digits/);
+    expect(() => reg.pairByCode('owner1', '00000')).toThrow(/4 digits/);
+
+    reg.end('tok1', 'closed_by_operator');
+    expect(reg.pairByCode('owner1', session.pairingCode)).toBeNull();
 });

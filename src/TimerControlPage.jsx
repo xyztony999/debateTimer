@@ -19,6 +19,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -32,6 +33,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SaveIcon from '@mui/icons-material/Save';
+import CableIcon from '@mui/icons-material/Cable';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { InstallButton } from './components/PwaBits';
 import TimerBox from './components/TimerBox';
@@ -81,6 +83,9 @@ export default function TimerControlPage() {
     const { user, logout } = useAuth();
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [helpAnchor, setHelpAnchor] = useState(null);
+    const [pairOpen, setPairOpen] = useState(false);
+    const [pairInput, setPairInput] = useState('');
+    const [pairError, setPairError] = useState(null);
     // C-01-08 remote layout: portrait phones switch presentation automatically.
     const isRemote = useMediaQuery('(max-width:600px) and (orientation: portrait)');
 
@@ -96,6 +101,8 @@ export default function TimerControlPage() {
         sessionNotice,
         captureCount,
         pendingSession,
+        pairingCode,
+        pairWithCode,
         startFollowing,
         startRemoteMode,
         sendRemoteCommand,
@@ -228,7 +235,8 @@ export default function TimerControlPage() {
         </Stack>
     ) : null;
 
-    // Remote layout: mirror the single clock onto both chips (single stages).
+    // Remote layout: single stages show ONE centered clock (dual/free two).
+    const remoteShowDual = derived.isDual;
     const remoteAff = derived.isDual ? state.sides.aff : state.sides.single;
     const remoteNeg = derived.isDual ? state.sides.neg : state.sides.single;
     const remoteAffBlink = derived.isDual ? derived.blinking.aff : derived.blinking.single;
@@ -261,6 +269,14 @@ export default function TimerControlPage() {
                         <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('records.save')}</Box>
                     </Button>
 
+                    {sessionActive && pairingCode ? (
+                        <Chip
+                            size="small"
+                            variant="outlined"
+                            label={`${t('timer.session.pairCode')} ${pairingCode}`}
+                            sx={{ color: 'inherit', borderColor: 'rgba(255,255,255,0.4)' }}
+                        />
+                    ) : null}
                     {following ? (
                         <React.Fragment>
                             <Chip
@@ -344,6 +360,10 @@ export default function TimerControlPage() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+                <MenuItem onClick={() => { setMenuAnchor(null); setPairOpen(true); setPairError(null); }}>
+                    <ListItemIcon><CableIcon fontSize="small" /></ListItemIcon>
+                    {t('timer.session.connectPC')}
+                </MenuItem>
                 <MenuItem onClick={() => { setMenuAnchor(null); navigate('/settings'); }}>
                     <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
                     {t('timer.settings')}
@@ -382,6 +402,49 @@ export default function TimerControlPage() {
                     {t('auth.logout')}
                 </MenuItem>
             </Menu>
+
+            {/* C-02 手动配对：输入电脑端 4 位码 */}
+            <Dialog
+                open={pairOpen}
+                onClose={() => setPairOpen(false)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle>{t('timer.session.pairTitle')}</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        {t('timer.session.pairHint')}
+                    </DialogContentText>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        label={t('timer.session.pairCode')}
+                        value={pairInput}
+                        onChange={(e) => setPairInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        inputProps={{ inputMode: 'numeric', pattern: '[0-9]{4}' }}
+                        error={Boolean(pairError)}
+                        helperText={pairError}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPairOpen(false)}>{t('common.cancel')}</Button>
+                    <Button
+                        variant="contained"
+                        disabled={pairInput.length !== 4}
+                        onClick={async () => {
+                            const result = await pairWithCode(pairInput);
+                            if (result.success) {
+                                setPairOpen(false);
+                                setPairInput('');
+                            } else {
+                                setPairError(result.message || t('timer.session.pairFailed'));
+                            }
+                        }}
+                    >
+                        {t('timer.session.pairSubmit')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* C-02-06 会话发现：跟随 / 接管 / 稍后 */}
             <Dialog
@@ -422,21 +485,31 @@ export default function TimerControlPage() {
                         minHeight: 'calc(100dvh - 64px)',
                     }}
                 >
-                    <div className="rm-clocks">
-                        <RemoteClock
-                            teamLabel={affLabel}
-                            badge={t('timer.affBadge')}
-                            sideState={remoteAff}
-                            blinking={remoteAffBlink}
-                            live={remoteAffLive}
-                        />
-                        <RemoteClock
-                            teamLabel={negLabel}
-                            badge={t('timer.negBadge')}
-                            sideState={remoteNeg}
-                            blinking={derived.isDual ? derived.blinking.neg : derived.blinking.single}
-                            live={derived.isDual && derived.activeSide === 'neg'}
-                        />
+                    <div className={`rm-clocks${remoteShowDual ? '' : ' rm-clocks--single'}`}>
+                        {remoteShowDual ? (
+                            <React.Fragment>
+                                <RemoteClock
+                                    teamLabel={affLabel}
+                                    badge={t('timer.affBadge')}
+                                    sideState={remoteAff}
+                                    blinking={remoteAffBlink}
+                                    live={remoteAffLive}
+                                />
+                                <RemoteClock
+                                    teamLabel={negLabel}
+                                    badge={t('timer.negBadge')}
+                                    sideState={remoteNeg}
+                                    blinking={derived.blinking.neg}
+                                    live={derived.activeSide === 'neg'}
+                                />
+                            </React.Fragment>
+                        ) : (
+                            <RemoteClock
+                                teamLabel={stageDisplayName(t, state.stageId, config.stageLabels, i18n.language)}
+                                sideState={remoteAff}
+                                blinking={remoteAffBlink}
+                            />
+                        )}
                     </div>
 
                     <Typography

@@ -61,4 +61,10 @@ modules:
       requirement: { status: complete, note: "D0（2026-10-14 用户确认：立项 WebRTC 直连 RC2-1、仅同网 host 直连 RC2-2、失败回退 RC2-3）" }
       design: { status: complete, note: "AA v1.8（C-02-08）+ FL v1.6 + prd/p2p-remote + api-p2p-remote（信令端点+SSE signal 事件）+ C-02 PageSpec v1.6；Gate 1 PASS（内联）" }
       code: { status: complete, note: "服务端信令转发（relaySignal+SSE signal 事件）+ rtcChannel 双端封装（early-ICE 缓冲/3s 超时/静默回退）+ hook 集成（直连序号 1e9 空间/双来源 adopt 守卫/快照副本直推）+ 胶囊直连指示；98 tests（+3）/lint 0/build ✓；服务端链路 curl 实证；浏览器端到端联调受 IAB 工具限制未完成（回退设计保证零劣化）；Gate 2 WARN-可交付（05-reports/2026-10-14-gate2-p2p-remote.md）" }
+  - name: pairing-and-fixes
+    title: "R3 真机反馈包：数字配对码 + mp3 音频 + 单钟区分 + SSE 连接池根因修复"
+    stages:
+      requirement: { status: complete, note: "用户三项反馈（音频慢/配对入口/单钟不区分）+ D0 确认配对码方案" }
+      design: { status: complete, note: "prd/pairing-and-fixes（配对码 owner 匹配/音频 mp3/单钟）；AA/FL 挂 C-02-01 扩展" }
+      code: { status: complete, note: "pairingCode+pair 端点（+3 tests）；mp3 转码 46KB（10.7×）；遥控单钟；**SSE 连接池根因修复**（主机 command/signal 迁 owner 流，连接 4→3）——Gate 2 PASS（05-reports/2026-10-14-gate2-pairing-fixes.md），直连+心跳历史 WARN 全闭" }
 ---

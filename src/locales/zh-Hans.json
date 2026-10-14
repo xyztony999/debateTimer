@@ -49,7 +49,14 @@
             "remoteLost": "遥控失联，已回退本地计时",
             "following": "正在跟随遥控器",
             "directLink": "直连",
-            "viaServer": "中转"
+            "viaServer": "中转",
+            "connectPC": "连接电脑",
+            "pairTitle": "连接电脑",
+            "pairHint": "输入电脑端「远程控制中」旁显示的 4 位配对码",
+            "pairCode": "配对码",
+            "pairSubmit": "连接",
+            "pairFailed": "配对码无效或会话已结束",
+            "pairOk": "已连接，正在遥控"
         },
         "display": {
             "following": "正在大屏跟随",

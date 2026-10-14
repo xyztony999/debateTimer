@@ -32,11 +32,21 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const { user } = useAuth();
     const isDisplay = Boolean(shareToken);
 
-    const { config, status } = useDebateConfig(shareToken);
+    // Host command/signal listeners ride the EXISTING config stream the
+    // config hook opens — bound lazily so the stream is established once
+    // (connection pool: 1 SSE per host tab, never 2).
+    const hostCommandListenerRef = useRef(null);
+    const hostSignalListenerRef = useRef(null);
+    const configNamedEvents = useMemo(() => ({
+        command: (cmd) => hostCommandListenerRef.current?.(cmd),
+        signal: (frame) => hostSignalListenerRef.current?.(frame),
+    }), []);
+    const { config, status } = useDebateConfig(shareToken, isDisplay ? null : configNamedEvents);
     const [state, dispatch] = useReducer(reducer, undefined, initialState);
 
     // --- Control session (operator) / follow state (display) ---
     const [sessionState, setSessionState] = useState('idle'); // idle | starting | active | weak
+    const [pairingCode, setPairingCode] = useState(null);
     const [sessionNotice, setSessionNotice] = useState(null);
     const [following, setFollowing] = useState(false);
     const [displayBanner, setDisplayBanner] = useState(null); // following | weak | ended
@@ -57,6 +67,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const pendingDismissedRef = useRef(false);
     const followTokenRef = useRef(null);
     const remoteModeRef = useRef(false);
+    const remoteTargetRef = useRef(null); // paired host { name, shareToken } override
     const lastCommandSeqRef = useRef(0);
     const lastTickAtRef = useRef(null);
     // --- C-02-08 P2P direct link (remote ↔ host on the same LAN) ---
@@ -363,6 +374,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             displayUrl: result.data.displayUrl,
             failures: 0,
         };
+        setPairingCode(result.data.pairingCode ?? null);
         seqRef.current = result.data.snapshot?.seq ?? 0;
         setSessionState('active');
         reportSnapshot();
@@ -372,6 +384,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         const wasActive = Boolean(sessionRef.current);
         sessionRef.current = null;
         setSessionState('idle');
+        setPairingCode(null);
         if (wasActive) {
             const result = await TimerSessionService.stopSession(stateRef.current.config.name);
             if (!result.success) {
@@ -416,21 +429,29 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // C-02-08: entering also tries the P2P direct link (same-LAN only); the
     // server path remains the fallback for commands and state while the
     // channel is not open.
-    const startRemoteMode = useCallback(() => {
-        const info = stateRef.current?.config;
+    const startRemoteMode = useCallback((external) => {
+        // Paired attach: the host's config may differ from this page's config —
+        // subscribe and command against the paired token/name instead.
+        const info = external?.shareToken
+            ? { shareToken: external.shareToken, name: external.configName ?? '' }
+            : stateRef.current?.config;
         if (!info?.shareToken) {
             return;
         }
         setPendingSession(false);
         remoteModeRef.current = true;
         setRemoteMode(true);
+        if (external?.shareToken) {
+            remoteTargetRef.current = { name: external.configName ?? '', shareToken: external.shareToken };
+        }
         followTokenRef.current = info.shareToken;
         setFollowToken(info.shareToken);
         setRtcState('connecting');
         rtcChannelRef.current?.close();
         rtcChannelRef.current = initiateDirectChannel({
             sendSignal: (body) => {
-                TimerSessionService.sendSignal(info.name ?? '', body);
+                const name = remoteTargetRef.current?.name ?? stateRef.current?.config?.name ?? '';
+                TimerSessionService.sendSignal(name, body);
             },
             onSignal: (listener) => {
                 signalListenerRef.current = listener;
@@ -457,6 +478,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const closeRemoteChannel = useCallback(() => {
         rtcChannelRef.current?.close();
         rtcChannelRef.current = null;
+        remoteTargetRef.current = null;
         setRtcState('off');
     }, []);
 
@@ -475,11 +497,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             });
             return;
         }
-        const cfg = stateRef.current?.config;
-        if (!cfg?.name) {
+        const target = remoteTargetRef.current ?? stateRef.current?.config;
+        if (!target?.name) {
             return;
         }
-        const result = await TimerSessionService.sendCommand(cfg.name, command);
+        const result = await TimerSessionService.sendCommand(target.name, command);
         if (!result.success && [400, 403, 404].includes(result.status)) {
             // Session is gone — fall back to local timing on this device.
             closeRemoteChannel();
@@ -536,11 +558,6 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (isDisplay || (sessionState !== 'active' && sessionState !== 'weak')) {
             return undefined;
         }
-        const token = sessionRef.current?.shareToken
-            ?? stateRef.current?.config?.shareToken;
-        if (!token) {
-            return undefined;
-        }
         lastCommandSeqRef.current = 0;
 
         // P2P answerer: commands arrive on the DataChannel with ~5ms latency.
@@ -567,14 +584,13 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             },
         });
 
-        const unsubscribe = TimerSessionService.onDisplayState(token, {
-            // Only commands/signals: the host is authoritative — its own
-            // snapshot echoes on this stream must not be adopted.
-            onCommand: applyHostCommand,
-            onSignal: (frame) => signalListenerRef.current?.(frame),
-        });
+        // Register on the config-stream listeners (no new connection — see
+        // the configNamedEvents comment above).
+        hostCommandListenerRef.current = applyHostCommand;
+        hostSignalListenerRef.current = (frame) => signalListenerRef.current?.(frame);
         return () => {
-            unsubscribe();
+            hostCommandListenerRef.current = null;
+            hostSignalListenerRef.current = null;
             hostChannelRef.current?.close();
             hostChannelRef.current = null;
             signalListenerRef.current = null;
@@ -614,6 +630,19 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         };
         setSessionState('active');
     }, [adoptFromSnapshot]);
+
+    // Pair by the 4-digit code shown on the host; on success jump straight
+    // into remote mode bound to the host's (possibly different) config.
+    const pairWithCode = useCallback(async (code) => {
+        const result = await TimerSessionService.pair(code);
+        if (!result.success) {
+            return result;
+        }
+        const { configName, shareToken } = result.data;
+        pendingDismissedRef.current = true;
+        startRemoteMode({ configName, shareToken });
+        return result;
+    }, [startRemoteMode]);
 
     const dismissPendingSession = useCallback(() => {
         pendingDismissedRef.current = true;
@@ -856,6 +885,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         sendRemoteCommand,
         // C-02-08 P2P direct link
         rtcState,
+        // Pairing
+        pairingCode,
+        pairWithCode,
         // actions
         actions,
         handleStartSession,

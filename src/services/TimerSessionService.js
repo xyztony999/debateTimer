@@ -107,6 +107,25 @@ class TimerSessionService {
     }
 
     /**
+     * C-02 pairing: attach to my live host session by its 4-digit code.
+     */
+    async pair(code) {
+        try {
+            const { data, status } = await apiClient.post('/api/session/pair', { code });
+            if (!data.success) {
+                return {
+                    success: false,
+                    status,
+                    message: data.message || `Request failed (${status})`,
+                };
+            }
+            return { success: true, data: data.data };
+        } catch (error) {
+            return toServiceError(error, 'Error pairing');
+        }
+    }
+
+    /**
      * C-02-08 signaling relay for the P2P direct link (one-shot RTC frames).
      */
     async sendSignal(name, body) {

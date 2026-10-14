@@ -153,7 +153,7 @@ class ConfigurationService {
         }
     }
 
-    onConfigurationsChange(callback, ownerId) {
+    onConfigurationsChange(callback, ownerId, namedEvents = {}) {
         const query = ownerId ? `?ownerId=${encodeURIComponent(ownerId)}` : '';
         const streamUrl = `${getApiBaseUrl()}${configurationsPath()}/stream${query}`;
         return this.#listen(streamUrl, true, async () => {
@@ -161,7 +161,7 @@ class ConfigurationService {
             if (result.success) {
                 callback(result.data);
             }
-        });
+        }, namedEvents);
     }
 
     onDisplayChange(token, callback) {
@@ -169,7 +169,7 @@ class ConfigurationService {
         return this.#listen(streamUrl, false, callback);
     }
 
-    #listen(streamUrl, withCredentials, notify) {
+    #listen(streamUrl, withCredentials, notify, namedEvents = {}) {
         let eventSource;
         let pollTimer;
         let stopped = false;
@@ -195,6 +195,20 @@ class ConfigurationService {
         if (typeof EventSource !== 'undefined') {
             eventSource = new EventSource(streamUrl, { withCredentials });
             eventSource.addEventListener('change', safeNotify);
+            // Named events relayed on this stream (e.g. command/signal for the
+            // host console — see sseHub.sendToOwner).
+            for (const [name, handler] of Object.entries(namedEvents)) {
+                eventSource.addEventListener(name, (event) => {
+                    if (stopped) {
+                        return;
+                    }
+                    try {
+                        handler(JSON.parse(event.data));
+                    } catch (error) {
+                        console.error(`Stream event ${name} error:`, error);
+                    }
+                });
+            }
             eventSource.onerror = () => {
                 eventSource?.close();
                 eventSource = null;

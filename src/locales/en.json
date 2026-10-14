@@ -49,7 +49,14 @@
             "remoteLost": "Remote lost — local timing",
             "following": "Following remote",
             "directLink": "Direct",
-            "viaServer": "Relayed"
+            "viaServer": "Relayed",
+            "connectPC": "Connect to PC",
+            "pairTitle": "Connect to PC",
+            "pairHint": "Enter the 4-digit code shown next to \"Remote control\" on the computer",
+            "pairCode": "Pairing code",
+            "pairSubmit": "Connect",
+            "pairFailed": "Invalid code or session ended",
+            "pairOk": "Connected — remote mode"
         },
         "display": {
             "following": "Live from controller",

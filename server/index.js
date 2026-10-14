@@ -11,6 +11,7 @@ import { createTimerSessionRegistry } from './lib/timerSessions.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createConfigurationsRouter } from './routes/configurations.js';
+import { createPairingRouter } from './routes/pairing.js';
 import { createDisplayRouter } from './routes/display.js';
 import { createMatchLogsRouter } from './routes/matchLogs.js';
 import { createGalleryRouter } from './routes/gallery.js';
@@ -114,6 +115,7 @@ async function start() {
     app.use('/api/display', createDisplayRouter({ configurations, sse, timerSessions }));
     app.use('/api/gallery', createGalleryRouter({ configurations, requireAuth, requireAdmin }));
     app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }));
+    app.use('/api/session', createPairingRouter({ timerSessions, requireAuth }));
     app.use('/api/match-logs', createMatchLogsRouter({ matchLogs, requireAuth }));
     app.use('/api/admin', createAdminRouter({
         users,

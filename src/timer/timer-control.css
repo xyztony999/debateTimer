@@ -155,6 +155,11 @@
   gap: 0.6rem;
 }
 
+.rm-clocks--single .rm-clock {
+  flex: 1.5 0 auto;
+  max-width: 24rem;
+}
+
 .rm-clock {
   --rmc-fg: #1f2933;
   --rmc-card: rgba(255, 255, 255, 0.92);
@@ -169,7 +174,12 @@
   border: 2px solid transparent;
 }
 
-.dark-mode .rm-clock {
+.dark-mode .rm-clocks--single .rm-clock {
+  flex: 1.5 0 auto;
+  max-width: 24rem;
+}
+
+.rm-clock {
   --rmc-fg: #f1f5f9;
   --rmc-card: rgba(26, 35, 50, 0.92);
 }

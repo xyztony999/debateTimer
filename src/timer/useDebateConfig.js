@@ -36,7 +36,7 @@ export const EMPTY_CONFIG = {
  * pages follow the shared token's configuration. Pure data — no timer
  * runtime. The timer hook reacts to `config` identity changes.
  */
-export default function useDebateConfig(shareToken = null) {
+export default function useDebateConfig(shareToken = null, namedEvents = null) {
     const [config, setConfig] = useState(EMPTY_CONFIG);
     // 'loading' | 'ok' | 'missing' | 'error' (display mode); 'ok' for controller.
     const [status, setStatus] = useState(shareToken ? 'loading' : 'ok');
@@ -125,7 +125,7 @@ export default function useDebateConfig(shareToken = null) {
                         return;
                     }
                     await loadConfiguration(nextTarget);
-                });
+                }, undefined, namedEvents ?? undefined);
             } catch (error) {
                 console.error('Error initializing configuration:', error);
                 if (shareToken) {
@@ -147,7 +147,7 @@ export default function useDebateConfig(shareToken = null) {
                 unsubscribe();
             }
         };
-    }, [shareToken, applyLoadedData, loadConfiguration]);
+    }, [shareToken, applyLoadedData, loadConfiguration, namedEvents]);
 
     return { config, status };
 }

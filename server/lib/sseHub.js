@@ -47,7 +47,23 @@ export function createSseHub() {
         }
     }
 
-    return { add, broadcast, sendToToken };
+    // Named event to a user's own authenticated stream. The host console
+    // listens here — it must NOT open a second display-stream connection:
+    // browsers cap same-origin HTTP/1.1 at 6 connections and SSE never
+    // releases, so every extra stream starves the heartbeat requests.
+    function sendToOwner(ownerId, event = 'change', payload = {}) {
+        if (ownerId == null) {
+            return;
+        }
+        const frame = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+        for (const client of clients) {
+            if (!client.shareToken && client.userId && String(client.userId) === String(ownerId)) {
+                client.res.write(frame);
+            }
+        }
+    }
+
+    return { add, broadcast, sendToToken, sendToOwner };
 }
 
 export function initSseResponse(res) {

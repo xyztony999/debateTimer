@@ -99,6 +99,12 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         return session;
     }
 
+    // 4-digit pairing code: the phone types it to attach to this session
+    // (owner-scoped, lives and dies with the session).
+    function newPairingCode() {
+        return String(Math.floor(1000 + Math.random() * 9000));
+    }
+
     function create({ doc }) {
         if (!doc?.shareEnabled || !doc?.shareToken) {
             throw invalid('Sharing must be enabled before starting a session');
@@ -111,6 +117,14 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
             const error = new Error('Session capacity reached');
             error.status = 409;
             throw error;
+        }
+        let pairingCode = newPairingCode();
+        // Avoid handing two concurrent owner sessions the same code.
+        for (const other of sessions.values()) {
+            if (other.pairingCode === pairingCode) {
+                pairingCode = newPairingCode();
+                break;
+            }
         }
         const session = {
             sessionId: randomBytes(12).toString('hex'),
@@ -125,6 +139,7 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
             lastSnapshot: buildInitialSnapshot(doc),
             lastCommandSeq: 0,
             pendingCommands: [],
+            pairingCode,
         };
         sessions.set(session.shareToken, session);
         emitSession(session, 'started', null);
@@ -197,7 +212,9 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         command.commandSeq = session.lastCommandSeq;
         command.at = Date.now();
         session.pendingCommands.push(command);
-        sse.sendToToken(session.shareToken, 'command', { ...command });
+        const frame = { ...command };
+        sse.sendToToken(session.shareToken, 'command', frame); // remotes & displays
+        sse.sendToOwner(session.ownerId, 'command', frame);     // host console
         return command;
     }
 
@@ -216,16 +233,35 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         if (payload == null || typeof payload !== 'object') {
             throw invalid('Signal payload required');
         }
-        const frame = JSON.stringify(payload);
-        if (frame.length > MAX_SIGNAL_BYTES) {
+        const serialized = JSON.stringify(payload);
+        if (serialized.length > MAX_SIGNAL_BYTES) {
             throw invalid('Signal payload too large');
         }
         const from = to === 'host' ? 'remote' : 'host';
-        sse.sendToToken(session.shareToken, 'signal', { from, to, payload });
+        const frame = { from, to, payload };
+        sse.sendToToken(session.shareToken, 'signal', frame);
+        sse.sendToOwner(session.ownerId, 'signal', frame);
         return true;
     }
 
-    return { create, get, report, end, pushCommand, relaySignal };
+    // Pairing: match an owner's live session by its 4-digit code.
+    function pairByCode(ownerId, code) {
+        const wanted = String(code || '').trim();
+        if (!/^\d{4}$/.test(wanted)) {
+            throw invalid('Pairing code must be 4 digits');
+        }
+        for (const session of sessions.values()) {
+            if (Date.now() - session.lastSeenAt > heartbeatTimeoutMs) {
+                continue; // expired, will drop lazily on next get()
+            }
+            if (session.pairingCode === wanted && String(session.ownerId) === String(ownerId)) {
+                return session;
+            }
+        }
+        return null;
+    }
+
+    return { create, get, report, end, pushCommand, relaySignal, pairByCode };
 }
 
 export function validateSnapshot(body, session) {

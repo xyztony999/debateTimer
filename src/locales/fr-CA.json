@@ -49,7 +49,14 @@
             "remoteLost": "Télécommande perdue — minuterie locale",
             "following": "Suit la télécommande",
             "directLink": "Direct",
-            "viaServer": "Relais"
+            "viaServer": "Relais",
+            "connectPC": "Connecter au PC",
+            "pairTitle": "Connecter au PC",
+            "pairHint": "Saisissez le code à 4 chiffres affiché à côté de « Contrôle à distance » sur l’ordinateur",
+            "pairCode": "Code d’appairage",
+            "pairSubmit": "Connecter",
+            "pairFailed": "Code invalide ou session terminée",
+            "pairOk": "Connecté — mode télécommande"
         },
         "display": {
             "following": "Diffusion en direct",

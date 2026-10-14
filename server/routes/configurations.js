@@ -262,6 +262,7 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth, t
                 data: {
                     sessionId: session.sessionId,
                     shareToken: session.shareToken,
+                    pairingCode: session.pairingCode,
                     displayUrl: `/display/${session.shareToken}`,
                     status: 'active',
                     startedAt: session.startedAt,

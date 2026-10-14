@@ -1,7 +1,7 @@
-import notifySound from '../resources/notify.wav';
-import splitSound from '../resources/split.wav';
-import timeupSound from '../resources/timeup.wav';
-import chimeSound from '../resources/chime.wav';
+import notifySound from '../resources/notify.mp3';
+import splitSound from '../resources/split.mp3';
+import timeupSound from '../resources/timeup.mp3';
+import chimeSound from '../resources/chime.mp3';
 
 // Alert nodes (business semantics fixed; the sound per node is a local preference).
 export const ALERT_NODES = ['warn30', 'timeUp', 'mustStop'];

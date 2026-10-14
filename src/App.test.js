@@ -38,7 +38,7 @@ test('session and free-debate strings are present in all three languages', async
     expect(i18n.t('settings.freeTimer')).toMatch(/free debate/i);
 
     await i18n.changeLanguage('zh-Hans');
-    expect(i18n.t('timer.session.start')).toBe('开启大屏同步');
+    expect(i18n.t('timer.session.start')).toBe('开启远程控制');
     expect(i18n.t('timer.display.following')).toBe('正在大屏跟随');
     expect(i18n.t('timer.free.locked')).toBe('自由辩论环节已结束');
     expect(i18n.t('settings.freeTimer')).toMatch(/自由辩论/);

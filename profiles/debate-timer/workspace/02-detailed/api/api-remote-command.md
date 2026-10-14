@@ -49,10 +49,10 @@
 - 请求体：
 
 ```json
-{ "type": "start | stop | reset | toggle | applyStage", "side": "aff | neg | single（applyStage 外必填）", "stageId": "string（applyStage 携带）" }
+{ "type": "start | stop | reset | toggle | applyStage | soundCheck", "side": "aff | neg | single（动词类必填）", "stageId": "string（applyStage 携带）", "kind": "warn30 | end（soundCheck 携带）" }
 ```
 
-`type` 为正交动词 + `side` 目标：`toggle` 覆盖遥控器布局的一键对切（主机按自身状态定向），`start`/`stop` 覆盖控制台的分离按钮，`reset`/`applyStage` 通用。
+`type` 为正交动词 + `side` 目标：`toggle` 覆盖遥控器布局的一键对切（主机按自身状态定向），`start`/`stop` 覆盖控制台的分离按钮，`reset`/`applyStage` 通用；`soundCheck` 转发测试声音环节的试铃（在主机侧播放——会场音箱接主机，v1.1 修正）。
 
 - 行为：校验 type 枚举与参数 → 会话不存在/失活返回 404 业务失败 → 入队（`commandSeq` 自增）→ `sse.sendToToken(token, 'command', payload)` 即刻推送 → 返回 `{ commandSeq }`
 - 队列满（>32）返回业务失败 `TOO_MANY_COMMANDS`
@@ -89,3 +89,4 @@ session.pendingCommands = []      // 未被拉走的指令（SSE 直推后即清
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v1.0 | 2026-10-12 | 初稿：1 端点 + SSE command 事件 + 会话对象扩展 |
+| v1.1 | 2026-10-14 | 真机反馈修正：指令集增补 soundCheck(kind)——遥控端试铃经主机播放，修复本地播放+快照回流覆盖 |

@@ -9,7 +9,10 @@ export const MAX_GRACE_MS = 300 * 1000;
 // C-02-07 remote commands: thin-remote buttons relay through the session to
 // the host. Orthogonal verbs + side (toggle covers the remote layout's
 // one-button handover; start/stop cover the console's split buttons).
-export const COMMAND_TYPES = new Set(['start', 'stop', 'reset', 'toggle', 'applyStage']);
+// soundCheck relays the sound_check stage's bell test so it plays on the
+// host (venue speakers), not on the remote.
+export const COMMAND_TYPES = new Set(['start', 'stop', 'reset', 'toggle', 'applyStage', 'soundCheck']);
+export const SOUND_CHECK_KINDS = new Set(['warn30', 'end']);
 export const COMMAND_SIDES = new Set(['single', 'aff', 'neg']);
 const MAX_PENDING_COMMANDS = 32;
 
@@ -170,6 +173,11 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
                 throw invalid('Invalid command: unknown stageId');
             }
             command.stageId = stageId;
+        } else if (type === 'soundCheck') {
+            if (!SOUND_CHECK_KINDS.has(body.kind)) {
+                throw invalid('Invalid command: soundCheck kind required');
+            }
+            command.kind = body.kind;
         } else {
             const side = body.side;
             if (!COMMAND_SIDES.has(side)) {

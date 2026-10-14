@@ -120,6 +120,12 @@ export default function TimerControlPage() {
         applyStage: (stageId) => (remoteMode
             ? sendRemoteCommand({ type: 'applyStage', stageId })
             : actions.applyStage(stageId)),
+        soundCheck30: () => (remoteMode
+            ? sendRemoteCommand({ type: 'soundCheck', kind: 'warn30' })
+            : actions.soundCheck30()),
+        soundCheckEnd: () => (remoteMode
+            ? sendRemoteCommand({ type: 'soundCheck', kind: 'end' })
+            : actions.soundCheckEnd()),
     }), [remoteMode, sendRemoteCommand, actions]);
 
     useTimerKeyboardShortcuts({
@@ -205,10 +211,10 @@ export default function TimerControlPage() {
         <Stack spacing={1.5} sx={{ alignItems: 'center', mt: 1.5 }}>
             {state.stageId === 'sound_check' ? (
                 <Stack direction="row" spacing={1}>
-                    <Button variant="outlined" disabled={readOnly} onClick={actions.soundCheck30}>
+                    <Button variant="outlined" disabled={readOnly} onClick={fire.soundCheck30}>
                         {t('timer.test30sSound')}
                     </Button>
-                    <Button variant="outlined" disabled={readOnly} onClick={actions.soundCheckEnd}>
+                    <Button variant="outlined" disabled={readOnly} onClick={fire.soundCheckEnd}>
                         {t('timer.testEndSound')}
                     </Button>
                 </Stack>

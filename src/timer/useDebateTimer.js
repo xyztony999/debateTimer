@@ -460,6 +460,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                     applyStage(cmd.stageId);
                     return;
                 }
+                if (cmd.type === 'soundCheck') {
+                    // Bell test plays on the host (venue speakers).
+                    dispatch({ type: 'SOUND_CHECK', kind: cmd.kind });
+                    return;
+                }
                 const side = cmd.side;
                 const verb = cmd.type === 'toggle'
                     ? (s?.sides[side]?.running ? 'STOP' : 'START')

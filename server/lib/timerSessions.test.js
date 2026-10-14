@@ -293,3 +293,16 @@ test('command queue caps at 32 and empties on host report', () => {
     expect(() => reg.pushCommand('tok1', { type: 'toggle', side: 'single' })).not.toThrow();
     expect(sse.sent.filter((s) => s.event === 'command')).toHaveLength(33);
 });
+
+test('soundCheck command validates kind', () => {
+    const { sse, reg } = registry();
+    reg.create({ doc: configDoc() });
+
+    const ok = reg.pushCommand('tok1', { type: 'soundCheck', kind: 'warn30' });
+    expect(ok.commandSeq).toBe(1);
+    const commands = sse.sent.filter((s) => s.event === 'command');
+    expect(commands[0].payload).toMatchObject({ type: 'soundCheck', kind: 'warn30' });
+
+    expect(() => reg.pushCommand('tok1', { type: 'soundCheck' })).toThrow(/kind required/);
+    expect(() => reg.pushCommand('tok1', { type: 'soundCheck', kind: 'loud' })).toThrow(/kind required/);
+});

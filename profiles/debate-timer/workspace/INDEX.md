@@ -54,5 +54,5 @@ modules:
     stages:
       requirement: { status: complete, note: "架构探讨结论（2026-10-12）：否决纯瘦遥控（违反离线 NFR+无体积收益），采用双模（RC-1~RC-4）" }
       design: { status: complete, note: "AA v1.7（C-02-07）+ FL v1.5 + prd/remote-command + api-remote-command（1 端点+SSE command 事件）+ C-02 PageSpec v1.5；Gate 1 PASS（05-reports/2026-10-12-gate1-remote-command.md）" }
-      code: { status: complete, note: "服务端指令通道（正交 start/stop/reset/toggle+side，队列32/report 清空）+ 主机端 onCommand 消费 + 遥控端 fire 发送/回流 + 弹层四选 + TICK 时间戳 catch-up（限幅300）/visibility 重锚；97 tests（+10）/lint 0/build ✓；三段链路实证（curl SSE 抓包/主机执行/遥控模式）；Gate 2 WARN-可交付（05-reports/2026-10-12-gate2-remote-command.md，真机复验待部署）" }
+      code: { status: complete, note: "服务端指令通道（正交 start/stop/reset/toggle+side，队列32/report 清空）+ 主机端 onCommand 消费 + 遥控端 fire 发送/回流 + 弹层四选 + TICK 时间戳 catch-up（限幅300）/visibility 重锚；97 tests（+10）/lint 0/build ✓；三段链路实证（curl SSE 抓包/主机执行/遥控模式）；Gate 2 WARN-可交付（05-reports/2026-10-12-gate2-remote-command.md，真机复验待部署）；2026-10-14 真机反馈修正：soundCheck(kind) 指令——遥控试铃经主机播放（api v1.1，15 tests）" }
 ---

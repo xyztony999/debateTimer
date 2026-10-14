@@ -47,7 +47,9 @@
             "remote": "Remote",
             "remoteMode": "Remote control",
             "remoteLost": "Remote lost — local timing",
-            "following": "Following remote"
+            "following": "Following remote",
+            "directLink": "Direct",
+            "viaServer": "Relayed"
         },
         "display": {
             "following": "Live from controller",

@@ -101,6 +101,7 @@
 | v1.3 | 2026-10-12 | 增量：时间线全名可读（见 §10）；反馈中视口阶段名截断不可读 |
 | v1.4 | 2026-10-12 | 增量：控制台跟随与接管（见 §11，C-02-06）；真机反馈"遥控器需与主程序联动" |
 | v1.5 | 2026-10-12 | 增量：遥控指令通道（见 §12，C-02-07）；双模遥控——手机发指令、主机执行、快照回流确认 |
+| v1.6 | 2026-10-14 | 增量：P2P 遥控直连（见 §13，C-02-08）；同网 WebRTC 直连消除跨国延迟 |
 
 ## 9. v1.2 增量：融合式阶段导航（2026-10-12）
 
@@ -250,3 +251,44 @@
 引擎动作（铃声在手机播放、本地状态被快照回流覆盖）——修正为 `soundCheck(kind)` 指令
 经主机播放（fire 包装覆盖 soundCheck30/soundCheckEnd）。实测：指令 → 主机时钟 00:30 +
 warn 闪烁态。
+
+
+## 13. v1.6 增量：P2P 遥控直连（C-02-08，2026-10-14）
+
+**背景**：生产服务器在新加坡、设备在国内，遥控链路四程跨国 ~1s。比赛现场遥控与主机
+几乎总在同一局域网——WebRTC DataChannel 同网直连（~5ms）。API 契约见
+api-p2p-remote.md v1.0。
+
+**设计决策**：
+
+| # | 决策 | 内容 |
+|---|------|------|
+| D1 | 自动建连 | 遥控模式进入即发起（offer/answer/ICE 经会话通道信令交换）；主机端收到 signal 自动应答，零 UI |
+| D2 | 仅同网 | RTCPeerConnection 不配 iceServers（host candidates only）；跨网不尝试打洞 |
+| D3 | 双通道优先级 | 指令：DataChannel open 即直发，否则 HTTP；状态：主机上报服务器同时向 DataChannel 推快照副本，遥控端两路统一 adopt（先到先得，seq 幂等） |
+| D4 | 静默回退 | ICE 断开/通道关闭/firefox 不可用 → 回退 C-02-07 服务器通道；建连期不阻塞（指令走 HTTP） |
+| D5 | 状态指示 | 遥控端胶囊后缀「直连/中转」（i18n 2 key）；主机无感知 |
+
+**Action 增量**：
+
+| Action Key | 触发 | 行为 | 对应接口 |
+|-----------|------|------|---------|
+| remote/ensureDirect | 遥控模式进入/重连 | 发起 offer + ICE 信令交换 | POST #signal（经 SSE signal 收发） |
+| remote/sendViaChannel | DataChannel open 时的按钮 | channel.send(指令同构 JSON) | —（P2P） |
+| host/onSignal | 主机收 signal 事件 | 自动 answer/ICE 回程；DataChannel onmessage → 与 SSE onCommand 同一处理函数 | SSE `signal` |
+
+**字典 Key 增量**（三语言）：
+
+| Key | zh-Hans | en | fr-CA |
+|-----|---------|-----|-------|
+| timer.session.directLink | 直连 | Direct | Direct |
+| timer.session.viaServer | 中转 | Relayed | Relais |
+
+**验收标准**：
+
+- [ ] 双标签同机：遥控模式自动直连（胶囊「直连」）；指令端到端 <50ms
+- [ ] 建连期/失败回退：指令走 HTTP（胶囊「中转」），全功能可用
+- [ ] 双来源快照并发无抖动；服务会话结束后直连关闭
+- [ ] 信令端点鉴权/无会话/32KB 上限 单测；98 tests 零回归
+
+> 校验说明：沿用 v1.0 校验口径；新增 Action/字典三语言齐备。

@@ -289,6 +289,20 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth, t
         }
     });
 
+    // C-02-08: transparent WebRTC signaling relay (owner-only; one-shot frames).
+    router.post('/:name/session/signal', async (req, res) => {
+        try {
+            const existing = await findOwnConfig(req, res);
+            if (!existing) {
+                return;
+            }
+            timerSessions.relaySignal(existing.shareToken, req.body);
+            res.json({ success: true, data: { relayed: true } });
+        } catch (error) {
+            sendError(res, error, 'POST /api/configurations/:name/session/signal');
+        }
+    });
+
     // C-02-07: thin-remote command relay (owner-only; the host executes).
     router.post('/:name/session/command', async (req, res) => {
         try {

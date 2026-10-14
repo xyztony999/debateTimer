@@ -15,6 +15,9 @@ export const COMMAND_TYPES = new Set(['start', 'stop', 'reset', 'toggle', 'apply
 export const SOUND_CHECK_KINDS = new Set(['warn30', 'end']);
 export const COMMAND_SIDES = new Set(['single', 'aff', 'neg']);
 const MAX_PENDING_COMMANDS = 32;
+// C-02-08 signaling relay: one-shot RTC handshake frames, transparently
+// forwarded (never queued or stored); 32KB covers any offer/answer frame.
+const MAX_SIGNAL_BYTES = 32 * 1024;
 
 function invalid(message) {
     const error = new Error(message);
@@ -198,7 +201,31 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         return command;
     }
 
-    return { create, get, report, end, pushCommand };
+    // C-02-08: transparently relay a one-shot WebRTC signaling frame to the
+    // other end over the existing display stream. Payload is not interpreted.
+    function relaySignal(shareToken, body) {
+        const session = get(shareToken);
+        if (!session) {
+            throw invalid('No active session');
+        }
+        const to = body?.to;
+        if (to !== 'host' && to !== 'remote') {
+            throw invalid('Invalid signal target');
+        }
+        const payload = body?.payload;
+        if (payload == null || typeof payload !== 'object') {
+            throw invalid('Signal payload required');
+        }
+        const frame = JSON.stringify(payload);
+        if (frame.length > MAX_SIGNAL_BYTES) {
+            throw invalid('Signal payload too large');
+        }
+        const from = to === 'host' ? 'remote' : 'host';
+        sse.sendToToken(session.shareToken, 'signal', { from, to, payload });
+        return true;
+    }
+
+    return { create, get, report, end, pushCommand, relaySignal };
 }
 
 export function validateSnapshot(body, session) {

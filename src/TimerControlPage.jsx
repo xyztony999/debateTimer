@@ -91,6 +91,7 @@ export default function TimerControlPage() {
         orderedStages,
         following,
         remoteMode,
+        rtcState,
         sessionState,
         sessionNotice,
         captureCount,
@@ -265,7 +266,9 @@ export default function TimerControlPage() {
                             <Chip
                                 size="small"
                                 color={remoteMode ? 'secondary' : 'info'}
-                                label={remoteMode ? t('timer.session.remoteMode') : t('timer.session.following')}
+                                label={remoteMode
+                                    ? `${t('timer.session.remoteMode')} · ${rtcState === 'open' ? t('timer.session.directLink') : t('timer.session.viaServer')}`
+                                    : t('timer.session.following')}
                             />
                             <Button color="inherit" size="small" onClick={takeoverSession}>
                                 ⇄ {t('timer.session.takeover')}

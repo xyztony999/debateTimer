@@ -49,4 +49,10 @@ modules:
       requirement: { status: complete, note: "D0（05-reports/2026-10-12-D0-console-follow.md，FB-1 修正 + FB-2 联动形态用户确认）" }
       design: { status: complete, note: "AA v1.6（C-02-06）+ FL v1.5 + prd/console-follow + C-02 PageSpec v1.4；API 零变更；Gate 1 PASS（05-reports/2026-10-12-gate1-console-follow.md）" }
       code: { status: complete, note: "useDebateTimer 探测询问化/跟随/接管 + TimerControlPage 弹层与双布局只读态 + 5 i18n key + FB-1 间距；两处缺陷代码内修复（i18n 插值/接管清订阅）；双标签浏览器验收全过（弹层→跟随→镜像→接管→退位）；Gate 2 WARN-可交付（05-reports/2026-10-12-gate2-console-follow.md）" }
+  - name: remote-command
+    title: "遥控指令通道（C-02-07：双模遥控 + 计时健壮性加固）"
+    stages:
+      requirement: { status: complete, note: "架构探讨结论（2026-10-12）：否决纯瘦遥控（违反离线 NFR+无体积收益），采用双模（RC-1~RC-4）" }
+      design: { status: complete, note: "AA v1.7（C-02-07）+ FL v1.5 + prd/remote-command + api-remote-command（1 端点+SSE command 事件）+ C-02 PageSpec v1.5；Gate 1 PASS（05-reports/2026-10-12-gate1-remote-command.md）" }
+      code: { status: complete, note: "服务端指令通道（正交 start/stop/reset/toggle+side，队列32/report 清空）+ 主机端 onCommand 消费 + 遥控端 fire 发送/回流 + 弹层四选 + TICK 时间戳 catch-up（限幅300）/visibility 重锚；97 tests（+10）/lint 0/build ✓；三段链路实证（curl SSE 抓包/主机执行/遥控模式）；Gate 2 WARN-可交付（05-reports/2026-10-12-gate2-remote-command.md，真机复验待部署）" }
 ---

@@ -266,3 +266,59 @@ test('formatTime pads minutes and seconds', () => {
     expect(formatTime(65)).toBe('01:05');
     expect(formatTime(600)).toBe('10:00');
 });
+
+// ---------------------------------------------------------------------------
+// C-02-07 hardening: wall-clock catch-up ticks
+// ---------------------------------------------------------------------------
+
+test('TICK with elapsedMs catches up a throttled tab to wall-clock truth', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 120 });
+    state = reducer(state, { type: 'START', side: 'single' });
+
+    // Backgrounded 60s: one dispatch with elapsedMs 60000 = 60 beats.
+    state = reducer(state, { type: 'TICK', elapsedMs: 60000 });
+    expect(state.sides.single.remaining).toBe(60);
+});
+
+test('TICK catch-up replays in-stage events in order (30s bell fires once)', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 40 });
+    state = reducer(state, { type: 'START', side: 'single' });
+
+    const after = reducer(state, { type: 'TICK', elapsedMs: 35000 });
+    expect(after.sides.single.remaining).toBe(5);
+    expect(sounds(after)).toEqual(['warn30']);
+});
+
+test('TICK catch-up runs to lock when elapsed exceeds the clock', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 10 });
+    state = reducer(state, { type: 'START', side: 'single' });
+
+    const [after, events] = step(reducer(state, { type: 'TICK', elapsedMs: 20000 }));
+    expect(after.sides.single.phase).toBe('locked');
+    expect(events.sounds).toEqual(['mustStop']);
+});
+
+test('catch-up is capped at 300 beats per dispatch', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 400 });
+    state = reducer(state, { type: 'START', side: 'single' });
+
+    // Claim 10 hours elapsed → only 300s advance.
+    state = reducer(state, { type: 'TICK', elapsedMs: 10 * 3600 * 1000 });
+    expect(state.sides.single.remaining).toBe(100);
+});
+
+test('TICK with sub-second elapsedMs is a no-op', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 60 });
+    state = reducer(state, { type: 'START', side: 'single' });
+    const next = reducer(state, { type: 'TICK', elapsedMs: 400 });
+    expect(next.sides.single.remaining).toBe(60);
+});
+
+test('grace catches up across a long freeze and locks', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 5, graceSec: 20 });
+    state = reducer(state, { type: 'START', side: 'single' });
+    // Freeze through the whole stage + grace in one resume.
+    const [after, events] = step(reducer(state, { type: 'TICK', elapsedMs: 30000 }));
+    expect(after.sides.single.phase).toBe('locked');
+    expect(events.sounds).toEqual(['timeUp', 'mustStop']);
+});

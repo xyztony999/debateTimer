@@ -105,23 +105,18 @@ function handleTimeUp(state, side, events) {
     return { ...state, sides };
 }
 
-/** One clock beat (1s): decrement running clocks, then grace countdowns. */
-function clockTick(state) {
-    const events = [];
+// Hard cap on a single catch-up: a throttled tab resuming after hours must
+// not fast-forward the debate by hours (clock tampering / runaway guard).
+export const MAX_CATCHUP_BEATS = 300;
+
+/** One clock beat (1s) of state change: running clocks, then grace countdowns. */
+function singleBeat(state, events) {
     let sides = state.sides;
-    let changed = false;
-    // Sides already in grace when the beat started; sides that enter grace
-    // during this beat wait for the next one (the old countdown effects
-    // started their interval only after the phase flip).
-    const graceAtStart = new Set(
-        SIDES.filter((key) => state.sides[key].phase === PHASE_GRACE),
-    );
 
     for (const side of SIDES) {
         const s = sides[side];
         if (s.running && s.phase === PHASE_RUNNING && s.remaining > 0) {
             const remaining = s.remaining - 1;
-            changed = true;
             sides = { ...sides, [side]: { ...s, remaining } };
             if (remaining === BLINK_WINDOW_HIGH) {
                 events.push(soundEvent('warn30'));
@@ -132,6 +127,12 @@ function clockTick(state) {
         }
     }
 
+    // Sides already in grace when the beat started; sides that enter grace
+    // during this beat wait for the next one (the old countdown effects
+    // started their interval only after the phase flip).
+    const graceAtStart = new Set(
+        SIDES.filter((key) => state.sides[key].phase === PHASE_GRACE),
+    );
     for (const side of SIDES) {
         if (!graceAtStart.has(side)) {
             continue;
@@ -139,7 +140,6 @@ function clockTick(state) {
         const s = sides[side];
         if (s.graceLeft != null && s.graceLeft > 0) {
             const graceLeft = s.graceLeft - 1;
-            changed = true;
             if (graceLeft === 0) {
                 sides = {
                     ...sides,
@@ -152,8 +152,27 @@ function clockTick(state) {
         }
     }
 
-    if (!changed) {
+    return sides;
+}
+
+/**
+ * Clock tick: by default one beat (1s). `elapsedMs` lets the caller
+ * fast-forward real elapsed time — a backgrounded/throttled tab resumes
+ * and catches up to wall-clock truth in one dispatch (capped at
+ * MAX_CATCHUP_BEATS to prevent runaway fast-forwards).
+ */
+function clockTick(state, elapsedMs = 1000) {
+    const beats = Math.max(0, Math.min(MAX_CATCHUP_BEATS, Math.floor(elapsedMs / 1000)));
+    if (beats === 0) {
         return state;
+    }
+    const events = [];
+    let sides = state.sides;
+    for (let i = 0; i < beats; i += 1) {
+        sides = singleBeat({ ...state, sides }, events);
+    }
+    if (sides === state.sides && events.length === 0) {
+        return state; // nothing was ticking — identity preserved for no-op checks
     }
     return withEvents({ ...state, sides }, events);
 }
@@ -264,7 +283,7 @@ export function reducer(state, action) {
         }
 
         case 'TICK':
-            return clockTick(state);
+            return clockTick(state, action.elapsedMs);
 
         case 'SET_ADVANCE':
             return { ...state, advance: action.value };

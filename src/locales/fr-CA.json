@@ -41,9 +41,12 @@
             "copyUrl": "Copier le lien écran",
             "copied": "Lien copié",
             "foundTitle": "Session de télécommande détectée",
-            "foundBody": "« {{name}} » en cours. Suivre ou prendre le contrôle sur cet appareil.",
+            "foundBody": "« {{name}} » en cours. Télécommander, suivre ou prendre le contrôle sur cet appareil.",
             "follow": "Suivre",
             "takeover": "Prendre le contrôle",
+            "remote": "Télécommander",
+            "remoteMode": "Télécommande active",
+            "remoteLost": "Télécommande perdue — minuterie locale",
             "following": "Suit la télécommande"
         },
         "display": {

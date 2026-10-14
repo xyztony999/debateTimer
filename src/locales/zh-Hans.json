@@ -41,9 +41,12 @@
             "copyUrl": "复制大屏链接",
             "copied": "链接已复制",
             "foundTitle": "检测到正在进行的遥控器会话",
-            "foundBody": "当前模板「{{name}}」正在进行，可在本设备跟随或接管控制。",
+            "foundBody": "当前模板「{{name}}」正在进行，可在本设备遥控、跟随或接管控制。",
             "follow": "跟随",
             "takeover": "接管",
+            "remote": "遥控",
+            "remoteMode": "遥控中",
+            "remoteLost": "遥控失联，已回退本地计时",
             "following": "正在跟随遥控器"
         },
         "display": {

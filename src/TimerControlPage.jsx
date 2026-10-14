@@ -90,11 +90,14 @@ export default function TimerControlPage() {
         derived,
         orderedStages,
         following,
+        remoteMode,
         sessionState,
         sessionNotice,
         captureCount,
         pendingSession,
         startFollowing,
+        startRemoteMode,
+        sendRemoteCommand,
         takeoverSession,
         dismissPendingSession,
         actions,
@@ -103,6 +106,21 @@ export default function TimerControlPage() {
         handleCopyDisplayUrl,
         saveMatchRecord,
     } = useDebateTimer();
+
+    // C-02-07: in remote mode buttons relay commands to the host instead of
+    // driving the local engine; the snapshot stream keeps the local view.
+    const readOnly = following && !remoteMode;
+    const fire = React.useMemo(() => ({
+        toggleAff: () => (remoteMode ? sendRemoteCommand({ type: 'toggle', side: 'aff' }) : actions.toggleAff()),
+        toggleNeg: () => (remoteMode ? sendRemoteCommand({ type: 'toggle', side: 'neg' }) : actions.toggleNeg()),
+        toggleSingle: () => (remoteMode ? sendRemoteCommand({ type: 'toggle', side: 'single' }) : actions.toggleSingle()),
+        resetAff: () => (remoteMode ? sendRemoteCommand({ type: 'reset', side: 'aff' }) : actions.resetAff()),
+        resetNeg: () => (remoteMode ? sendRemoteCommand({ type: 'reset', side: 'neg' }) : actions.resetNeg()),
+        resetSingle: () => (remoteMode ? sendRemoteCommand({ type: 'reset', side: 'single' }) : actions.resetSingle()),
+        applyStage: (stageId) => (remoteMode
+            ? sendRemoteCommand({ type: 'applyStage', stageId })
+            : actions.applyStage(stageId)),
+    }), [remoteMode, sendRemoteCommand, actions]);
 
     useTimerKeyboardShortcuts({
         enabled: !following,
@@ -168,12 +186,12 @@ export default function TimerControlPage() {
                     type="button"
                     role="tab"
                     aria-selected={stage === state.stageId}
-                    disabled={following}
+                    disabled={readOnly}
                     className={[
                         'st-step',
                         stage === state.stageId ? 'st-step--current' : '',
                     ].filter(Boolean).join(' ')}
-                    onClick={() => actions.applyStage(stage)}
+                    onClick={() => fire.applyStage(stage)}
                     title={stageName(stage)}
                 >
                     <span className="st-idx">{index + 1}</span>
@@ -187,10 +205,10 @@ export default function TimerControlPage() {
         <Stack spacing={1.5} sx={{ alignItems: 'center', mt: 1.5 }}>
             {state.stageId === 'sound_check' ? (
                 <Stack direction="row" spacing={1}>
-                    <Button variant="outlined" disabled={following} onClick={actions.soundCheck30}>
+                    <Button variant="outlined" disabled={readOnly} onClick={actions.soundCheck30}>
                         {t('timer.test30sSound')}
                     </Button>
-                    <Button variant="outlined" disabled={following} onClick={actions.soundCheckEnd}>
+                    <Button variant="outlined" disabled={readOnly} onClick={actions.soundCheckEnd}>
                         {t('timer.testEndSound')}
                     </Button>
                 </Stack>
@@ -238,7 +256,11 @@ export default function TimerControlPage() {
 
                     {following ? (
                         <React.Fragment>
-                            <Chip size="small" color="info" label={t('timer.session.following')} />
+                            <Chip
+                                size="small"
+                                color={remoteMode ? 'secondary' : 'info'}
+                                label={remoteMode ? t('timer.session.remoteMode') : t('timer.session.following')}
+                            />
                             <Button color="inherit" size="small" onClick={takeoverSession}>
                                 ⇄ {t('timer.session.takeover')}
                             </Button>
@@ -370,8 +392,11 @@ export default function TimerControlPage() {
                     <Button color="secondary" onClick={takeoverSession}>
                         {t('timer.session.takeover')}
                     </Button>
-                    <Button variant="contained" autoFocus onClick={startFollowing}>
+                    <Button color="inherit" onClick={startFollowing}>
                         {t('timer.session.follow')}
+                    </Button>
+                    <Button variant="contained" autoFocus onClick={startRemoteMode}>
+                        {t('timer.session.remote')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -415,7 +440,7 @@ export default function TimerControlPage() {
                     {contextRow}
 
                     <div className="rm-main">
-                        {following ? (
+                        {readOnly ? (
                             <Typography color="info.main" sx={{ textAlign: 'center', fontWeight: 600 }} role="status">
                                 {t('timer.session.following')}
                             </Typography>
@@ -426,8 +451,8 @@ export default function TimerControlPage() {
                                     <button
                                         type="button"
                                         className={`rm-big-btn${state.sides.aff.running ? ' rm-big-btn--live' : ''}`}
-                                        disabled={following || state.sides.aff.phase === 'locked'}
-                                        onClick={actions.toggleAff}
+                                        disabled={readOnly || state.sides.aff.phase === 'locked'}
+                                        onClick={fire.toggleAff}
                                     >
                                         <span className="rm-big-icon">{state.sides.aff.running ? '⏸' : '▶'}</span>
                                         {state.sides.aff.running
@@ -437,8 +462,8 @@ export default function TimerControlPage() {
                                     <button
                                         type="button"
                                         className={`rm-big-btn${state.sides.neg.running ? ' rm-big-btn--live' : ''}`}
-                                        disabled={following || state.sides.neg.phase === 'locked'}
-                                        onClick={actions.toggleNeg}
+                                        disabled={readOnly || state.sides.neg.phase === 'locked'}
+                                        onClick={fire.toggleNeg}
                                     >
                                         <span className="rm-big-icon">{state.sides.neg.running ? '⏸' : '▶'}</span>
                                         {state.sides.neg.running
@@ -453,16 +478,16 @@ export default function TimerControlPage() {
                                     <button
                                         type="button"
                                         className="rm-reset-btn"
-                                        disabled={following || state.sides.aff.running}
-                                        onClick={actions.resetAff}
+                                        disabled={readOnly || state.sides.aff.running}
+                                        onClick={fire.resetAff}
                                     >
                                         ↺ {t('timer.affBadge')}
                                     </button>
                                     <button
                                         type="button"
                                         className="rm-reset-btn"
-                                        disabled={following || state.sides.neg.running}
-                                        onClick={actions.resetNeg}
+                                        disabled={readOnly || state.sides.neg.running}
+                                        onClick={fire.resetNeg}
                                     >
                                         ↺ {t('timer.negBadge')}
                                     </button>
@@ -474,8 +499,8 @@ export default function TimerControlPage() {
                                     <button
                                         type="button"
                                         className={`rm-big-btn${state.sides.aff.running ? ' rm-big-btn--live' : ''}`}
-                                        disabled={following || state.sides.aff.phase === 'locked'}
-                                        onClick={actions.toggleAff}
+                                        disabled={readOnly || state.sides.aff.phase === 'locked'}
+                                        onClick={fire.toggleAff}
                                     >
                                         <span className="rm-big-icon">{state.sides.aff.running ? '⏸' : '▶'}</span>
                                         {state.sides.aff.running
@@ -485,8 +510,8 @@ export default function TimerControlPage() {
                                     <button
                                         type="button"
                                         className={`rm-big-btn${state.sides.neg.running ? ' rm-big-btn--live' : ''}`}
-                                        disabled={following || state.sides.neg.phase === 'locked'}
-                                        onClick={actions.toggleNeg}
+                                        disabled={readOnly || state.sides.neg.phase === 'locked'}
+                                        onClick={fire.toggleNeg}
                                     >
                                         <span className="rm-big-icon">{state.sides.neg.running ? '⏸' : '▶'}</span>
                                         {state.sides.neg.running
@@ -498,16 +523,16 @@ export default function TimerControlPage() {
                                     <button
                                         type="button"
                                         className="rm-reset-btn"
-                                        disabled={following || state.sides.aff.running}
-                                        onClick={actions.resetAff}
+                                        disabled={readOnly || state.sides.aff.running}
+                                        onClick={fire.resetAff}
                                     >
                                         ↺ {t('timer.affBadge')}
                                     </button>
                                     <button
                                         type="button"
                                         className="rm-reset-btn"
-                                        disabled={following || state.sides.neg.running}
-                                        onClick={actions.resetNeg}
+                                        disabled={readOnly || state.sides.neg.running}
+                                        onClick={fire.resetNeg}
                                     >
                                         ↺ {t('timer.negBadge')}
                                     </button>
@@ -518,8 +543,8 @@ export default function TimerControlPage() {
                                 <button
                                     type="button"
                                     className={`rm-big-btn rm-master-btn${state.sides.single.running ? ' rm-big-btn--live' : ''}`}
-                                    disabled={following || state.sides.single.phase === 'locked'}
-                                    onClick={actions.toggleSingle}
+                                    disabled={readOnly || state.sides.single.phase === 'locked'}
+                                    onClick={fire.toggleSingle}
                                 >
                                     <span className="rm-big-icon">{state.sides.single.running ? '⏸' : '▶'}</span>
                                     {state.sides.single.running ? t('timer.op.pause') : t('timer.op.start')}
@@ -528,8 +553,8 @@ export default function TimerControlPage() {
                                     <button
                                         type="button"
                                         className="rm-reset-btn"
-                                        disabled={following || state.sides.single.running}
-                                        onClick={actions.resetSingle}
+                                        disabled={readOnly || state.sides.single.running}
+                                        onClick={fire.resetSingle}
                                     >
                                         ↺ {t('timer.op.reset')}
                                     </button>
@@ -553,7 +578,7 @@ export default function TimerControlPage() {
                                     sideState={state.sides.aff}
                                     blinking={derived.blinking.aff}
                                     active={derived.isFree && derived.activeSide === 'aff'}
-                                    readonly={following}
+                                    readonly={readOnly}
                                     readonlyText={t('timer.session.following')}
                                     title={affLabel}
                                     badge={t('timer.affBadge')}
@@ -562,15 +587,15 @@ export default function TimerControlPage() {
                                     startTitle={t('timer.shortcutAffToggle')}
                                     stopTitle={t('timer.shortcutAffToggle')}
                                     resetTitle={t('timer.shortcutAffReset')}
-                                    onStart={actions.startAff}
-                                    onStop={actions.stopAff}
+                                    onStart={fire.toggleAff}
+                                    onStop={fire.toggleAff}
                                     onReset={actions.resetAff}
                                 />
                                 <TimerBox
                                     sideState={state.sides.neg}
                                     blinking={derived.blinking.neg}
                                     active={derived.isFree && derived.activeSide === 'neg'}
-                                    readonly={following}
+                                    readonly={readOnly}
                                     readonlyText={t('timer.session.following')}
                                     title={negLabel}
                                     badge={t('timer.negBadge')}
@@ -579,8 +604,8 @@ export default function TimerControlPage() {
                                     startTitle={t('timer.shortcutNegToggle')}
                                     stopTitle={t('timer.shortcutNegToggle')}
                                     resetTitle={t('timer.shortcutNegReset')}
-                                    onStart={actions.startNeg}
-                                    onStop={actions.stopNeg}
+                                    onStart={fire.toggleNeg}
+                                    onStop={fire.toggleNeg}
                                     onReset={actions.resetNeg}
                                 />
                             </React.Fragment>
@@ -590,13 +615,13 @@ export default function TimerControlPage() {
                                 blinking={derived.blinking.single}
                                 graceText={t('timer.graceHint')}
                                 hint={t('timer.hintSingle')}
-                                readonly={following}
+                                readonly={readOnly}
                                 readonlyText={t('timer.session.following')}
                                 startTitle={t('timer.shortcutSingleToggle')}
                                 stopTitle={t('timer.shortcutSingleToggle')}
                                 resetTitle={t('timer.shortcutSingleReset')}
-                                onStart={actions.toggleSingle}
-                                onStop={actions.toggleSingle}
+                                onStart={fire.toggleSingle}
+                                onStop={fire.toggleSingle}
                                 onReset={actions.resetSingle}
                             />
                         )}
@@ -629,8 +654,8 @@ export default function TimerControlPage() {
                                 <Button
                                     variant={state.sides.aff.running ? 'outlined' : 'contained'}
                                     size="large"
-                                    disabled={following}
-                                    onClick={actions.toggleAff}
+                                    disabled={readOnly}
+                                    onClick={fire.toggleAff}
                                     sx={{ minWidth: 170 }}
                                 >
                                     {state.sides.aff.running
@@ -640,8 +665,8 @@ export default function TimerControlPage() {
                                 <Button
                                     variant={state.sides.neg.running ? 'outlined' : 'contained'}
                                     size="large"
-                                    disabled={following}
-                                    onClick={actions.toggleNeg}
+                                    disabled={readOnly}
+                                    onClick={fire.toggleNeg}
                                     sx={{ minWidth: 170 }}
                                 >
                                     {state.sides.neg.running
@@ -654,8 +679,8 @@ export default function TimerControlPage() {
                                 <Button
                                     variant={state.sides.single.running ? 'outlined' : 'contained'}
                                     size="large"
-                                    disabled={following}
-                                    onClick={actions.toggleSingle}
+                                    disabled={readOnly}
+                                    onClick={fire.toggleSingle}
                                     sx={{ minWidth: 170 }}
                                 >
                                     {state.sides.single.running
@@ -665,8 +690,8 @@ export default function TimerControlPage() {
                                 <Button
                                     variant="outlined"
                                     size="large"
-                                    onClick={actions.resetSingle}
-                                    disabled={following || state.sides.single.running}
+                                    onClick={fire.resetSingle}
+                                    disabled={readOnly || state.sides.single.running}
                                 >
                                     ↺ {t('timer.op.reset')}
                                 </Button>

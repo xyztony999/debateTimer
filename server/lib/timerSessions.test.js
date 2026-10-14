@@ -233,3 +233,63 @@ test('snapshot phases default to running and validate grace consistency', () => 
     expect(single.phaseNeg).toBe('grace');
     expect(single.graceNegMs).toBe(7000);
 });
+
+// ---------------------------------------------------------------------------
+// C-02-07 remote command channel
+// ---------------------------------------------------------------------------
+
+test('pushCommand relays valid commands with monotonic seq over SSE', () => {
+    const { sse, reg } = registry();
+    reg.create({ doc: configDoc() });
+
+    const cmd1 = reg.pushCommand('tok1', { type: 'toggle', side: 'aff' });
+    expect(cmd1.commandSeq).toBe(1);
+    const cmd2 = reg.pushCommand('tok1', { type: 'applyStage', stageId: 'free_debate' });
+    expect(cmd2.commandSeq).toBe(2);
+    expect(cmd2.stageId).toBe('free_debate');
+
+    const commands = sse.sent.filter((s) => s.event === 'command');
+    expect(commands).toHaveLength(2);
+    expect(commands[0].payload).toMatchObject({ type: 'toggle', side: 'aff', commandSeq: 1 });
+    expect(commands[0].token).toBe('tok1');
+});
+
+test('pushCommand rejects invalid payloads', () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+
+    expect(() => reg.pushCommand('tok1', { type: 'nukeIt' })).toThrow(/Invalid command type/);
+    expect(() => reg.pushCommand('tok1', { type: 'toggle' })).toThrow(/side required/);
+    expect(() => reg.pushCommand('tok1', { type: 'start', side: 'blue' })).toThrow(/side required/);
+    
+    expect(() => reg.pushCommand('tok1', { type: 'applyStage', stageId: 'nope' })).toThrow(/unknown stageId/);
+    expect(() => reg.pushCommand('tok1', { type: 'applyStage' })).toThrow(/unknown stageId/);
+});
+
+test('pushCommand requires a live session', () => {
+    const { reg } = registry();
+    expect(() => reg.pushCommand('ghost', { type: 'toggle', side: 'single' })).toThrow(/No active session/);
+});
+
+test('command queue caps at 32 and empties on host report', () => {
+    const { sse, reg } = registry();
+    reg.create({ doc: configDoc() });
+
+    for (let i = 0; i < 32; i += 1) {
+        reg.pushCommand('tok1', { type: 'toggle', side: 'single' });
+    }
+    expect(() => reg.pushCommand('tok1', { type: 'toggle', side: 'single' })).toThrow(/Too many pending commands/);
+
+    reg.report('tok1', {
+        seq: 1,
+        stageId: 'sound_check',
+        stageMode: 'single',
+        remainingAffMs: 1000,
+        remainingNegMs: 1000,
+        runningAff: false,
+        runningNeg: false,
+    });
+    // Queue consumed → room again.
+    expect(() => reg.pushCommand('tok1', { type: 'toggle', side: 'single' })).not.toThrow();
+    expect(sse.sent.filter((s) => s.event === 'command')).toHaveLength(33);
+});

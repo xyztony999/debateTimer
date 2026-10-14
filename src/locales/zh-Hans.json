@@ -47,7 +47,9 @@
             "remote": "遥控",
             "remoteMode": "遥控中",
             "remoteLost": "遥控失联，已回退本地计时",
-            "following": "正在跟随遥控器"
+            "following": "正在跟随遥控器",
+            "directLink": "直连",
+            "viaServer": "中转"
         },
         "display": {
             "following": "正在大屏跟随",

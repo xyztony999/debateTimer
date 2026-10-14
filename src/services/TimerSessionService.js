@@ -107,12 +107,35 @@ class TimerSessionService {
     }
 
     /**
+     * C-02-08 signaling relay for the P2P direct link (one-shot RTC frames).
+     */
+    async sendSignal(name, body) {
+        try {
+            const { data, status } = await apiClient.post(
+                `${sessionPath(name)}/signal`,
+                body,
+            );
+            if (!data.success) {
+                return {
+                    success: false,
+                    status,
+                    message: data.message || `Request failed (${status})`,
+                };
+            }
+            return { success: true, data: data.data };
+        } catch (error) {
+            return toServiceError(error, 'Error sending signal');
+        }
+    }
+
+    /**
      * Display-side live subscription. One EventSource on the shared display
      * stream; native auto-reconnect, with onOpen fired after every (re)connect
      * so the caller can re-sync via loadDisplayState. C-02-07: hosts listen
      * for `command` events on the same stream (remote buttons → host).
+     * C-02-08: `signal` events carry the one-shot RTC handshake frames.
      */
-    onDisplayState(token, { onState, onSession, onOpen, onCommand } = {}) {
+    onDisplayState(token, { onState, onSession, onOpen, onCommand, onSignal } = {}) {
         if (typeof EventSource === 'undefined') {
             return () => {};
         }
@@ -156,6 +179,13 @@ class TimerSessionService {
                     onCommand?.(JSON.parse(event.data));
                 } catch (error) {
                     console.error('Invalid command payload:', error);
+                }
+            }));
+            eventSource.addEventListener('signal', safe((event) => {
+                try {
+                    onSignal?.(JSON.parse(event.data));
+                } catch (error) {
+                    console.error('Invalid signal payload:', error);
                 }
             }));
             // No onerror handler: let EventSource retry with backoff, then

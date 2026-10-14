@@ -47,7 +47,9 @@
             "remote": "Télécommander",
             "remoteMode": "Télécommande active",
             "remoteLost": "Télécommande perdue — minuterie locale",
-            "following": "Suit la télécommande"
+            "following": "Suit la télécommande",
+            "directLink": "Direct",
+            "viaServer": "Relais"
         },
         "display": {
             "following": "Diffusion en direct",

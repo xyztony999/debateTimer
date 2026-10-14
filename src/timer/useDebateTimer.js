@@ -19,6 +19,7 @@ import {
 } from './engine.js';
 import { buildSnapshot, adoptSnapshot } from './snapshotCodec.js';
 import { beginStageCapture, bumpOverrun, buildMatchPayload } from './matchCapture.js';
+import { initiateDirectChannel, answerDirectChannel } from './rtcChannel.js';
 
 /**
  * Timer runtime assembly: wires the engine reducer to the wall clock,
@@ -58,6 +59,12 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const remoteModeRef = useRef(false);
     const lastCommandSeqRef = useRef(0);
     const lastTickAtRef = useRef(null);
+    // --- C-02-08 P2P direct link (remote ↔ host on the same LAN) ---
+    const [rtcState, setRtcState] = useState('off'); // off | connecting | open
+    const rtcChannelRef = useRef(null);   // remote-side initiator controller
+    const hostChannelRef = useRef(null);  // host-side answerer controller
+    const signalListenerRef = useRef(null); // display-stream signal demux → rtc
+    const localCommandSeqRef = useRef(0); // direct-link seq space starts at 1e9
 
     // Latest-state mirror for event handlers, intervals, and SSE callbacks
     // that must not re-register on every tick.
@@ -278,6 +285,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (!adopted) {
             return;
         }
+        // Dual-source (SSE + direct link): drop stale frames. Snapshot seq is
+        // always >= 1 on the wire; the 0 guard keeps pre-v2 fallback frames.
+        if (adopted.seq > 0 && adopted.seq <= seqRef.current) {
+            return;
+        }
         seqRef.current = Math.max(seqRef.current, adopted.seq);
         const { config: cfg } = stateRef.current ?? {};
         dispatch({
@@ -298,10 +310,10 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             return;
         }
         const { state: s, config: cfg } = stateRef.current;
-        const result = await TimerSessionService.reportSnapshot(
-            cfg.name,
-            buildSnapshot(s, (seqRef.current += 1)),
-        );
+        const snapshot = buildSnapshot(s, (seqRef.current += 1));
+        const result = await TimerSessionService.reportSnapshot(cfg.name, snapshot);
+        // Direct-link remote gets the same snapshot without the server hop.
+        hostChannelRef.current?.send({ snapshot });
         if (!sessionRef.current) {
             return; // session was stopped while the request was in flight
         }
@@ -401,6 +413,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
 
     // C-02-07 remote mode: same snapshot subscription as following, but this
     // page's buttons send commands to the host instead of driving the engine.
+    // C-02-08: entering also tries the P2P direct link (same-LAN only); the
+    // server path remains the fallback for commands and state while the
+    // channel is not open.
     const startRemoteMode = useCallback(() => {
         const info = stateRef.current?.config;
         if (!info?.shareToken) {
@@ -411,11 +426,53 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         setRemoteMode(true);
         followTokenRef.current = info.shareToken;
         setFollowToken(info.shareToken);
+        setRtcState('connecting');
+        rtcChannelRef.current?.close();
+        rtcChannelRef.current = initiateDirectChannel({
+            sendSignal: (body) => {
+                TimerSessionService.sendSignal(info.name ?? '', body);
+            },
+            onSignal: (listener) => {
+                signalListenerRef.current = listener;
+                return () => {
+                    if (signalListenerRef.current === listener) {
+                        signalListenerRef.current = null;
+                    }
+                };
+            },
+            onMessage: (msg) => {
+                if (msg?.snapshot) {
+                    adoptFromSnapshot(msg.snapshot);
+                }
+            },
+            onState: (state) => {
+                setRtcState(state === 'open' ? 'open' : 'off');
+                if (state !== 'open') {
+                    rtcChannelRef.current = null;
+                }
+            },
+        });
+    }, [adoptFromSnapshot]);
+
+    const closeRemoteChannel = useCallback(() => {
+        rtcChannelRef.current?.close();
+        rtcChannelRef.current = null;
+        setRtcState('off');
     }, []);
 
     // Remote button → host. The host's next snapshot flowing back is the ack.
     const sendRemoteCommand = useCallback(async (command) => {
         if (!remoteModeRef.current) {
+            return;
+        }
+        // P2P first: ~5ms on the same LAN. Local seq space starts at 1e9 so
+        // the host's dedup sees one monotonic space across both sources.
+        if (rtcChannelRef.current?.isOpen) {
+            rtcChannelRef.current.send({
+                ...command,
+                commandSeq: 1_000_000_000 + (localCommandSeqRef.current += 1),
+                at: Date.now(),
+            });
             return;
         }
         const cfg = stateRef.current?.config;
@@ -425,17 +482,56 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         const result = await TimerSessionService.sendCommand(cfg.name, command);
         if (!result.success && [400, 403, 404].includes(result.status)) {
             // Session is gone — fall back to local timing on this device.
+            closeRemoteChannel();
             remoteModeRef.current = false;
             setRemoteMode(false);
             followTokenRef.current = null;
             setFollowToken(null);
             setSessionNotice(t('timer.session.remoteLost'));
         }
+    // closeRemoteChannel is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [t]);
 
+    // Host-side command execution (shared by the SSE relay and the P2P
+    // direct link). Seq-deduped; direct-link seqs start at 1e9 so both
+    // sources share one monotonic space. Local actions and commands
+    // interleave through the same reducer — no extra locking.
+    const applyHostCommand = useCallback((cmd) => {
+        if (!cmd || typeof cmd.commandSeq !== 'number'
+            || cmd.commandSeq <= lastCommandSeqRef.current) {
+            return;
+        }
+        lastCommandSeqRef.current = cmd.commandSeq;
+        const s = stateRef.current?.state;
+        if (cmd.type === 'applyStage') {
+            applyStage(cmd.stageId);
+            return;
+        }
+        if (cmd.type === 'soundCheck') {
+            // Bell test plays on the host (venue speakers).
+            dispatch({ type: 'SOUND_CHECK', kind: cmd.kind });
+            return;
+        }
+        const side = cmd.side;
+        const verb = cmd.type === 'toggle'
+            ? (s?.sides[side]?.running ? 'STOP' : 'START')
+            : cmd.type.toUpperCase();
+        if (['START', 'STOP', 'RESET', 'TOGGLE'].includes(verb)
+            && ['single', 'aff', 'neg'].includes(side)) {
+            if (verb === 'TOGGLE') {
+                dispatch({ type: 'TOGGLE', side });
+            } else {
+                dispatch({ type: verb, side });
+            }
+        }
+    // applyStage is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Host side: while this page runs an active session, execute remote
-    // commands arriving on the display stream (seq-deduped). Local actions
-    // and commands interleave through the same reducer, so no extra locking.
+    // commands arriving on the display stream, and answer the P2P direct
+    // link's signaling automatically (C-02-08).
     useEffect(() => {
         if (isDisplay || (sessionState !== 'active' && sessionState !== 'weak')) {
             return undefined;
@@ -446,41 +542,44 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             return undefined;
         }
         lastCommandSeqRef.current = 0;
-        const unsubscribe = TimerSessionService.onDisplayState(token, {
-            // Only commands: the host is authoritative — its own snapshot
-            // echoes on this stream must not be adopted.
-            onCommand: (cmd) => {
-                if (!cmd || typeof cmd.commandSeq !== 'number'
-                    || cmd.commandSeq <= lastCommandSeqRef.current) {
-                    return;
-                }
-                lastCommandSeqRef.current = cmd.commandSeq;
-                const s = stateRef.current?.state;
-                if (cmd.type === 'applyStage') {
-                    applyStage(cmd.stageId);
-                    return;
-                }
-                if (cmd.type === 'soundCheck') {
-                    // Bell test plays on the host (venue speakers).
-                    dispatch({ type: 'SOUND_CHECK', kind: cmd.kind });
-                    return;
-                }
-                const side = cmd.side;
-                const verb = cmd.type === 'toggle'
-                    ? (s?.sides[side]?.running ? 'STOP' : 'START')
-                    : cmd.type.toUpperCase();
-                if (['START', 'STOP', 'RESET', 'TOGGLE'].includes(verb)
-                    && ['single', 'aff', 'neg'].includes(side)) {
-                    if (verb === 'TOGGLE') {
-                        dispatch({ type: 'TOGGLE', side });
-                    } else {
-                        dispatch({ type: verb, side });
+
+        // P2P answerer: commands arrive on the DataChannel with ~5ms latency.
+        hostChannelRef.current?.close();
+        hostChannelRef.current = answerDirectChannel({
+            sendSignal: (body) => {
+                TimerSessionService.sendSignal(stateRef.current?.config?.name ?? '', body);
+            },
+            onSignal: (listener) => {
+                signalListenerRef.current = listener;
+                return () => {
+                    if (signalListenerRef.current === listener) {
+                        signalListenerRef.current = null;
                     }
+                };
+            },
+            onMessage: (msg) => {
+                if (msg && msg.type) {
+                    applyHostCommand(msg);
                 }
             },
+            onState: () => {
+                // The host stays authoritative either way — no UI delta.
+            },
         });
-        return unsubscribe;
-    // applyStage is stable; session lifecycle drives re-subscription.
+
+        const unsubscribe = TimerSessionService.onDisplayState(token, {
+            // Only commands/signals: the host is authoritative — its own
+            // snapshot echoes on this stream must not be adopted.
+            onCommand: applyHostCommand,
+            onSignal: (frame) => signalListenerRef.current?.(frame),
+        });
+        return () => {
+            unsubscribe();
+            hostChannelRef.current?.close();
+            hostChannelRef.current = null;
+            signalListenerRef.current = null;
+        };
+    // applyHostCommand/applyStage are stable; lifecycle drives re-subscription.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sessionState, isDisplay]);
 
@@ -504,6 +603,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         setFollowing(false);
         remoteModeRef.current = false;
         setRemoteMode(false);
+        rtcChannelRef.current?.close();
+        rtcChannelRef.current = null;
+        setRtcState('off');
         adoptFromSnapshot(result.data.snapshot);
         sessionRef.current = {
             shareToken: info.shareToken,
@@ -598,6 +700,8 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (bannerTimerRef.current) {
             window.clearTimeout(bannerTimerRef.current);
         }
+        rtcChannelRef.current?.close();
+        hostChannelRef.current?.close();
     }, []);
 
     // Display follow: adopt the running session (if any) and keep
@@ -629,6 +733,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                     setDisplayBanner('following');
                     adoptFromSnapshot(snapshot);
                 },
+                onSignal: (frame) => signalListenerRef.current?.(frame),
                 onSession: (event) => {
                     if (event.type === 'started') {
                         setFollowing(true);
@@ -637,6 +742,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                     }
                     if (event.type === 'ended' || event.type === 'expired') {
                         const wasRemote = remoteModeRef.current;
+                        if (wasRemote) {
+                            rtcChannelRef.current?.close();
+                            rtcChannelRef.current = null;
+                            setRtcState('off');
+                        }
                         setFollowing(false);
                         if (!wasRemote) {
                             // Display/follow: freeze the mirrored clocks.
@@ -744,6 +854,8 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         remoteMode,
         startRemoteMode,
         sendRemoteCommand,
+        // C-02-08 P2P direct link
+        rtcState,
         // actions
         actions,
         handleStartSession,

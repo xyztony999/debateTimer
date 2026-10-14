@@ -306,3 +306,34 @@ test('soundCheck command validates kind', () => {
     expect(() => reg.pushCommand('tok1', { type: 'soundCheck' })).toThrow(/kind required/);
     expect(() => reg.pushCommand('tok1', { type: 'soundCheck', kind: 'loud' })).toThrow(/kind required/);
 });
+
+// ---------------------------------------------------------------------------
+// C-02-08 signaling relay
+// ---------------------------------------------------------------------------
+
+test('relaySignal transparently forwards frames with from/to routing', () => {
+    const { sse, reg } = registry();
+    reg.create({ doc: configDoc() });
+
+    reg.relaySignal('tok1', { to: 'host', payload: { type: 'offer', sdp: 'v=0...' } });
+    const frames = sse.sent.filter((s) => s.event === 'signal');
+    expect(frames).toHaveLength(1);
+    expect(frames[0].payload).toMatchObject({ from: 'remote', to: 'host' });
+    expect(frames[0].payload.payload).toEqual({ type: 'offer', sdp: 'v=0...' });
+});
+
+test('relaySignal validates target/payload/session', () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+    expect(() => reg.relaySignal('tok1', { to: 'nobody', payload: {} })).toThrow(/target/);
+    expect(() => reg.relaySignal('tok1', { to: 'host' })).toThrow(/payload required/);
+    expect(() => reg.relaySignal('tok1', { to: 'host', payload: 'not-object' })).toThrow(/payload required/);
+    expect(() => reg.relaySignal('ghost', { to: 'host', payload: {} })).toThrow(/No active session/);
+});
+
+test('relaySignal caps payload at 32KB', () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+    const big = { blob: 'x'.repeat(33 * 1024) };
+    expect(() => reg.relaySignal('tok1', { to: 'host', payload: big })).toThrow(/too large/);
+});

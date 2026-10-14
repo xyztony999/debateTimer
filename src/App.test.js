@@ -27,8 +27,8 @@ test('error page strings are present', async () => {
     expect(i18n.t('errors.notFoundEyebrow')).toBe('404');
 });
 
-test('session and free-debate strings are present in all three languages', async () => {    expect(i18n.t('timer.session.start')).toMatch(/display sync/i);
-    expect(i18n.t('timer.session.active')).toMatch(/synced/i);
+test('session and free-debate strings are present in all three languages', async () => {    expect(i18n.t('timer.session.start')).toMatch(/remote control/i);
+    expect(i18n.t('timer.session.active')).toMatch(/remote control/i);
     expect(i18n.t('timer.session.weak')).toMatch(/weak signal/i);
     expect(i18n.t('timer.session.enableShareFirst')).toMatch(/sharing/i);
     expect(i18n.t('timer.display.following')).toMatch(/live/i);
@@ -44,7 +44,7 @@ test('session and free-debate strings are present in all three languages', async
     expect(i18n.t('settings.freeTimer')).toMatch(/自由辩论/);
 
     await i18n.changeLanguage('fr-CA');
-    expect(i18n.t('timer.session.start')).toMatch(/synchro/i);
+    expect(i18n.t('timer.session.start')).toMatch(/contrôle à distance/i);
     expect(i18n.t('timer.display.following')).toMatch(/direct/i);
     expect(i18n.t('timer.free.locked')).toMatch(/débat libre/i);
     expect(i18n.t('settings.freeTimer')).toMatch(/débat libre/i);

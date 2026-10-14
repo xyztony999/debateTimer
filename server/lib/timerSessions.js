@@ -6,6 +6,13 @@ export const TIMER_PHASES = new Set(['running', 'grace', 'locked']);
 export const MAX_REMAINING_MS = 24 * 60 * 60 * 1000;
 export const MAX_GRACE_MS = 300 * 1000;
 
+// C-02-07 remote commands: thin-remote buttons relay through the session to
+// the host. Orthogonal verbs + side (toggle covers the remote layout's
+// one-button handover; start/stop cover the console's split buttons).
+export const COMMAND_TYPES = new Set(['start', 'stop', 'reset', 'toggle', 'applyStage']);
+export const COMMAND_SIDES = new Set(['single', 'aff', 'neg']);
+const MAX_PENDING_COMMANDS = 32;
+
 function invalid(message) {
     const error = new Error(message);
     error.status = 400;
@@ -110,6 +117,8 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
             lastSeenAt: Date.now(),
             lastSeq: 0,
             lastSnapshot: buildInitialSnapshot(doc),
+            lastCommandSeq: 0,
+            pendingCommands: [],
         };
         sessions.set(session.shareToken, session);
         emitSession(session, 'started', null);
@@ -127,6 +136,8 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         session.lastSnapshot = snapshot;
         session.lastSeq = snapshot.seq;
         session.lastSeenAt = Date.now();
+        // Host reported → any buffered commands are considered consumed.
+        session.pendingCommands.length = 0;
         emitState(session);
         return session;
     }
@@ -140,7 +151,46 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         return true;
     }
 
-    return { create, get, report, end };
+    // Validates a remote command, queues it, and pushes it to the host over
+    // SSE immediately (queue is only an offline buffer; snapshots flowing
+    // back are the implicit ack).
+    function pushCommand(shareToken, body) {
+        const session = get(shareToken);
+        if (!session) {
+            throw invalid('No active session');
+        }
+        const type = body?.type;
+        if (!COMMAND_TYPES.has(type)) {
+            throw invalid(`Invalid command type: ${type}`);
+        }
+        const command = { type };
+        if (type === 'applyStage') {
+            const stageId = String(body.stageId || '');
+            if (!session.stageIds.has(stageId)) {
+                throw invalid('Invalid command: unknown stageId');
+            }
+            command.stageId = stageId;
+        } else {
+            const side = body.side;
+            if (!COMMAND_SIDES.has(side)) {
+                throw invalid('Invalid command: side required');
+            }
+            command.side = side;
+        }
+        if (session.pendingCommands.length >= MAX_PENDING_COMMANDS) {
+            const error = new Error('Too many pending commands');
+            error.status = 429;
+            throw error;
+        }
+        session.lastCommandSeq += 1;
+        command.commandSeq = session.lastCommandSeq;
+        command.at = Date.now();
+        session.pendingCommands.push(command);
+        sse.sendToToken(session.shareToken, 'command', { ...command });
+        return command;
+    }
+
+    return { create, get, report, end, pushCommand };
 }
 
 export function validateSnapshot(body, session) {

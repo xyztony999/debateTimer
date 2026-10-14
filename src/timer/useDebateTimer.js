@@ -43,6 +43,8 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // --- C-02-06 console follow: discovered session prompt + follow token ---
     const [pendingSession, setPendingSession] = useState(false);
     const [followToken, setFollowToken] = useState(null);
+    // --- C-02-07 dual-mode remote: thin client sending commands to a host ---
+    const [remoteMode, setRemoteMode] = useState(false);
 
     const sessionRef = useRef(null); // { shareToken, displayUrl, failures }
     const seqRef = useRef(0);
@@ -53,6 +55,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const matchAutoSavedRef = useRef(false);
     const pendingDismissedRef = useRef(false);
     const followTokenRef = useRef(null);
+    const remoteModeRef = useRef(false);
+    const lastCommandSeqRef = useRef(0);
+    const lastTickAtRef = useRef(null);
 
     // Latest-state mirror for event handlers, intervals, and SSE callbacks
     // that must not re-register on every tick.
@@ -74,6 +79,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     useEffect(() => {
         stateRef.current = { state, config, orderedStages };
         followingRef.current = following;
+        remoteModeRef.current = remoteMode;
     });
 
     // ------------------------------------------------------------------
@@ -148,16 +154,42 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     }, [config]);
 
     // ------------------------------------------------------------------
-    // Clock: one stable interval per activity stretch.
+    // Clock: one interval per activity stretch, anchored to wall-clock time
+    // (C-02-07 hardening). Each dispatch carries the real elapsed ms so a
+    // throttled/backgrounded tab catches up to truth instead of drifting;
+    // coming back visible re-anchors immediately.
     // ------------------------------------------------------------------
     const activity = hasClockActivity(state);
     useEffect(() => {
         if (!activity) {
+            lastTickAtRef.current = null;
             return undefined;
         }
-        const id = window.setInterval(() => dispatch({ type: 'TICK' }), 1000);
+        lastTickAtRef.current = Date.now();
+        const id = window.setInterval(() => {
+            const now = Date.now();
+            const elapsed = now - (lastTickAtRef.current ?? now);
+            lastTickAtRef.current = now;
+            dispatch({ type: 'TICK', elapsedMs: Math.max(0, elapsed) });
+        }, 1000);
         return () => window.clearInterval(id);
     }, [activity]);
+
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState !== 'visible' || !lastTickAtRef.current) {
+                return;
+            }
+            const now = Date.now();
+            const elapsed = now - lastTickAtRef.current;
+            lastTickAtRef.current = now;
+            if (elapsed > 1500) {
+                dispatch({ type: 'TICK', elapsedMs: elapsed });
+            }
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, []);
 
     useEffect(() => {
         warmupSounds();
@@ -367,6 +399,86 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         setFollowToken(info.shareToken);
     }, []);
 
+    // C-02-07 remote mode: same snapshot subscription as following, but this
+    // page's buttons send commands to the host instead of driving the engine.
+    const startRemoteMode = useCallback(() => {
+        const info = stateRef.current?.config;
+        if (!info?.shareToken) {
+            return;
+        }
+        setPendingSession(false);
+        remoteModeRef.current = true;
+        setRemoteMode(true);
+        followTokenRef.current = info.shareToken;
+        setFollowToken(info.shareToken);
+    }, []);
+
+    // Remote button → host. The host's next snapshot flowing back is the ack.
+    const sendRemoteCommand = useCallback(async (command) => {
+        if (!remoteModeRef.current) {
+            return;
+        }
+        const cfg = stateRef.current?.config;
+        if (!cfg?.name) {
+            return;
+        }
+        const result = await TimerSessionService.sendCommand(cfg.name, command);
+        if (!result.success && [400, 403, 404].includes(result.status)) {
+            // Session is gone — fall back to local timing on this device.
+            remoteModeRef.current = false;
+            setRemoteMode(false);
+            followTokenRef.current = null;
+            setFollowToken(null);
+            setSessionNotice(t('timer.session.remoteLost'));
+        }
+    }, [t]);
+
+    // Host side: while this page runs an active session, execute remote
+    // commands arriving on the display stream (seq-deduped). Local actions
+    // and commands interleave through the same reducer, so no extra locking.
+    useEffect(() => {
+        if (isDisplay || (sessionState !== 'active' && sessionState !== 'weak')) {
+            return undefined;
+        }
+        const token = sessionRef.current?.shareToken
+            ?? stateRef.current?.config?.shareToken;
+        if (!token) {
+            return undefined;
+        }
+        lastCommandSeqRef.current = 0;
+        const unsubscribe = TimerSessionService.onDisplayState(token, {
+            // Only commands: the host is authoritative — its own snapshot
+            // echoes on this stream must not be adopted.
+            onCommand: (cmd) => {
+                if (!cmd || typeof cmd.commandSeq !== 'number'
+                    || cmd.commandSeq <= lastCommandSeqRef.current) {
+                    return;
+                }
+                lastCommandSeqRef.current = cmd.commandSeq;
+                const s = stateRef.current?.state;
+                if (cmd.type === 'applyStage') {
+                    applyStage(cmd.stageId);
+                    return;
+                }
+                const side = cmd.side;
+                const verb = cmd.type === 'toggle'
+                    ? (s?.sides[side]?.running ? 'STOP' : 'START')
+                    : cmd.type.toUpperCase();
+                if (['START', 'STOP', 'RESET', 'TOGGLE'].includes(verb)
+                    && ['single', 'aff', 'neg'].includes(side)) {
+                    if (verb === 'TOGGLE') {
+                        dispatch({ type: 'TOGGLE', side });
+                    } else {
+                        dispatch({ type: verb, side });
+                    }
+                }
+            },
+        });
+        return unsubscribe;
+    // applyStage is stable; session lifecycle drives re-subscription.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sessionState, isDisplay]);
+
     // Take over: adopt the current snapshot and resume reporting from this
     // page. The previous controller loses on the next heartbeat (stale seq
     // → session-ended) and falls back to standalone. Must drop the follow
@@ -385,6 +497,8 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         followTokenRef.current = null;
         setFollowToken(null);
         setFollowing(false);
+        remoteModeRef.current = false;
+        setRemoteMode(false);
         adoptFromSnapshot(result.data.snapshot);
         sessionRef.current = {
             shareToken: info.shareToken,
@@ -517,13 +631,21 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                         return;
                     }
                     if (event.type === 'ended' || event.type === 'expired') {
+                        const wasRemote = remoteModeRef.current;
                         setFollowing(false);
-                        dispatch({ type: 'STOP_ALL' });
+                        if (!wasRemote) {
+                            // Display/follow: freeze the mirrored clocks.
+                            // Remote mode falls back to LOCAL timing instead —
+                            // keep the engine running on this device.
+                            dispatch({ type: 'STOP_ALL' });
+                        }
+                        remoteModeRef.current = false;
+                        setRemoteMode(false);
                         setDisplayBanner('ended');
                         if (!isDisplay) {
-                            // Console follower: surface the fallback via the
-                            // shared notice channel (banner is display-only).
-                            setSessionNotice(t('timer.session.ended'));
+                            setSessionNotice(wasRemote
+                                ? t('timer.session.remoteLost')
+                                : t('timer.session.ended'));
                         }
                         if (bannerTimerRef.current) {
                             window.clearTimeout(bannerTimerRef.current);
@@ -613,6 +735,10 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         startFollowing,
         takeoverSession,
         dismissPendingSession,
+        // C-02-07 dual-mode remote
+        remoteMode,
+        startRemoteMode,
+        sendRemoteCommand,
         // actions
         actions,
         handleStartSession,

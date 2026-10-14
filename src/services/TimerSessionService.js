@@ -84,11 +84,35 @@ class TimerSessionService {
     }
 
     /**
+     * C-02-07 remote command relay: thin-remote buttons post a command, the
+     * host executes it (ack = the next snapshot flowing back).
+     */
+    async sendCommand(name, command) {
+        try {
+            const { data, status } = await apiClient.post(
+                `${sessionPath(name)}/command`,
+                command,
+            );
+            if (!data.success) {
+                return {
+                    success: false,
+                    status,
+                    message: data.message || `Request failed (${status})`,
+                };
+            }
+            return { success: true, data: data.data };
+        } catch (error) {
+            return toServiceError(error, 'Error sending remote command');
+        }
+    }
+
+    /**
      * Display-side live subscription. One EventSource on the shared display
      * stream; native auto-reconnect, with onOpen fired after every (re)connect
-     * so the caller can re-sync via loadDisplayState.
+     * so the caller can re-sync via loadDisplayState. C-02-07: hosts listen
+     * for `command` events on the same stream (remote buttons → host).
      */
-    onDisplayState(token, { onState, onSession, onOpen } = {}) {
+    onDisplayState(token, { onState, onSession, onOpen, onCommand } = {}) {
         if (typeof EventSource === 'undefined') {
             return () => {};
         }
@@ -125,6 +149,13 @@ class TimerSessionService {
                     onSession?.(JSON.parse(event.data));
                 } catch (error) {
                     console.error('Invalid session payload:', error);
+                }
+            }));
+            eventSource.addEventListener('command', safe((event) => {
+                try {
+                    onCommand?.(JSON.parse(event.data));
+                } catch (error) {
+                    console.error('Invalid command payload:', error);
                 }
             }));
             // No onerror handler: let EventSource retry with backoff, then

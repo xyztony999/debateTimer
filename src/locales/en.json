@@ -41,9 +41,12 @@
             "copyUrl": "Copy display link",
             "copied": "Link copied",
             "foundTitle": "Remote session detected",
-            "foundBody": "\"{{name}}\" is running. Follow or take over on this device.",
+            "foundBody": "\"{{name}}\" is running. Remote, follow, or take over on this device.",
             "follow": "Follow",
             "takeover": "Take over",
+            "remote": "Remote",
+            "remoteMode": "Remote control",
+            "remoteLost": "Remote lost — local timing",
             "following": "Following remote"
         },
         "display": {

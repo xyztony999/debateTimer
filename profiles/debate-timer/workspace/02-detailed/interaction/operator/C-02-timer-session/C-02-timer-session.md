@@ -100,6 +100,7 @@
 | v1.2 | 2026-10-12 | 增量：融合式阶段导航（见 §9）；用户线上反馈时间线靠左/裁切/标题重复突兀 |
 | v1.3 | 2026-10-12 | 增量：时间线全名可读（见 §10）；反馈中视口阶段名截断不可读 |
 | v1.4 | 2026-10-12 | 增量：控制台跟随与接管（见 §11，C-02-06）；真机反馈"遥控器需与主程序联动" |
+| v1.5 | 2026-10-12 | 增量：遥控指令通道（见 §12，C-02-07）；双模遥控——手机发指令、主机执行、快照回流确认 |
 
 ## 9. v1.2 增量：融合式阶段导航（2026-10-12）
 
@@ -202,3 +203,45 @@
 > Action 定义（FX-006~016）✓ 含接口映射与权限、字典 Key（FX-017~020）✓ 三语言齐备、
 > 路由（FX-122~125）✓、全局一致性（FX-126~137）✓；列表/表单/详情节（FX-021~121）不适用于
 > `code` 型页面，以区块级结构替代并逐项给出状态反馈。
+
+## 12. v1.5 增量：遥控指令通道（C-02-07，2026-10-12）
+
+**背景**：架构探讨确认——手机作为计时主机存在后台节流硬伤（灭屏 → 定时器节流 → 计时
+漂移 + 心跳停 + 会话 10s 判死）。双模方案：电脑主机 + 手机瘦遥控；无主机时手机回退
+本地计时（离线 NFR 保留）。API 契约见 api-remote-command.md v1.0。
+
+**设计决策**：
+
+| # | 决策 | 内容 |
+|---|------|------|
+| D1 | 弹层三选 | 发现弹层改为 **遥控**（默认）/ 接管 / 取消；「跟随」由「遥控」取代（遥控端=看状态+可操作，纯只读跟随保留给 display 页） |
+| D2 | 遥控模式 | 进入后复用 follow 基建订阅快照流（状态回流）；按钮（对切/巨主钮/重置/阶段横滑）改发 `POST session/command`；顶栏胶囊「遥控中」+ 失联提示 |
+| D3 | 主机端消费 | 会话激活时经 display 流订阅 `command` 事件；commandSeq 单调去重后映射引擎动作 dispatch；与主机本地操作经同一 reducer 串行 |
+| D4 | 指令确认 | 快照回流即确认（seq 变化）；无重试/回执 UI |
+| D5 | 计时加固 | TICK 时间戳增量 + visibilitychange 重锚（catch-up 限幅 300s）；serverTime 钟偏校准激活——双端受益 |
+
+**Action 增量**：
+
+| Action Key | 触发 | 行为 | 对应接口 |
+|-----------|------|------|---------|
+| session/chooseRemote | 弹层「遥控」 | remoteMode=true + 订阅快照流 | —（复用 display stream） |
+| remote/command | 遥控模式按钮 | 发指令 `{type: start/stop/reset/toggle, side}` 或 `{type: applyStage, stageId}`，失败提示失联回退本地 | POST #command |
+| host/applyCommand | 主机端 command 事件 | seq 去重 → dispatch 引擎动作 | SSE `command` |
+
+**字典 Key 增量**（三语言）：
+
+| Key | zh-Hans | en | fr-CA |
+|-----|---------|-----|-------|
+| timer.session.remote | 遥控 | Remote | Télécommander |
+| timer.session.remoteMode | 遥控中 | Remote control | Télécommande active |
+| timer.session.remoteLost | 遥控失联，已回退本地计时 | Remote lost — local timing | Télécommande perdue — minuterie locale |
+
+**验收标准**：
+
+- [ ] 三标签（主机/遥控竖屏/大屏）：遥控点对切 → 主机执行 → 大屏 ≤1s 换边；遥控端状态回流正确
+- [ ] 遥控标签后台 ≥30s：主机计时不受影响；遥控回前台状态追平（TICK 加固生效）
+- [ ] 会话结束：遥控端提示「遥控失联，已回退本地计时」且本地计时立即可用
+- [ ] 指令并发（主机本地 + 遥控）无冲突；commandSeq 去重有效
+- [ ] bun test 覆盖：指令路由（鉴权/枚举/越界 stageId/队列上限）+ engine catch-up 限幅
+
+> 校验说明：沿用 v1.0 校验口径（FX 清单按节人工核对）；新增 Action/字典三语言齐备。

@@ -1,4 +1,4 @@
-import { buildSnapshot, adoptSnapshot } from './snapshotCodec.js';
+import { buildSnapshot, adoptSnapshot, compensateInFlight } from './snapshotCodec.js';
 import { reducer, initialState } from './engine.js';
 
 function stateFor({ mode = 'single', durationSec = 60, graceSec = 0 } = {}) {
@@ -121,4 +121,67 @@ test('adopt falls back to deriving locked for pre-v2 snapshots', () => {
 test('adopt returns null for unusable payloads', () => {
     expect(adoptSnapshot(null)).toBeNull();
     expect(adoptSnapshot({})).toBeNull();
+});
+
+
+// ---- D21 (PageSpec §15): in-flight compensation -------------------------
+
+function wireSnapshot({ affMs = 50000, negMs = 60000, runAff = true, runNeg = false,
+    phaseAff = 'running', phaseNeg = 'running', graceAffMs = 0, graceNegMs = 0, serverTime } = {}) {
+    return {
+        seq: 5,
+        stageId: 's1',
+        stageMode: 'double',
+        remainingAffMs: affMs,
+        remainingNegMs: negMs,
+        runningAff: runAff,
+        runningNeg: runNeg,
+        activeSide: runAff ? 'aff' : 'none',
+        phaseAff,
+        phaseNeg,
+        graceAffMs,
+        graceNegMs,
+        serverTime,
+    };
+}
+
+test('compensateInFlight shifts running clocks and grace countdowns by the flight lag', () => {
+    const snap = wireSnapshot({
+        affMs: 50000, runAff: true,
+        negMs: 60000, runNeg: false,
+        phaseNeg: 'grace', graceNegMs: 8000,
+        serverTime: 1000,
+    });
+    const out = compensateInFlight(snap, 2500); // 1.5s in flight
+    expect(out.remainingAffMs).toBe(48500);
+    expect(out.remainingNegMs).toBe(60000); // not running — untouched
+    expect(out.graceNegMs).toBe(6500); // grace countdown moves too
+    expect(out.seq).toBe(5);
+});
+
+test('compensateInFlight leaves paused clocks and non-grace phases untouched', () => {
+    const snap = wireSnapshot({
+        affMs: 50000, runAff: false,
+        negMs: 60000, runNeg: false,
+        phaseAff: 'locked', phaseNeg: 'running',
+        serverTime: 1000,
+    });
+    const out = compensateInFlight(snap, 4000);
+    expect(out.remainingAffMs).toBe(50000);
+    expect(out.remainingNegMs).toBe(60000);
+    expect(out.graceAffMs).toBe(0);
+});
+
+test('compensateInFlight clamps negative lag and oversized lag', () => {
+    const late = wireSnapshot({ serverTime: 5000 });
+    // display clock behind the server — no negative shift
+    expect(compensateInFlight(late, 1000).remainingAffMs).toBe(50000);
+    // huge lag (tab asleep / clock skew) — clamped to 3s
+    const out = compensateInFlight(wireSnapshot({ affMs: 50000, serverTime: 0 }), 60000);
+    expect(out.remainingAffMs).toBe(47000);
+});
+
+test('compensateInFlight passes snapshots without serverTime through untouched', () => {
+    const direct = wireSnapshot({ serverTime: undefined }); // direct-link frame
+    expect(compensateInFlight(direct, 99999)).toBe(direct);
 });

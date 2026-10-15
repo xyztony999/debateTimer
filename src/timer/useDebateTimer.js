@@ -17,7 +17,7 @@ import {
     isFreeLocked,
     isStageFullyEnded,
 } from './engine.js';
-import { buildSnapshot, adoptSnapshot } from './snapshotCodec.js';
+import { buildSnapshot, adoptSnapshot, compensateInFlight } from './snapshotCodec.js';
 import { beginStageCapture, bumpOverrun, buildMatchPayload } from './matchCapture.js';
 import { initiateDirectChannel, answerDirectChannel } from './rtcChannel.js';
 
@@ -308,7 +308,10 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // Session sync (controller reports, display adopts).
     // ------------------------------------------------------------------
     const adoptFromSnapshot = useCallback((snapshot) => {
-        const adopted = adoptSnapshot(snapshot);
+        // D21 (PageSpec §15): relayed snapshots carry serverTime — advance
+        // running clocks by the time spent in flight. Direct-link frames
+        // (no serverTime) and the host itself pass through unchanged.
+        const adopted = adoptSnapshot(compensateInFlight(snapshot));
         if (!adopted) {
             return;
         }
@@ -758,7 +761,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         }
         const id = window.setInterval(() => {
             reportSnapshot();
-        }, 2000);
+        }, 1000); // D22: 1s cadence halves the adopt pull-back amplitude
         return () => window.clearInterval(id);
     }, [sessionState, reportSnapshot, isDisplay]);
 

@@ -81,6 +81,12 @@ modules:
       requirement: { status: complete, note: "D0 用户确认：全线一色+已过褪灰 / 主题深蓝 / 车标+下一站条+胶囊（不做站名交替）" }
       design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX" }
       code: { status: complete, note: "--st-route 单色贯穿、已过灰环褪灰、未来珠子、当前实心盘+TrainRounded 车标（st-breathe）、.st-next 下一站/终点站条、换乘胶囊 999px；103 tests/lint 0/build ✓；断言+视觉双轨 D11-D16 全过；新坑入档：IAB 过渡冻结需禁 transition 断言（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v3.md）" }
+  - name: display-sync-fix
+    title: "R9 修复：大屏同步延时（快照盖章+在途补偿+心跳 1s）"
+    stages:
+      requirement: { status: complete, note: "D0（2026-10-15）：大屏不拆出（保留会话三角色，推荐项）；延时根因=快照无时间戳+2s 心跳拉回" }
+      design: { status: complete, note: "C-02 PageSpec §15 v2.3（D20-D22）；服务端出口盖章+客户端毫秒线补偿纯函数+心跳 1s；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "toSnapshot 出口盖 serverTime（重放/GET state/SSE 广播三路全盖，display.js 改走 snapshotOf）+ compensateInFlight 纯函数（毫秒线补偿、clamp 3s、缺 serverTime 直通）+ 心跳 1s；107 tests(+4)/lint 0/build ✓；冒烟实证：双次投递章各鲜（lag 28-50ms）、SSE 重放帧带章、显示页正常渲染；Mimosa 误报 SSE JSON 为 XSS 一次（JSON.stringify 即 SSE data 的正确编码，改名 frame 后放行）；Gate 2 PASS（05-reports/2026-10-15-gate2-display-sync.md）" }
   - name: stage-announce
     title: "R8 交互：到站播报（当前比赛阶段 XXX）+ 当前站站名折叠修复"
     stages:

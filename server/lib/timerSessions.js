@@ -26,7 +26,11 @@ function invalid(message) {
 }
 
 function toSnapshot(session) {
-    return { ...session.lastSnapshot };
+    // D20 (PageSpec §15): stamp send time on every outbound snapshot so
+    // display/remotes can compensate the in-flight leg. Replays (SSE
+    // catch-up, GET /state) get a fresh stamp per delivery — a receive-time
+    // stamp would go stale and over-shift late adopters.
+    return { ...session.lastSnapshot, serverTime: Date.now() };
 }
 
 function initialStageId(doc) {
@@ -261,7 +265,14 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         return null;
     }
 
-    return { create, get, report, end, pushCommand, relaySignal, pairByCode };
+    // Stamped snapshot for late adopters (display replay / GET state);
+    // null when no live session.
+    function snapshotOf(shareToken) {
+        const session = get(shareToken);
+        return session ? toSnapshot(session) : null;
+    }
+
+    return { create, get, report, end, pushCommand, relaySignal, pairByCode, snapshotOf };
 }
 
 export function validateSnapshot(body, session) {

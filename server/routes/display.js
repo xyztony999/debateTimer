@@ -29,10 +29,13 @@ export function createDisplayRouter({ configurations, sse, timerSessions }) {
             initSseResponse(res);
             sse.add({ res, shareToken: req.params.token });
             // Replay the current snapshot so late subscribers catch up
-            // immediately instead of waiting for the next report.
-            const session = timerSessions.get(doc.shareToken);
-            if (session) {
-                res.write(`event: state\ndata: ${JSON.stringify(session.lastSnapshot)}\n\n`);
+            // immediately instead of waiting for the next report. Stamped
+            // fresh (serverTime) so the client's in-flight compensation
+            // uses this delivery time, not the original report time.
+            const snap = timerSessions.snapshotOf(doc.shareToken);
+            if (snap) {
+                const frame = JSON.stringify(snap);
+                res.write(`event: state\ndata: ${frame}\n\n`);
             }
         } catch (error) {
             console.error('GET /api/display/:token/stream', error);
@@ -60,7 +63,7 @@ export function createDisplayRouter({ configurations, sse, timerSessions }) {
                 data: {
                     active: true,
                     startedAt: session.startedAt,
-                    snapshot: session.lastSnapshot,
+                    snapshot: timerSessions.snapshotOf(doc.shareToken),
                 },
             });
         } catch (error) {

@@ -36,3 +36,17 @@
 ## 总结
 
 **判定：PASS**（历史两 WARN 随根因修复关闭；真机清单仅剩音频冷缓存手感）
+
+## 修正附记（2026-10-14 晚，用户真机反馈"声音破裂"）
+
+**根因**：lamejs 1.2.1 的 MPEG-2/LSF（22050Hz）编码路径对瞬态丰富音频存在内容相关失真
+——坏的 split/notify 恰是仅有的 22050Hz 源（残差 RMS 14755/18799），44100Hz 的
+timeup/chime 正常（680）；手写转码壳本身逐样本精确（与 ffmpeg 对比 peakDiff=0）。
+属 lamejs 已知质量缺陷家族（#62/#50/#7），npm 版停更于 2019。
+
+**修复**：原 wav 自 git 恢复，ffmpeg（imageio_ffmpeg 7.1/libmp3lame）重转码四音
+（统一 -ac 1 -ar 44100 -b:a 64k，彻底避开 MPEG-2 路径）。残差复测：
+split 63 / notify 70 / timeup 232 / chime 257（全部 codec 噪声水平，修复前坏值为
+14755/18799）。体积不变（~46KB 总）。
+
+**防再犯**：删除 wavCodec.js / convert-sounds.mjs / lamejs dev 依赖（坏编码器不留仓库）。

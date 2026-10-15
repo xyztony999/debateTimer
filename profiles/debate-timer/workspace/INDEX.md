@@ -63,6 +63,12 @@ modules:
       code: { status: complete, note: "服务端信令转发（relaySignal+SSE signal 事件）+ rtcChannel 双端封装（early-ICE 缓冲/3s 超时/静默回退）+ hook 集成（直连序号 1e9 空间/双来源 adopt 守卫/快照副本直推）+ 胶囊直连指示；98 tests（+3）/lint 0/build ✓；服务端链路 curl 实证；浏览器端到端联调受 IAB 工具限制未完成（回退设计保证零劣化）；Gate 2 WARN-可交付（05-reports/2026-10-14-gate2-p2p-remote.md）" }
   - name: pairing-and-fixes
     title: "R3 真机反馈包：数字配对码 + mp3 音频 + 单钟区分 + SSE 连接池根因修复
+  - name: pid-timeline
+    title: "R5 视觉：比赛流程时间线地铁 PID 化（经典线路图）"
+    stages:
+      requirement: { status: complete, note: "用户确认经典线路图风格（D0 推荐）" }
+      design: { status: complete, note: "C-02 PageSpec v1.9 §14（D1-D5）+ v1.9.1 精化（高亮止于当前站/站名两行）；纯视觉零行为变更" }
+      code: { status: complete, note: "st-dot 序号+st-name 结构、::after 半程线段（线 z0 点 z1）、当前站放大脉冲、明暗 CSS 变量双主题、触屏 ≥44px；103 tests/lint 0/build ✓；计算样式断言+视觉判定双轨验收 D1-D5 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline.md）" }
   - name: r4-no-auto-dialog
     title: "R4 交互修正：移除自动发现弹窗，配对内发现 + 双角色静默恢复"
     stages:

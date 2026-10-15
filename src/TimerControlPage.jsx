@@ -208,24 +208,29 @@ export default function TimerControlPage() {
             role="tablist"
             aria-label={t('timer.timeline')}
         >
-            {orderedStages.map((stage, index) => (
-                <button
-                    key={stage}
-                    type="button"
-                    role="tab"
-                    aria-selected={stage === state.stageId}
-                    disabled={readOnly}
-                    className={[
-                        'st-step',
-                        stage === state.stageId ? 'st-step--current' : '',
-                    ].filter(Boolean).join(' ')}
-                    onClick={() => fire.applyStage(stage)}
-                    title={stageName(stage)}
-                >
-                    <span className="st-idx">{index + 1}</span>
-                    <span className="st-name">{stageName(stage)}</span>
-                </button>
-            ))}
+            {orderedStages.map((stage, index) => {
+                const current = stage === state.stageId;
+                const passed = !current && index < orderedStages.indexOf(state.stageId);
+                return (
+                    <button
+                        key={stage}
+                        type="button"
+                        role="tab"
+                        aria-selected={current}
+                        disabled={readOnly}
+                        className={[
+                            'st-step',
+                            current ? 'st-step--current' : '',
+                            passed ? 'st-step--passed' : '',
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => fire.applyStage(stage)}
+                        title={stageName(stage)}
+                    >
+                        <span className="st-dot">{index + 1}</span>
+                        <span className="st-name">{stageName(stage)}</span>
+                    </button>
+                );
+            })}
         </Box>
     );
 

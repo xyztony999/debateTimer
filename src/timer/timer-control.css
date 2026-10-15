@@ -6,7 +6,9 @@
    gray (behind the train), upcoming stay full color (the road ahead is
    bright), the current station is a solid disc under a small train marker,
    and mode-change stations take the MTR interchange capsule shape. */
-.stage-timeline {
+/* Anchor wrapper around the line: carries the theme variables so both the
+   timeline and the transient arrival callout (.st-announce) share them. */
+.st-anchor {
   --st-route: #1e3a5f;
   --st-core: #ffffff;
   --st-pass-ring: #90a4ae;
@@ -17,6 +19,18 @@
   --st-capsule-h: 1.55rem;
   --st-band: 7px;
   --st-dot-pad-top: 1.25rem;
+  position: relative;
+}
+
+.dark-mode .st-anchor {
+  --st-route: #90caf9;
+  --st-core: #1a2332;
+  --st-pass-ring: #5b6673;
+  --st-pass-fg: #5b6673;
+  --st-fg: #c6d2e0;
+}
+
+.stage-timeline {
   display: flex;
   align-items: flex-start;
   gap: 0;
@@ -24,14 +38,6 @@
   padding: 0.4rem 0.15rem 0.6rem;
   scrollbar-width: thin;
   justify-content: safe center;
-}
-
-.dark-mode .stage-timeline {
-  --st-route: #90caf9;
-  --st-core: #1a2332;
-  --st-pass-ring: #5b6673;
-  --st-pass-fg: #5b6673;
-  --st-fg: #c6d2e0;
 }
 
 .st-step {
@@ -173,11 +179,16 @@
   font-weight: 600;
 }
 
+/* Current station: full name always readable — no clamp and no font bump
+   (the bump pushed 10-char names to 4 wrapped lines and the clamp silently
+   hid the tail). Emphasis comes from color + weight + the train marker, and
+   the row height stays uniform with the neighbors. */
 .st-step--current .st-name {
   color: var(--st-route);
   font-weight: 700;
-  font-size: 0.78rem;
   max-width: 6rem;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 
 .st-step--passed .st-name {
@@ -193,26 +204,49 @@
   opacity: 0.55;
 }
 
-/* Next-station strip under the line (MTR "next stop" cue). Lives outside
-   .stage-timeline, so it carries its own colors per theme. */
-.st-next {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.1rem 0.55rem 0.15rem;
-  font-size: 0.75rem;
-  color: #5a6577;
+/* MTR-style arrival callout: floats under the line for a few seconds on a
+   stage change, then fades out (animation is paired with a 3s React timer
+   that unmounts it). pointer-events none — it never blocks station taps. */
+.st-announce {
+  position: absolute;
+  left: 50%;
+  bottom: -0.35rem;
+  transform: translateX(-50%);
+  z-index: 3;
+  max-width: 92%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--st-route);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.32rem 1rem;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  animation: st-announce 3s ease forwards;
 }
 
-.st-next::before {
-  content: '›';
-  font-size: 0.85rem;
-  line-height: 1;
+.dark-mode .st-announce {
+  color: #0f1419;
 }
 
-.dark-mode .st-next {
-  color: #9aa8b8;
+@keyframes st-announce {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Clock area: dual boxes share the row, single keeps narrow and centered */

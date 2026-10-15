@@ -8,6 +8,38 @@
 
 import { PHASE_GRACE, PHASE_LOCKED, PHASE_RUNNING } from './engine.js';
 
+// D21 (PageSpec §15): upper bound for in-flight compensation. Covers relay
+// latency + modest clock skew between the display and the API server;
+// anything larger is treated as skew and ignored.
+const MAX_IN_FLIGHT_MS = 3000;
+
+/**
+ * D21: shift a relayed snapshot forward by the time it spent in flight
+ * (now - serverTime), so a display adopts the clock position the host has
+ * *now* instead of the one it had at capture. Only running clocks (and
+ * running grace countdowns) move; direct-link frames carry no serverTime
+ * and pass through untouched. Must run BEFORE adoptSnapshot's second
+ * floor — it works on the millisecond wire fields.
+ */
+export function compensateInFlight(snapshot, now = Date.now()) {
+    const sentAt = Number(snapshot?.serverTime);
+    if (!Number.isFinite(sentAt)) {
+        return snapshot;
+    }
+    const lagMs = Math.min(Math.max(now - sentAt, 0), MAX_IN_FLIGHT_MS);
+    if (lagMs <= 0) {
+        return snapshot;
+    }
+    const shift = (ms) => Math.max(0, ms - lagMs);
+    return {
+        ...snapshot,
+        remainingAffMs: snapshot.runningAff ? shift(snapshot.remainingAffMs) : snapshot.remainingAffMs,
+        remainingNegMs: snapshot.runningNeg ? shift(snapshot.remainingNegMs) : snapshot.remainingNegMs,
+        graceAffMs: snapshot.phaseAff === 'grace' ? shift(snapshot.graceAffMs) : snapshot.graceAffMs,
+        graceNegMs: snapshot.phaseNeg === 'grace' ? shift(snapshot.graceNegMs) : snapshot.graceNegMs,
+    };
+}
+
 function makeSide(remaining, running, phase, graceLeft) {
     return { remaining, running, phase, graceLeft, blinkOverride: false };
 }

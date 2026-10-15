@@ -86,8 +86,7 @@
         },
         "shortcutsTitle": "Keyboard shortcuts",
         "timeline": "Match flow",
-        "nextStage": "Next",
-        "terminus": "Terminus"
+        "currentStage": "Current stage"
     },
     "settings": {
         "backToTimer": "Back to timer",

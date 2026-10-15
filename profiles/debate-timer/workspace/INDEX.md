@@ -81,6 +81,12 @@ modules:
       requirement: { status: complete, note: "D0 用户确认：全线一色+已过褪灰 / 主题深蓝 / 车标+下一站条+胶囊（不做站名交替）" }
       design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX" }
       code: { status: complete, note: "--st-route 单色贯穿、已过灰环褪灰、未来珠子、当前实心盘+TrainRounded 车标（st-breathe）、.st-next 下一站/终点站条、换乘胶囊 999px；103 tests/lint 0/build ✓；断言+视觉双轨 D11-D16 全过；新坑入档：IAB 过渡冻结需禁 transition 断言（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v3.md）" }
+  - name: stage-announce
+    title: "R8 交互：到站播报（当前比赛阶段 XXX）+ 当前站站名折叠修复"
+    stages:
+      requirement: { status: complete, note: "用户反馈：3/5 号站选中名被截断；删常驻下一站条，改港铁式短暂播报" }
+      design: { status: complete, note: "C-02 PageSpec v2.2 §14 增补（D17-D19）；删 nextStage/terminus 键、增 currentStage 三语" }
+      code: { status: complete, note: "当前站解除 line-clamp+取消字号放大（截断实证修复）；.st-announce 3s 淡出胶囊（React 计时器+animation forwards，aria-live 保留）；.st-next 删除、变量上移 .st-anchor；103 tests/lint 0/build ✓；断言+截图双轨全过（Gate 2 PASS：05-reports/2026-10-15-gate2-stage-announce.md）" }
   - name: r4-no-auto-dialog
     title: "R4 交互修正：移除自动发现弹窗，配对内发现 + 双角色静默恢复"
     stages:

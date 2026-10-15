@@ -86,8 +86,7 @@
         },
         "shortcutsTitle": "Raccourcis clavier",
         "timeline": "Déroulé du débat",
-        "nextStage": "Prochain",
-        "terminus": "Terminus"
+        "currentStage": "Étape en cours"
     },
     "settings": {
         "backToTimer": "Retour au chronomètre",

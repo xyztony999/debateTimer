@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
@@ -202,10 +202,29 @@ export default function TimerControlPage() {
     const negLabel = config.teamNames.neg || t('timer.negative');
     const stageName = (stage) => stageDisplayName(t, stage, config.stageLabels, i18n.language);
 
+    // MTR-style arrival callout: briefly announce the running stage whenever
+    // it changes (also on first load), then fade out. Replaces the old
+    // persistent next-stop strip.
+    const [stageAnnounce, setStageAnnounce] = useState(null);
+    const announceTimerRef = useRef(null);
+    useEffect(() => {
+        if (!state.stageId) {
+            return undefined;
+        }
+        if (announceTimerRef.current) {
+            clearTimeout(announceTimerRef.current);
+        }
+        setStageAnnounce({
+            key: Date.now(),
+            name: stageDisplayName(t, state.stageId, config.stageLabels, i18n.language),
+        });
+        announceTimerRef.current = setTimeout(() => setStageAnnounce(null), 3000);
+        return () => clearTimeout(announceTimerRef.current);
+    }, [state.stageId, config.stageLabels, t, i18n.language]);
+
     // Shared between both layout branches.
-    const nextStageId = orderedStages[orderedStages.indexOf(state.stageId) + 1];
     const stageTimeline = (
-        <React.Fragment>
+        <div className="st-anchor">
             <Box
                 className="stage-timeline"
                 role="tablist"
@@ -242,13 +261,17 @@ export default function TimerControlPage() {
                     );
                 })}
             </Box>
-            {/* MTR "next stop" cue; the running stage is the terminus */}
-            <div className="st-next" aria-live="polite">
-                {nextStageId
-                    ? `${t('timer.nextStage')} · ${stageName(nextStageId)}`
-                    : `${t('timer.terminus')} · ${stageName(state.stageId)}`}
-            </div>
-        </React.Fragment>
+            {stageAnnounce && (
+                <div
+                    key={stageAnnounce.key}
+                    className="st-announce"
+                    role="status"
+                    aria-live="polite"
+                >
+                    {t('timer.currentStage')} · {stageAnnounce.name}
+                </div>
+            )}
+        </div>
     );
 
     const contextRow = (state.stageId === 'sound_check' || state.advance != null) ? (

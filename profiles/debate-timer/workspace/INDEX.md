@@ -75,6 +75,12 @@ modules:
       requirement: { status: complete, note: "D0 用户确认：融合风 / 主题深蓝 / 换乘站按模式切换自动标" }
       design: { status: complete, note: "C-02 PageSpec v2.0 §14 增补（D6-D10）；纯视觉+3 行 JSX" }
       code: { status: complete, note: "7px 粗带+端帽 stub、光环骑线点、换乘大环（modes 差异数据驱动）、当前站脉冲移伪元素+反色胶囊；103 tests/lint 0/build ✓；断言+视觉双轨 D6-D10 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v2.md）" }
+  - name: pid-timeline-v3
+    title: "R7 视觉：港铁现役 PID 原生化（全线一色+已过褪灰+车标+下一站条+换乘胶囊）"
+    stages:
+      requirement: { status: complete, note: "D0 用户确认：全线一色+已过褪灰 / 主题深蓝 / 车标+下一站条+胶囊（不做站名交替）" }
+      design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX" }
+      code: { status: complete, note: "--st-route 单色贯穿、已过灰环褪灰、未来珠子、当前实心盘+TrainRounded 车标（st-breathe）、.st-next 下一站/终点站条、换乘胶囊 999px；103 tests/lint 0/build ✓；断言+视觉双轨 D11-D16 全过；新坑入档：IAB 过渡冻结需禁 transition 断言（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v3.md）" }
   - name: r4-no-auto-dialog
     title: "R4 交互修正：移除自动发现弹窗，配对内发现 + 双角色静默恢复"
     stages:

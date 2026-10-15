@@ -85,7 +85,9 @@
             "pressToStart": "Tap to start"
         },
         "shortcutsTitle": "Keyboard shortcuts",
-        "timeline": "Match flow"
+        "timeline": "Match flow",
+        "nextStage": "Next",
+        "terminus": "Terminus"
     },
     "settings": {
         "backToTimer": "Back to timer",

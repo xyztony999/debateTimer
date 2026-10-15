@@ -1,23 +1,22 @@
 /* TimerControlPage layout pieces that MUI doesn't cover:
-   the subway-PID style timeline (st-, PageSpec C-02 §14) and the clock area. */
+   the MTR-PID style timeline (st-, PageSpec C-02 §14 v2.1) and the clock area. */
 
-/* PID line, v2 metro fusion (Beijing thick band × MTR interchange rings):
-   stations sit ON one through line; each station draws its own right-half
-   segment, colored by whether this station is passed/current. Dots carry a
-   surface-colored halo (box-shadow) that punches a gap in the band where
-   they sit, like dots riding a line on a printed metro map. */
+/* PID line, v3 MTR-native: one uniform route-colored band the whole way —
+   state lives on the stations, not the segments. Passed stations fade to
+   gray (behind the train), upcoming stay full color (the road ahead is
+   bright), the current station is a solid disc under a small train marker,
+   and mode-change stations take the MTR interchange capsule shape. */
 .stage-timeline {
-  --st-line: #cfd8dc;
-  --st-line-done: #1e3a5f;
-  --st-dot: #ffffff;
-  --st-dot-border: #90a4ae;
-  --st-dot-done: #1e3a5f;
+  --st-route: #1e3a5f;
+  --st-core: #ffffff;
+  --st-pass-ring: #90a4ae;
+  --st-pass-fg: #90a4ae;
   --st-fg: #37474f;
-  --st-fg-future: #90a4ae;
-  --st-accent: #1e3a5f;
   --st-dot-size: 1.6rem;
-  --st-ring-size: 2.05rem;
+  --st-capsule-w: 2.3rem;
+  --st-capsule-h: 1.55rem;
   --st-band: 7px;
+  --st-dot-pad-top: 1.25rem;
   display: flex;
   align-items: flex-start;
   gap: 0;
@@ -28,14 +27,11 @@
 }
 
 .dark-mode .stage-timeline {
-  --st-line: #37474f;
-  --st-line-done: #90caf9;
-  --st-dot: #1a2332;
-  --st-dot-border: #5b6673;
-  --st-dot-done: #90caf9;
+  --st-route: #90caf9;
+  --st-core: #1a2332;
+  --st-pass-ring: #5b6673;
+  --st-pass-fg: #5b6673;
   --st-fg: #c6d2e0;
-  --st-fg-future: #5b6673;
-  --st-accent: #90caf9;
 }
 
 .st-step {
@@ -46,7 +42,7 @@
   gap: 0.35rem;
   flex: 1 1 0;
   min-width: 4.25rem;
-  padding: 0.2rem 0.3rem 0.35rem;
+  padding: var(--st-dot-pad-top) 0.3rem 0.35rem;
   border: none;
   background: none;
   color: var(--st-fg);
@@ -54,18 +50,17 @@
   cursor: pointer;
 }
 
-/* Thick band segment toward the next station. The first/last stations draw
-   a stub beyond the dot (rounded caps) so the line reads as running past
-   its termini, like a printed metro line. Band center = normal dot center:
-   0.2rem pad + half of --st-dot-size. */
+/* Uniform band segment toward the next station: the route color the whole
+   way (MTR semantics — progress never recolors segments). Band center =
+   padding-top + half of --st-dot-size. */
 .st-step::after {
   content: '';
   position: absolute;
-  top: calc(0.2rem + var(--st-dot-size) / 2 - var(--st-band) / 2);
+  top: calc(var(--st-dot-pad-top) + var(--st-dot-size) / 2 - var(--st-band) / 2);
   left: 50%;
   width: 100%;
   height: var(--st-band);
-  background: var(--st-line);
+  background: var(--st-route);
   z-index: 0;
 }
 
@@ -79,11 +74,8 @@
   border-radius: 0 4px 4px 0;
 }
 
-.st-step--passed::after {
-  background: var(--st-line-done);
-}
-
-/* Future dot: hollow gray ring on the gray band. */
+/* Upcoming station: MTR bead — surface core + route-color ring riding the
+   band; the surface halo punches a gap in the band where the dot sits. */
 .st-dot {
   position: relative;
   z-index: 1;
@@ -93,93 +85,61 @@
   width: var(--st-dot-size);
   height: var(--st-dot-size);
   border-radius: 50%;
-  border: 2px solid var(--st-dot-border);
-  background: var(--st-dot);
-  box-shadow: 0 0 0 3px var(--st-dot);
-  color: var(--st-fg-future);
+  border: 2px solid var(--st-route);
+  background: var(--st-core);
+  box-shadow: 0 0 0 3px var(--st-core);
+  color: var(--st-route);
   font-size: 0.68rem;
   font-weight: 700;
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Passed dot: solid accent core riding the highlighted band; the halo
-   reads as a white (surface) outline around the core. */
-
+/* Passed station: the whole bead fades to gray — behind the train. */
 .st-step--passed .st-dot {
-  background: var(--st-dot-done);
-  border-color: var(--st-dot-done);
-  color: #fff;
+  border-color: var(--st-pass-ring);
+  color: var(--st-pass-ring);
 }
 
-.dark-mode .st-step--passed .st-dot {
-  color: #0f1419;
-}
-
-/* Interchange station (stage mode changes here): MTR-style big ring —
-   surface core + thick colored ring, lifted so all dot centers share the
-   band axis. */
+/* Interchange station (stage mode changes here): MTR capsule — wide pill
+   with a thick route ring, lifted so all centers stay on the band axis. */
 .st-step--interchange .st-dot {
-  width: var(--st-ring-size);
-  height: var(--st-ring-size);
-  margin-top: calc((var(--st-dot-size) - var(--st-ring-size)) / 2);
+  width: var(--st-capsule-w);
+  height: var(--st-capsule-h);
+  margin-top: calc((var(--st-dot-size) - var(--st-capsule-h)) / 2);
+  border-radius: 999px;
   border-width: 3px;
   font-size: 0.75rem;
 }
 
-.st-step--passed.st-step--interchange .st-dot {
-  background: var(--st-dot);
-  border-color: var(--st-dot-done);
-  color: var(--st-dot-done);
-}
-
-/* Current station: interchange-ring treatment regardless of mode change,
-   breathing pulse via a pseudo so the surface halo on the dot itself
-   keeps breaking the band behind it. */
+/* Current station: solid route disc (halo keeps breaking the band behind
+   it); name in bold route color. The train marker carries the motion cue. */
 .st-step--current .st-dot {
-  width: var(--st-ring-size);
-  height: var(--st-ring-size);
-  margin-top: calc((var(--st-dot-size) - var(--st-ring-size)) / 2);
-  border: 3px solid var(--st-dot-done);
-  background: var(--st-dot);
-  color: var(--st-dot-done);
-  font-size: 0.75rem;
+  background: var(--st-route);
+  border-color: var(--st-route);
+  color: #fff;
 }
 
-.st-step--current .st-dot::after {
-  content: '';
+.dark-mode .st-step--current .st-dot {
+  color: #0f1419;
+}
+
+/* Train position marker (MTR "this train" cue) above the current station:
+   sits in the raised top padding shared by every step. */
+.st-marker {
   position: absolute;
-  inset: -1px;
-  border-radius: 50%;
-  animation: st-pulse 2s ease-out infinite;
+  top: 0.02rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  font-size: 1.05rem;
+  color: var(--st-route);
+  animation: st-breathe 2.5s ease-in-out infinite;
   pointer-events: none;
 }
 
-.dark-mode .st-step--current .st-dot::after {
-  animation-name: st-pulse-dark;
-}
-
-@keyframes st-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(30, 58, 95, 0.45);
-  }
-  70% {
-    box-shadow: 0 0 0 11px rgba(30, 58, 95, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(30, 58, 95, 0);
-  }
-}
-
-@keyframes st-pulse-dark {
-  0% {
-    box-shadow: 0 0 0 0 rgba(144, 202, 249, 0.45);
-  }
-  70% {
-    box-shadow: 0 0 0 11px rgba(144, 202, 249, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(144, 202, 249, 0);
-  }
+@keyframes st-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
 
 .st-step:hover .st-dot {
@@ -201,31 +161,24 @@
   text-align: center;
   line-height: 1.25;
   font-size: 0.72rem;
-  color: var(--st-fg-future);
-  transition: color 0.2s ease, background-color 0.2s ease;
-}
-
-/* Current station name on an accent pill (station label board). */
-.st-step--current .st-name {
-  background: var(--st-dot-done);
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.78rem;
-  max-width: 7rem;
-  padding: 0.12rem 0.55rem;
-  border-radius: 0.6rem;
-}
-
-.dark-mode .st-step--current .st-name {
-  color: #0f1419;
+  color: var(--st-fg);
+  transition: color 0.2s ease;
 }
 
 .st-step--interchange .st-name {
   font-weight: 600;
 }
 
+.st-step--current .st-name {
+  color: var(--st-route);
+  font-weight: 700;
+  font-size: 0.78rem;
+  max-width: 6rem;
+}
+
 .st-step--passed .st-name {
-  color: var(--st-fg);
+  color: var(--st-pass-fg);
+  font-weight: 400;
 }
 
 .st-step:disabled {
@@ -234,6 +187,28 @@
 
 .st-step:disabled .st-dot {
   opacity: 0.55;
+}
+
+/* Next-station strip under the line (MTR "next stop" cue). Lives outside
+   .stage-timeline, so it carries its own colors per theme. */
+.st-next {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.55rem 0.15rem;
+  font-size: 0.75rem;
+  color: #5a6577;
+}
+
+.st-next::before {
+  content: '›';
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.dark-mode .st-next {
+  color: #9aa8b8;
 }
 
 /* Clock area: dual boxes share the row, single keeps narrow and centered */

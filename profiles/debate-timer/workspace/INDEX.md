@@ -69,6 +69,12 @@ modules:
       requirement: { status: complete, note: "用户确认经典线路图风格（D0 推荐）" }
       design: { status: complete, note: "C-02 PageSpec v1.9 §14（D1-D5）+ v1.9.1 精化（高亮止于当前站/站名两行）；纯视觉零行为变更" }
       code: { status: complete, note: "st-dot 序号+st-name 结构、::after 半程线段（线 z0 点 z1）、当前站放大脉冲、明暗 CSS 变量双主题、触屏 ≥44px；103 tests/lint 0/build ✓；计算样式断言+视觉判定双轨验收 D1-D5 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline.md）" }
+  - name: pid-timeline-v2
+    title: "R6 视觉深化：北京粗带 × 港铁换乘环融合"
+    stages:
+      requirement: { status: complete, note: "D0 用户确认：融合风 / 主题深蓝 / 换乘站按模式切换自动标" }
+      design: { status: complete, note: "C-02 PageSpec v2.0 §14 增补（D6-D10）；纯视觉+3 行 JSX" }
+      code: { status: complete, note: "7px 粗带+端帽 stub、光环骑线点、换乘大环（modes 差异数据驱动）、当前站脉冲移伪元素+反色胶囊；103 tests/lint 0/build ✓；断言+视觉双轨 D6-D10 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v2.md）" }
   - name: r4-no-auto-dialog
     title: "R4 交互修正：移除自动发现弹窗，配对内发现 + 双角色静默恢复"
     stages:

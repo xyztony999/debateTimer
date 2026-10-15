@@ -64,8 +64,12 @@
   z-index: 0;
 }
 
+/* Left terminus: stub past the first station (half a step) PLUS the full
+   segment toward station 2 — 150% so the band stays continuous; at 100% it
+   stops 36px short of station 2's center and leaves a visible hole. */
 .st-step:first-child::after {
   left: 0;
+  width: 150%;
   border-radius: 4px 0 0 4px;
 }
 

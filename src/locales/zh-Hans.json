@@ -56,7 +56,9 @@
             "pairCode": "配对码",
             "pairSubmit": "连接",
             "pairFailed": "配对码无效或会话已结束",
-            "pairOk": "已连接，正在遥控"
+            "pairOk": "已连接，正在遥控",
+            "directConnect": "直接连接",
+            "detected": "检测到会话：「{{name}}」"
         },
         "display": {
             "following": "正在大屏跟随",

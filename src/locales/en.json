@@ -56,7 +56,9 @@
             "pairCode": "Pairing code",
             "pairSubmit": "Connect",
             "pairFailed": "Invalid code or session ended",
-            "pairOk": "Connected — remote mode"
+            "pairOk": "Connected — remote mode",
+            "directConnect": "Connect",
+            "detected": "Session detected: \"{{name}}\""
         },
         "display": {
             "following": "Live from controller",

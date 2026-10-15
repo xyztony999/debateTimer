@@ -56,7 +56,9 @@
             "pairCode": "Code d’appairage",
             "pairSubmit": "Connecter",
             "pairFailed": "Code invalide ou session terminée",
-            "pairOk": "Connecté — mode télécommande"
+            "pairOk": "Connecté — mode télécommande",
+            "directConnect": "Connecter",
+            "detected": "Session détectée : « {{name}} »"
         },
         "display": {
             "following": "Diffusion en direct",

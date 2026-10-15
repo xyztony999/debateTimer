@@ -27,6 +27,20 @@ import { initiateDirectChannel, answerDirectChannel } from './rtcChannel.js';
  * sync. Everything here is behavior; pages only render. Controller pages
  * call with no arguments, display pages with the share token.
  */
+// R4 role memories: tokens this device opened (host) or attached to
+// (remote). Written on start/pair, cleared on end/loss — module-level
+// because they are stateless localStorage accessors.
+const selfHostMemory = {
+    read: () => { try { return JSON.parse(localStorage.getItem('timer.session.selfHost') || 'null'); } catch { return null; } },
+    write: (v) => { try { localStorage.setItem('timer.session.selfHost', JSON.stringify(v)); } catch { /* ignore */ } },
+    clear: () => { try { localStorage.removeItem('timer.session.selfHost'); } catch { /* ignore */ } },
+};
+const lastRemoteMemory = {
+    read: () => { try { return JSON.parse(localStorage.getItem('timer.session.lastRemote') || 'null'); } catch { return null; } },
+    write: (v) => { try { localStorage.setItem('timer.session.lastRemote', JSON.stringify(v)); } catch { /* ignore */ } },
+    clear: () => { try { localStorage.removeItem('timer.session.lastRemote'); } catch { /* ignore */ } },
+};
+
 export default function useDebateTimer({ shareToken = null } = {}) {
     const { t, i18n } = useTranslation();
     const { user } = useAuth();
@@ -51,8 +65,10 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const [following, setFollowing] = useState(false);
     const [displayBanner, setDisplayBanner] = useState(null); // following | weak | ended
     const [captureCount, setCaptureCount] = useState(0);
-    // --- C-02-06 console follow: discovered session prompt + follow token ---
-    const [pendingSession, setPendingSession] = useState(false);
+    // --- C-02-06 console follow / pairing: discovery state + follow token ---
+    // R4: no auto popup — detection result surfaces inside the pairing
+    // dialog; resumes happen silently via the role memories below.
+    const [detectedSession, setDetectedSession] = useState(null);
     const [followToken, setFollowToken] = useState(null);
     // --- C-02-07 dual-mode remote: thin client sending commands to a host ---
     const [remoteMode, setRemoteMode] = useState(false);
@@ -64,7 +80,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const bannerTimerRef = useRef(null);
     const captureRef = useRef(null);
     const matchAutoSavedRef = useRef(false);
-    const pendingDismissedRef = useRef(false);
+
     const followTokenRef = useRef(null);
     const remoteModeRef = useRef(false);
     const remoteTargetRef = useRef(null); // paired host { name, shareToken } override
@@ -374,6 +390,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             displayUrl: result.data.displayUrl,
             failures: 0,
         };
+        selfHostMemory.write({
+            configName: stateRef.current?.config?.name,
+            shareToken: result.data.shareToken,
+            pairingCode: result.data.pairingCode ?? null,
+        });
         setPairingCode(result.data.pairingCode ?? null);
         seqRef.current = result.data.snapshot?.seq ?? 0;
         setSessionState('active');
@@ -385,6 +406,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         sessionRef.current = null;
         setSessionState('idle');
         setPairingCode(null);
+        selfHostMemory.clear();
         if (wasActive) {
             const result = await TimerSessionService.stopSession(stateRef.current.config.name);
             if (!result.success) {
@@ -395,23 +417,6 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         }
     }, [saveMatchRecord]);
 
-    // After a page refresh (or template switch), probe for a live session
-    // owned by this user (another device remote-controlling). Found → ask
-    // the page whether to follow or take over (C-02-06); no silent resume.
-    const probeForLiveSession = useCallback(async () => {
-        if (pendingDismissedRef.current || followTokenRef.current) {
-            return;
-        }
-        const info = stateRef.current?.config;
-        if (!info?.shareEnabled || !info.shareToken || sessionRef.current) {
-            return;
-        }
-        const result = await TimerSessionService.loadDisplayState(info.shareToken);
-        if (result.success && result.data.active) {
-            setPendingSession(true);
-        }
-    }, []);
-
     // Follow: this page mirrors the live session read-only (display-side
     // snapshot adoption + SSE), keeping its own console/remote layout.
     const startFollowing = useCallback(() => {
@@ -419,7 +424,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (!info?.shareToken) {
             return;
         }
-        setPendingSession(false);
+        setDetectedSession(null);
         followTokenRef.current = info.shareToken;
         setFollowToken(info.shareToken);
     }, []);
@@ -438,11 +443,12 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (!info?.shareToken) {
             return;
         }
-        setPendingSession(false);
+        setDetectedSession(null);
         remoteModeRef.current = true;
         setRemoteMode(true);
         if (external?.shareToken) {
             remoteTargetRef.current = { name: external.configName ?? '', shareToken: external.shareToken };
+            lastRemoteMemory.write({ configName: external.configName ?? '', shareToken: external.shareToken });
         }
         followTokenRef.current = info.shareToken;
         setFollowToken(info.shareToken);
@@ -504,6 +510,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         const result = await TimerSessionService.sendCommand(target.name, command);
         if (!result.success && [400, 403, 404].includes(result.status)) {
             // Session is gone — fall back to local timing on this device.
+            lastRemoteMemory.clear();
             closeRemoteChannel();
             remoteModeRef.current = false;
             setRemoteMode(false);
@@ -610,7 +617,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             return;
         }
         const result = await TimerSessionService.loadDisplayState(info.shareToken);
-        setPendingSession(false);
+        setDetectedSession(null);
         if (!result.success || !result.data.active) {
             return;
         }
@@ -639,22 +646,75 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             return result;
         }
         const { configName, shareToken } = result.data;
-        pendingDismissedRef.current = true;
+        lastRemoteMemory.write({ configName, shareToken });
         startRemoteMode({ configName, shareToken });
         return result;
     }, [startRemoteMode]);
 
-    const dismissPendingSession = useCallback(() => {
-        pendingDismissedRef.current = true;
-        setPendingSession(false);
+    // R4 silent-resume chain (replaces the auto popup): the session THIS
+    // device opened resumes reporting; the session this device remote-
+    // controlled resumes remote mode. Anything else stays untouched —
+    // attach via the pairing dialog.
+    const resumeFromMemories = useCallback(async () => {
+        if (sessionRef.current || followTokenRef.current) {
+            return;
+        }
+        // 1) My own host session → silently resume reporting (reclaim).
+        const self = selfHostMemory.read();
+        if (self?.shareToken) {
+            const mine = await TimerSessionService.loadDisplayState(self.shareToken);
+            if (mine.success && mine.data.active) {
+                adoptFromSnapshot(mine.data.snapshot);
+                sessionRef.current = {
+                    shareToken: self.shareToken,
+                    displayUrl: `/display/${self.shareToken}`,
+                    failures: 0,
+                };
+                setPairingCode(self.pairingCode ?? null);
+                setSessionState('active');
+                return;
+            }
+            selfHostMemory.clear();
+        }
+        // 2) The session I remoted → silently resume remote mode.
+        const last = lastRemoteMemory.read();
+        if (last?.shareToken) {
+            const theirs = await TimerSessionService.loadDisplayState(last.shareToken);
+            if (theirs.success && theirs.data.active) {
+                startRemoteMode({ configName: last.configName, shareToken: last.shareToken });
+                return;
+            }
+            lastRemoteMemory.clear();
+        }
+    }, [adoptFromSnapshot, startRemoteMode]);
+
+    // Pairing-dialog discovery probe: refreshes detectedSession for the
+    // "检测到会话 → 直接连接" block (page calls this when the dialog opens).
+    const probeForPairingDialog = useCallback(async () => {
+        if (followTokenRef.current || sessionRef.current) {
+            setDetectedSession(null);
+            return;
+        }
+        const info = stateRef.current?.config;
+        if (!info?.shareEnabled || !info.shareToken) {
+            setDetectedSession(null);
+            return;
+        }
+        const result = await TimerSessionService.loadDisplayState(info.shareToken);
+        setDetectedSession(result.success && result.data.active
+            ? { configName: info.name, shareToken: info.shareToken }
+            : null);
     }, []);
+
+
+
 
     useEffect(() => {
         if (isDisplay || Object.keys(config.stages).length === 0) {
             return;
         }
-        probeForLiveSession();
-    }, [config, isDisplay, probeForLiveSession]);
+        resumeFromMemories();
+    }, [config, isDisplay, resumeFromMemories]);
 
     const handleCopyDisplayUrl = useCallback(async () => {
         const path = sessionRef.current?.displayUrl
@@ -772,6 +832,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                     if (event.type === 'ended' || event.type === 'expired') {
                         const wasRemote = remoteModeRef.current;
                         if (wasRemote) {
+                            lastRemoteMemory.clear();
                             rtcChannelRef.current?.close();
                             rtcChannelRef.current = null;
                             setRtcState('off');
@@ -874,11 +935,11 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         sessionNotice,
         setSessionNotice,
         captureCount,
-        // C-02-06 console follow: discovery prompt + follow/takeover
-        pendingSession,
+        // C-02-06 console follow / R4 pairing-dialog discovery + silent resume
+        detectedSession,
+        probeForPairingDialog,
         startFollowing,
         takeoverSession,
-        dismissPendingSession,
         // C-02-07 dual-mode remote
         remoteMode,
         startRemoteMode,

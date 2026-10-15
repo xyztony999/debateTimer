@@ -86,6 +86,19 @@ export default function TimerControlPage() {
     const [pairOpen, setPairOpen] = useState(false);
     const [pairInput, setPairInput] = useState('');
     const [pairError, setPairError] = useState(null);
+    const connectDetected = () => {
+        if (!detectedSession) {
+            return;
+        }
+        setPairOpen(false);
+        startRemoteMode(detectedSession);
+    };
+    const openPairDialog = () => {
+        setPairOpen(true);
+        setPairError(null);
+        setPairInput('');
+        probeForPairingDialog();
+    };
     // C-01-08 remote layout: portrait phones switch presentation automatically.
     const isRemote = useMediaQuery('(max-width:600px) and (orientation: portrait)');
 
@@ -100,11 +113,12 @@ export default function TimerControlPage() {
         sessionState,
         sessionNotice,
         captureCount,
-        pendingSession,
+        detectedSession,
+        probeForPairingDialog,
         pairingCode,
         pairWithCode,
-        startFollowing,
         startRemoteMode,
+        startFollowing,
         sendRemoteCommand,
         takeoverSession,
         dismissPendingSession,
@@ -360,7 +374,7 @@ export default function TimerControlPage() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-                <MenuItem onClick={() => { setMenuAnchor(null); setPairOpen(true); setPairError(null); }}>
+                <MenuItem onClick={() => { setMenuAnchor(null); openPairDialog(); }}>
                     <ListItemIcon><CableIcon fontSize="small" /></ListItemIcon>
                     {t('timer.session.connectPC')}
                 </MenuItem>
@@ -412,6 +426,25 @@ export default function TimerControlPage() {
             >
                 <DialogTitle>{t('timer.session.pairTitle')}</DialogTitle>
                 <DialogContent>
+                    {detectedSession ? (
+                        <Alert
+                            severity="success"
+                            sx={{ mb: 2 }}
+                            action={(
+                                <Button
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => {
+                                        connectDetected();
+                                    }}
+                                >
+                                    {t('timer.session.directConnect')}
+                                </Button>
+                            )}
+                        >
+                            {t('timer.session.detected', { name: detectedSession.configName })}
+                        </Alert>
+                    ) : null}
                     <DialogContentText sx={{ mb: 2 }}>
                         {t('timer.session.pairHint')}
                     </DialogContentText>
@@ -446,32 +479,6 @@ export default function TimerControlPage() {
                 </DialogActions>
             </Dialog>
 
-            {/* C-02-06 会话发现：跟随 / 接管 / 稍后 */}
-            <Dialog
-                open={pendingSession}
-                onClose={dismissPendingSession}
-                maxWidth="xs"
-                fullWidth
-            >
-                <DialogTitle>{t('timer.session.foundTitle')}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>
-                        {t('timer.session.foundBody', { name: config.name })}
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={dismissPendingSession}>{t('common.cancel')}</Button>
-                    <Button color="secondary" onClick={takeoverSession}>
-                        {t('timer.session.takeover')}
-                    </Button>
-                    <Button color="inherit" onClick={startFollowing}>
-                        {t('timer.session.follow')}
-                    </Button>
-                    <Button variant="contained" autoFocus onClick={startRemoteMode}>
-                        {t('timer.session.remote')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
 
             {isRemote ? (
                 /* ===== C-01-08 遥控器布局（竖屏自动）：钟条 → 语境 → 主操作 → 阶段横滑 ===== */

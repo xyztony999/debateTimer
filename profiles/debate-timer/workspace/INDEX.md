@@ -62,7 +62,13 @@ modules:
       design: { status: complete, note: "AA v1.8（C-02-08）+ FL v1.6 + prd/p2p-remote + api-p2p-remote（信令端点+SSE signal 事件）+ C-02 PageSpec v1.6；Gate 1 PASS（内联）" }
       code: { status: complete, note: "服务端信令转发（relaySignal+SSE signal 事件）+ rtcChannel 双端封装（early-ICE 缓冲/3s 超时/静默回退）+ hook 集成（直连序号 1e9 空间/双来源 adopt 守卫/快照副本直推）+ 胶囊直连指示；98 tests（+3）/lint 0/build ✓；服务端链路 curl 实证；浏览器端到端联调受 IAB 工具限制未完成（回退设计保证零劣化）；Gate 2 WARN-可交付（05-reports/2026-10-14-gate2-p2p-remote.md）" }
   - name: pairing-and-fixes
-    title: "R3 真机反馈包：数字配对码 + mp3 音频 + 单钟区分 + SSE 连接池根因修复"
+    title: "R3 真机反馈包：数字配对码 + mp3 音频 + 单钟区分 + SSE 连接池根因修复
+  - name: r4-no-auto-dialog
+    title: "R4 交互修正：移除自动发现弹窗，配对内发现 + 双角色静默恢复"
+    stages:
+      requirement: { status: complete, note: "用户确认：移除弹窗+配对内发现（推荐项）" }
+      design: { status: complete, note: "AA v1.9（C-02-06 描述更新）+ PageSpec v1.8 附记（D1-D4）；零 API 变更" }
+      code: { status: complete, note: "移除 pendingSession 弹窗；detectedSession + probeForPairingDialog（弹窗打开时探测）；resumeFromMemories 静默恢复链（selfHost/lastRemote 记忆，localStorage 模块级工具）；直连路径补记忆；103 tests；浏览器验收 D1-D4 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-r4-no-auto-dialog.md）" }"
     stages:
       requirement: { status: complete, note: "用户三项反馈（音频慢/配对入口/单钟不区分）+ D0 确认配对码方案" }
       design: { status: complete, note: "prd/pairing-and-fixes（配对码 owner 匹配/音频 mp3/单钟）；AA/FL 挂 C-02-01 扩展" }

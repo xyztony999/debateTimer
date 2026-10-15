@@ -85,7 +85,9 @@
             "pressToStart": "Toucher pour démarrer"
         },
         "shortcutsTitle": "Raccourcis clavier",
-        "timeline": "Déroulé du débat"
+        "timeline": "Déroulé du débat",
+        "nextStage": "Prochain",
+        "terminus": "Terminus"
     },
     "settings": {
         "backToTimer": "Retour au chronomètre",

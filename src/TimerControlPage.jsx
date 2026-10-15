@@ -25,6 +25,7 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import TrainRounded from '@mui/icons-material/TrainRounded';
 import PublicIcon from '@mui/icons-material/Public';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -202,42 +203,52 @@ export default function TimerControlPage() {
     const stageName = (stage) => stageDisplayName(t, stage, config.stageLabels, i18n.language);
 
     // Shared between both layout branches.
+    const nextStageId = orderedStages[orderedStages.indexOf(state.stageId) + 1];
     const stageTimeline = (
-        <Box
-            className="stage-timeline"
-            role="tablist"
-            aria-label={t('timer.timeline')}
-        >
-            {orderedStages.map((stage, index) => {
-                const current = stage === state.stageId;
-                const passed = !current && index < orderedStages.indexOf(state.stageId);
-                // Interchange station: where the stage mode (single/double/free)
-                // changes from the previous station — data-driven, adapts to
-                // any template without hardcoding stage names.
-                const interchange = index > 0
-                    && config.modes[stage] !== config.modes[orderedStages[index - 1]];
-                return (
-                    <button
-                        key={stage}
-                        type="button"
-                        role="tab"
-                        aria-selected={current}
-                        disabled={readOnly}
-                        className={[
-                            'st-step',
-                            current ? 'st-step--current' : '',
-                            passed ? 'st-step--passed' : '',
-                            interchange ? 'st-step--interchange' : '',
-                        ].filter(Boolean).join(' ')}
-                        onClick={() => fire.applyStage(stage)}
-                        title={stageName(stage)}
-                    >
-                        <span className="st-dot">{index + 1}</span>
-                        <span className="st-name">{stageName(stage)}</span>
-                    </button>
-                );
-            })}
-        </Box>
+        <React.Fragment>
+            <Box
+                className="stage-timeline"
+                role="tablist"
+                aria-label={t('timer.timeline')}
+            >
+                {orderedStages.map((stage, index) => {
+                    const current = stage === state.stageId;
+                    const passed = !current && index < orderedStages.indexOf(state.stageId);
+                    // Interchange station: where the stage mode (single/double/free)
+                    // changes from the previous station — data-driven, adapts to
+                    // any template without hardcoding stage names.
+                    const interchange = index > 0
+                        && config.modes[stage] !== config.modes[orderedStages[index - 1]];
+                    return (
+                        <button
+                            key={stage}
+                            type="button"
+                            role="tab"
+                            aria-selected={current}
+                            disabled={readOnly}
+                            className={[
+                                'st-step',
+                                current ? 'st-step--current' : '',
+                                passed ? 'st-step--passed' : '',
+                                interchange ? 'st-step--interchange' : '',
+                            ].filter(Boolean).join(' ')}
+                            onClick={() => fire.applyStage(stage)}
+                            title={stageName(stage)}
+                        >
+                            {current && <TrainRounded className="st-marker" aria-hidden="true" />}
+                            <span className="st-dot">{index + 1}</span>
+                            <span className="st-name">{stageName(stage)}</span>
+                        </button>
+                    );
+                })}
+            </Box>
+            {/* MTR "next stop" cue; the running stage is the terminus */}
+            <div className="st-next" aria-live="polite">
+                {nextStageId
+                    ? `${t('timer.nextStage')} · ${stageName(nextStageId)}`
+                    : `${t('timer.terminus')} · ${stageName(state.stageId)}`}
+            </div>
+        </React.Fragment>
     );
 
     const contextRow = (state.stageId === 'sound_check' || state.advance != null) ? (

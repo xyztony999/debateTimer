@@ -85,7 +85,9 @@
             "pressToStart": "点击开始"
         },
         "shortcutsTitle": "快捷键",
-        "timeline": "比赛流程"
+        "timeline": "比赛流程",
+        "nextStage": "下一站",
+        "terminus": "终点站"
     },
     "settings": {
         "backToTimer": "返回计时器",

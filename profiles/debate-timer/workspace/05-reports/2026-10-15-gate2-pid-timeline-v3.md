@@ -1,0 +1,44 @@
+# Gate 2 验证报告 — R7 视觉：时间线港铁 PID 原生化（v3）
+
+**模块**：pid-timeline-v3
+**验证时间**：2026-10-15
+
+## 工程检查
+
+| 检查 | 结果 |
+|------|------|
+| ESLint | PASS（0 error；4 warning 为既有文件 react-refresh 提示，与本模块无关） |
+| bun test | PASS（103/103，375 expects） |
+| build | PASS（✓ built） |
+
+## 验收（对照 PageSpec §14 v2.1 增补 D11-D16）
+
+验收方法：本地冒烟环境（API 3001 + Vite 3000），跳至第 14 站「自由辩论」
+（passed=13 / current / future=2 三态齐备），计算样式断言 + 视觉模型判定双轨。
+
+| # | 项 | 结果 |
+|---|-----|------|
+| D11 全线一色带 | PASS（浅色首末段均 rgb(30,58,95)；暗色均 rgb(144,202,249)；分段无进度变色） |
+| D12 已过褪灰 | PASS（浅色已过=白芯+灰环 rgb(144,164,174)+灰字 w400；未来=白芯+深蓝环+深蓝号+正常字；当前=实心深蓝+白号+站名深蓝 w700；暗色同构：灰 rgb(91,102,115)/#5b6673） |
+| D13 车标当前位置 | PASS（.st-marker 恰 1 处、1.05rem、st-breathe 呼吸；v2.0 脉冲环动画已删净） |
+| D14 下一站提示条 | PASS（第 14 站→「下一站 · 反方四辩总结陈词」；末站→「终点站 · 正方四辩总结陈词」；› 前缀右对齐） |
+| D15 换乘站胶囊 | PASS（几何 36.8×24.8px、radius 999px、3px 环；当前+换乘=实色胶囊+反色号+站名 w700） |
+| D16 行为不变 | PASS（tablist/tab/aria-selected/disabled/onClick 结构未动；横滑/safe center/触屏规则保留；103 tests 零回归） |
+| i18n | PASS（nextStage/terminus 三语：下一站/Next/Prochain、终点站/Terminus/Terminus） |
+
+## 视觉判定
+
+浅色紧凑特写七项全过：粗带一色贯穿+圆角端帽、已过褪灰、当前站实心大胶囊+车标、
+未来白芯蓝环、下一站提示条、站名无重叠无截断、整体港铁线路图观感成立。
+
+## 过程记录（新坑入档）
+
+- **IAB 过渡冻结**：evaluate 派发点击后立即读计算样式，读到的是**冻结在过渡起点的值**
+  （IAB 节流不给动画 tick，`transition: background-color .2s` 永不推进），一度误判
+  "已过/当前样式互换"。以 `getAnimations()` 证实过渡挂起；解法：断言前注入
+  `transition: none !important` 测试钩子（类切换即时生效）。后续 IAB 样式断言均须如此。
+- CSS 规则序：同特异性下 `.st-step--interchange .st-name`(600) 会盖掉
+  `.st-step--current .st-name`(700)，已把 interchange 规则排到 current 之前。
+- 低分辨率截图对视觉模型仍不可靠（本次七项问法收敛后可用），计算样式断言为准。
+
+**判定：PASS**（真机清单：手机横滑观感、车标/下一站条小屏表现）

@@ -261,16 +261,16 @@ export default function TimerControlPage() {
                     );
                 })}
             </Box>
-            {stageAnnounce && (
-                <div
-                    key={stageAnnounce.key}
-                    className="st-announce"
-                    role="status"
-                    aria-live="polite"
-                >
-                    {t('timer.currentStage')} · {stageAnnounce.name}
-                </div>
-            )}
+            {/* MTR arrival display panel: the row is always reserved (blank
+                when idle) so nothing below ever jumps; the pill shows for the
+                3s announce window. */}
+            <div className="st-announce" role="status" aria-live="polite">
+                {stageAnnounce && (
+                    <span key={stageAnnounce.key} className="st-announce-pill">
+                        {t('timer.currentStage')} · {stageAnnounce.name}
+                    </span>
+                )}
+            </div>
         </div>
     );
 

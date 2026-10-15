@@ -86,7 +86,7 @@ modules:
     stages:
       requirement: { status: complete, note: "用户反馈：3/5 号站选中名被截断；删常驻下一站条，改港铁式短暂播报" }
       design: { status: complete, note: "C-02 PageSpec v2.2 §14 增补（D17-D19）；删 nextStage/terminus 键、增 currentStage 三语" }
-      code: { status: complete, note: "当前站解除 line-clamp+取消字号放大（截断实证修复）；.st-announce 3s 淡出胶囊（React 计时器+animation forwards，aria-live 保留）；.st-next 删除、变量上移 .st-anchor；103 tests/lint 0/build ✓；断言+截图双轨全过（Gate 2 PASS：05-reports/2026-10-15-gate2-stage-announce.md）" }
+      code: { status: complete, note: "当前站解除 line-clamp+取消字号放大（截断实证修复）；播报=线带下方固定行（用户选定 B，2.1rem 常驻留白零跳动零遮挡）内 3s 淡出胶囊（React 计时器+animation forwards，aria-live 保留）；.st-next 删除、变量上移 .st-anchor；103 tests/lint 0/build ✓；断言+截图双轨全过（Gate 2 PASS：05-reports/2026-10-15-gate2-stage-announce.md）" }
   - name: r4-no-auto-dialog
     title: "R4 交互修正：移除自动发现弹窗，配对内发现 + 双角色静默恢复"
     stages:

@@ -211,6 +211,11 @@ export default function TimerControlPage() {
             {orderedStages.map((stage, index) => {
                 const current = stage === state.stageId;
                 const passed = !current && index < orderedStages.indexOf(state.stageId);
+                // Interchange station: where the stage mode (single/double/free)
+                // changes from the previous station — data-driven, adapts to
+                // any template without hardcoding stage names.
+                const interchange = index > 0
+                    && config.modes[stage] !== config.modes[orderedStages[index - 1]];
                 return (
                     <button
                         key={stage}
@@ -222,6 +227,7 @@ export default function TimerControlPage() {
                             'st-step',
                             current ? 'st-step--current' : '',
                             passed ? 'st-step--passed' : '',
+                            interchange ? 'st-step--interchange' : '',
                         ].filter(Boolean).join(' ')}
                         onClick={() => fire.applyStage(stage)}
                         title={stageName(stage)}

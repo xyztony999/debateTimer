@@ -1,8 +1,11 @@
 /* TimerControlPage layout pieces that MUI doesn't cover:
    the subway-PID style timeline (st-, PageSpec C-02 §14) and the clock area. */
 
-/* PID line: stations sit ON one through line; each station draws its own
-   right-half segment, colored by whether this station is passed/current. */
+/* PID line, v2 metro fusion (Beijing thick band × MTR interchange rings):
+   stations sit ON one through line; each station draws its own right-half
+   segment, colored by whether this station is passed/current. Dots carry a
+   surface-colored halo (box-shadow) that punches a gap in the band where
+   they sit, like dots riding a line on a printed metro map. */
 .stage-timeline {
   --st-line: #cfd8dc;
   --st-line-done: #1e3a5f;
@@ -12,6 +15,9 @@
   --st-fg: #37474f;
   --st-fg-future: #90a4ae;
   --st-accent: #1e3a5f;
+  --st-dot-size: 1.6rem;
+  --st-ring-size: 2.05rem;
+  --st-band: 7px;
   display: flex;
   align-items: flex-start;
   gap: 0;
@@ -48,43 +54,56 @@
   cursor: pointer;
 }
 
-/* Right-half segment toward the next station; the last station still draws
-   a short stub so the line reads as continuous at both ends. */
+/* Thick band segment toward the next station. The first/last stations draw
+   a stub beyond the dot (rounded caps) so the line reads as running past
+   its termini, like a printed metro line. Band center = normal dot center:
+   0.2rem pad + half of --st-dot-size. */
 .st-step::after {
   content: '';
   position: absolute;
-  top: 1.05rem; /* dot center: 0.2rem pad + ~0.85rem half-dot */
+  top: calc(0.2rem + var(--st-dot-size) / 2 - var(--st-band) / 2);
   left: 50%;
   width: 100%;
-  height: 3px;
+  height: var(--st-band);
   background: var(--st-line);
   z-index: 0;
 }
 
+.st-step:first-child::after {
+  left: 0;
+  border-radius: 4px 0 0 4px;
+}
+
 .st-step:last-child::after {
   width: 50%;
+  border-radius: 0 4px 4px 0;
 }
 
 .st-step--passed::after {
   background: var(--st-line-done);
 }
 
+/* Future dot: hollow gray ring on the gray band. */
 .st-dot {
   position: relative;
   z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
+  width: var(--st-dot-size);
+  height: var(--st-dot-size);
   border-radius: 50%;
   border: 2px solid var(--st-dot-border);
   background: var(--st-dot);
+  box-shadow: 0 0 0 3px var(--st-dot);
   color: var(--st-fg-future);
   font-size: 0.68rem;
   font-weight: 700;
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+/* Passed dot: solid accent core riding the highlighted band; the halo
+   reads as a white (surface) outline around the core. */
 
 .st-step--passed .st-dot {
   background: var(--st-dot-done);
@@ -96,18 +115,46 @@
   color: #0f1419;
 }
 
-.st-step--current .st-dot {
-  width: 1.9rem;
-  height: 1.9rem;
-  background: var(--st-dot-done);
-  border-color: var(--st-dot-done);
-  color: #fff;
+/* Interchange station (stage mode changes here): MTR-style big ring —
+   surface core + thick colored ring, lifted so all dot centers share the
+   band axis. */
+.st-step--interchange .st-dot {
+  width: var(--st-ring-size);
+  height: var(--st-ring-size);
+  margin-top: calc((var(--st-dot-size) - var(--st-ring-size)) / 2);
+  border-width: 3px;
   font-size: 0.75rem;
-  animation: st-pulse 2s ease-out infinite;
 }
 
-.dark-mode .st-step--current .st-dot {
-  color: #0f1419;
+.st-step--passed.st-step--interchange .st-dot {
+  background: var(--st-dot);
+  border-color: var(--st-dot-done);
+  color: var(--st-dot-done);
+}
+
+/* Current station: interchange-ring treatment regardless of mode change,
+   breathing pulse via a pseudo so the surface halo on the dot itself
+   keeps breaking the band behind it. */
+.st-step--current .st-dot {
+  width: var(--st-ring-size);
+  height: var(--st-ring-size);
+  margin-top: calc((var(--st-dot-size) - var(--st-ring-size)) / 2);
+  border: 3px solid var(--st-dot-done);
+  background: var(--st-dot);
+  color: var(--st-dot-done);
+  font-size: 0.75rem;
+}
+
+.st-step--current .st-dot::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  animation: st-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+
+.dark-mode .st-step--current .st-dot::after {
   animation-name: st-pulse-dark;
 }
 
@@ -116,7 +163,7 @@
     box-shadow: 0 0 0 0 rgba(30, 58, 95, 0.45);
   }
   70% {
-    box-shadow: 0 0 0 9px rgba(30, 58, 95, 0);
+    box-shadow: 0 0 0 11px rgba(30, 58, 95, 0);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(30, 58, 95, 0);
@@ -128,7 +175,7 @@
     box-shadow: 0 0 0 0 rgba(144, 202, 249, 0.45);
   }
   70% {
-    box-shadow: 0 0 0 9px rgba(144, 202, 249, 0);
+    box-shadow: 0 0 0 11px rgba(144, 202, 249, 0);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(144, 202, 249, 0);
@@ -155,14 +202,26 @@
   line-height: 1.25;
   font-size: 0.72rem;
   color: var(--st-fg-future);
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
+/* Current station name on an accent pill (station label board). */
 .st-step--current .st-name {
-  color: var(--st-accent);
+  background: var(--st-dot-done);
+  color: #fff;
   font-weight: 700;
   font-size: 0.78rem;
-  max-width: 6rem;
+  max-width: 7rem;
+  padding: 0.12rem 0.55rem;
+  border-radius: 0.6rem;
+}
+
+.dark-mode .st-step--current .st-name {
+  color: #0f1419;
+}
+
+.st-step--interchange .st-name {
+  font-weight: 600;
 }
 
 .st-step--passed .st-name {

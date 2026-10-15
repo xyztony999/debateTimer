@@ -1,97 +1,180 @@
 /* TimerControlPage layout pieces that MUI doesn't cover:
-   the horizontal stage timeline (st-) and the clock area. */
+   the subway-PID style timeline (st-, PageSpec C-02 §14) and the clock area. */
 
+/* PID line: stations sit ON one through line; each station draws its own
+   right-half segment, colored by whether this station is passed/current. */
 .stage-timeline {
+  --st-line: #cfd8dc;
+  --st-line-done: #1e3a5f;
+  --st-dot: #ffffff;
+  --st-dot-border: #90a4ae;
+  --st-dot-done: #1e3a5f;
+  --st-fg: #37474f;
+  --st-fg-future: #90a4ae;
+  --st-accent: #1e3a5f;
   display: flex;
-  gap: 0.4rem;
+  align-items: flex-start;
+  gap: 0;
   overflow-x: auto;
-  padding: 0.35rem 0.15rem 0.6rem;
+  padding: 0.4rem 0.15rem 0.6rem;
   scrollbar-width: thin;
-  /* 基础态：居中对齐（safe center 溢出时不裁左缘），配自动居中滚动 */
   justify-content: safe center;
 }
 
+.dark-mode .stage-timeline {
+  --st-line: #37474f;
+  --st-line-done: #90caf9;
+  --st-dot: #1a2332;
+  --st-dot-border: #5b6673;
+  --st-dot-done: #90caf9;
+  --st-fg: #c6d2e0;
+  --st-fg-future: #5b6673;
+  --st-accent: #90caf9;
+}
+
 .st-step {
-  --st-fg: #44515e;
-  --st-bg: rgba(30, 58, 95, 0.06);
-  --st-border: transparent;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 0;
+  min-width: 4.25rem;
+  padding: 0.2rem 0.3rem 0.35rem;
+  border: none;
+  background: none;
+  color: var(--st-fg);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/* Right-half segment toward the next station; the last station still draws
+   a short stub so the line reads as continuous at both ends. */
+.st-step::after {
+  content: '';
+  position: absolute;
+  top: 1.05rem; /* dot center: 0.2rem pad + ~0.85rem half-dot */
+  left: 50%;
+  width: 100%;
+  height: 3px;
+  background: var(--st-line);
+  z-index: 0;
+}
+
+.st-step:last-child::after {
+  width: 50%;
+}
+
+.st-step--passed::after {
+  background: var(--st-line-done);
+}
+
+.st-dot {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  /* 基础态：自然宽度显示完整阶段名（PageSpec v1.3 D2'） */
-  flex: 0 0 auto;
-  max-width: 13rem;
-  padding: 0.45rem 0.85rem;
-  border: 2px solid var(--st-border);
-  border-radius: 999px;
-  background: var(--st-bg);
-  color: var(--st-fg);
-  font-size: 0.88rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-/* 超宽屏曾试等宽铺满，但 Container lg(1152px) 封顶使每格恒 ~61px（1 字可读性差），
-   v1.3 统一为全名横滑 + safe center，详见 PageSpec C-02 §10 D4' */
-
-.st-step:hover {
-  background: rgba(30, 58, 95, 0.14);
-}
-
-.dark-mode .st-step {
-  --st-fg: #c6d2e0;
-  --st-bg: rgba(144, 202, 249, 0.08);
-}
-
-.dark-mode .st-step:hover {
-  background: rgba(144, 202, 249, 0.18);
-}
-
-.st-step--current {
-  --st-fg: #ffffff;
-  --st-bg: #1e3a5f;
-  --st-border: #1e3a5f;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  border: 2px solid var(--st-dot-border);
+  background: var(--st-dot);
+  color: var(--st-fg-future);
+  font-size: 0.68rem;
   font-weight: 700;
+  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.st-step--current .st-idx {
-  background: rgba(255, 255, 255, 0.25);
+.st-step--passed .st-dot {
+  background: var(--st-dot-done);
+  border-color: var(--st-dot-done);
   color: #fff;
 }
 
-.dark-mode .st-step--current {
-  --st-fg: #0f1419;
-  --st-bg: #90caf9;
-  --st-border: #90caf9;
-}
-
-.dark-mode .st-step--current .st-idx {
-  background: rgba(15, 20, 25, 0.18);
+.dark-mode .st-step--passed .st-dot {
   color: #0f1419;
 }
 
-.st-idx {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: rgba(30, 58, 95, 0.14);
-  font-size: 0.78rem;
-  font-weight: 700;
-  flex: 0 0 auto;
+.st-step--current .st-dot {
+  width: 1.9rem;
+  height: 1.9rem;
+  background: var(--st-dot-done);
+  border-color: var(--st-dot-done);
+  color: #fff;
+  font-size: 0.75rem;
+  animation: st-pulse 2s ease-out infinite;
 }
 
-.dark-mode .st-idx {
-  background: rgba(144, 202, 249, 0.16);
+.dark-mode .st-step--current .st-dot {
+  color: #0f1419;
+  animation-name: st-pulse-dark;
+}
+
+@keyframes st-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(30, 58, 95, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(30, 58, 95, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(30, 58, 95, 0);
+  }
+}
+
+@keyframes st-pulse-dark {
+  0% {
+    box-shadow: 0 0 0 0 rgba(144, 202, 249, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(144, 202, 249, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(144, 202, 249, 0);
+  }
+}
+
+.st-step:hover .st-dot {
+  transform: scale(1.15);
 }
 
 .st-name {
+  position: relative;
+  z-index: 1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 4.6rem;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.25;
+  font-size: 0.72rem;
+  color: var(--st-fg-future);
+  transition: color 0.2s ease;
+}
+
+.st-step--current .st-name {
+  color: var(--st-accent);
+  font-weight: 700;
+  font-size: 0.78rem;
+  max-width: 6rem;
+}
+
+.st-step--passed .st-name {
+  color: var(--st-fg);
+}
+
+.st-step:disabled {
+  cursor: not-allowed;
+}
+
+.st-step:disabled .st-dot {
+  opacity: 0.55;
 }
 
 /* Clock area: dual boxes share the row, single keeps narrow and centered */
@@ -122,7 +205,14 @@
   .clock-area {
     flex-direction: column;
   }
-  /* 时间线在所有宽度均为自然宽度 + safe center（v1.3 基础态），无需窄屏回退 */
+  /* 时间线所有宽度自然宽度 + safe center（v1.3）；PID 站点窄屏微缩 */
+  .st-step {
+    min-width: 3.9rem;
+  }
+
+  .st-step--current .st-name {
+    max-width: 7rem;
+  }
 }
 
 /* ===== 触屏与小屏收纳（bundle D 口径 + AppBar 防挤压） ===== */
@@ -132,10 +222,13 @@
     display: none;
   }
 
+  /* 触屏：整站单元（dot+站名）≥44px 高，站名加垫扩大点击面 */
   .st-step {
     min-height: 44px;
-    padding-top: 0.6rem;
-    padding-bottom: 0.6rem;
+  }
+
+  .st-name {
+    padding: 0.15rem 0.25rem;
   }
 }
 

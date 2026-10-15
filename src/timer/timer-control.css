@@ -7,7 +7,7 @@
    bright), the current station is a solid disc under a small train marker,
    and mode-change stations take the MTR interchange capsule shape. */
 /* Anchor wrapper around the line: carries the theme variables so both the
-   timeline and the transient arrival callout (.st-announce) share them. */
+   timeline and the arrival display row (.st-announce) share them. */
 .st-anchor {
   --st-route: #1e3a5f;
   --st-core: #ffffff;
@@ -19,7 +19,6 @@
   --st-capsule-h: 1.55rem;
   --st-band: 7px;
   --st-dot-pad-top: 1.25rem;
-  position: relative;
 }
 
 .dark-mode .st-anchor {
@@ -204,16 +203,22 @@
   opacity: 0.55;
 }
 
-/* MTR-style arrival callout: floats under the line for a few seconds on a
-   stage change, then fades out (animation is paired with a 3s React timer
-   that unmounts it). pointer-events none — it never blocks station taps. */
+/* MTR arrival display panel: a reserved row under the line — blank when
+   idle, so announcing never shifts the layout and never covers station
+   names. The pill fades in/out over 3s (paired with the React timer that
+   unmounts it). */
 .st-announce {
-  position: absolute;
-  left: 50%;
-  bottom: -0.35rem;
-  transform: translateX(-50%);
-  z-index: 3;
-  max-width: 92%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  height: 2.1rem;
+  padding: 0.15rem 0.5rem 0;
+}
+
+.st-announce-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -221,25 +226,24 @@
   color: #fff;
   font-size: 0.82rem;
   font-weight: 700;
-  padding: 0.32rem 1rem;
+  padding: 0.28rem 1rem;
   border-radius: 999px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
   animation: st-announce 3s ease forwards;
 }
 
-.dark-mode .st-announce {
+.dark-mode .st-announce-pill {
   color: #0f1419;
 }
 
 @keyframes st-announce {
   0% {
     opacity: 0;
-    transform: translateX(-50%) translateY(4px);
+    transform: translateY(4px);
   }
   10% {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
   }
   80% {
     opacity: 1;

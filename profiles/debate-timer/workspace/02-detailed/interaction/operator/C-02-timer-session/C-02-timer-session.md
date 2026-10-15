@@ -385,9 +385,11 @@ transition 不推进）——断言前注入 `transition: none !important` 测�
 | # | 决策 | 内容 |
 |---|------|------|
 | D17 | 站名全显 | 当前站站名解除 line-clamp + **取消字号放大**（强调由颜色+加粗+车标承担，行高与邻站统一）；任何长度站名完整可读 |
-| D18 | 到站播报 | 阶段切换（及首载）时浮出胶囊「当前比赛阶段 · XXX」，3s 后淡出卸载（React 计时器 + CSS animation forwards 配对）；absolute 悬于线带下方居中、pointer-events none 不挡点击；aria-live=polite 保留给读屏；跟随/遥控端同样触发（快照驱动） |
+| D18 | 到站播报 | 阶段切换（及首载）时在线带**下方固定高度行**（2.1rem，空闲留白、高度恒定零跳动）居中显示胶囊「当前比赛阶段 · XXX」，3s 淡出卸载（React 计时器 + CSS animation forwards 配对）；不遮挡任何站名（用户选定方案 B，替代初版悬浮式）；aria-live=polite 保留给读屏；跟随/遥控端同样触发（快照驱动） |
 | D19 | 删下一站条 | `.st-next` 区块及 i18n nextStage/terminus 键删除，新增 timer.currentStage（当前比赛阶段 / Current stage / Étape en cours） |
 
 **实现备忘**：主题变量（--st-route 等）从 `.stage-timeline` 上移到新父级
 `.st-anchor`，播报胶囊与线带共享线路色；播报重复触发用 Date.now() 作 key 重放动画。
+初版播报为 absolute 悬浮（遮中段站名），用户选定改为固定行方案后 `.st-announce`
+为常驻 flex 行、胶囊为行内子元素。
 

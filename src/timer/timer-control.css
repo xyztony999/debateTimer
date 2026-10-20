@@ -211,6 +211,7 @@
   min-width: 0;
 }
 
+/* Arrival pill text (v2.5 rev): bare text on the bar — no pill chrome. */
 .st-announce-pill {
   display: inline-flex;
   align-items: center;
@@ -218,18 +219,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--st-route);
-  color: #fff;
-  font-size: 0.82rem;
+  color: inherit;
+  font-size: 0.95rem;
   font-weight: 700;
-  padding: 0.28rem 1rem;
-  border-radius: 999px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  letter-spacing: 0.02em;
+  opacity: 0.95;
   animation: st-announce 3s ease forwards;
-}
-
-.dark-mode .st-announce-pill {
-  color: #0f1419;
 }
 
 @keyframes st-announce {

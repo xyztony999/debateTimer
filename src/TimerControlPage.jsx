@@ -303,7 +303,7 @@ export default function TimerControlPage() {
         >
             <AppBar position="sticky" elevation={2}>
                 <Toolbar sx={{ gap: 1, position: 'relative' }}>
-                    <Typography variant="h6" component="h1" sx={{ fontWeight: 700 }}>
+                    <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 'auto' }}>
                         🎯 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('timer.title')}</Box>
                     </Typography>
 

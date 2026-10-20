@@ -21,7 +21,12 @@ function sendError(res, error, fallback) {
     if (status >= 500) {
         console.error(fallback, error);
     }
-    res.status(status).json({ success: false, message: error.message || fallback });
+    // Machine-readable cause for clients that arbitrate on it (D29 §18).
+    const body = { success: false, message: error.message || fallback };
+    if (error.code) {
+        body.code = error.code;
+    }
+    res.status(status).json(body);
 }
 
 export function createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }) {

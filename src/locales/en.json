@@ -38,6 +38,7 @@
             "weak": "Weak signal",
             "ended": "Remote control ended",
             "reconnected": "Remote control reconnected",
+            "takenByOther": "Another device has control; this device stopped reporting",
             "enableShareFirst": "Enable sharing in settings first",
             "copyUrl": "Copy display link",
             "copied": "Link copied",

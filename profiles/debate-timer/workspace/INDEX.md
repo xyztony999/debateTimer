@@ -81,6 +81,12 @@ modules:
       requirement: { status: complete, note: "D0 用户确认：全线一色+已过褪灰 / 主题深蓝 / 车标+下一站条+胶囊（不做站名交替）" }
       design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX" }
       code: { status: complete, note: "--st-route 单色贯穿、已过灰环褪灰、未来珠子、当前实心盘+TrainRounded 车标（st-breathe）、.st-next 下一站/终点站条、换乘胶囊 999px；103 tests/lint 0/build ✓；断言+视觉双轨 D11-D16 全过；新坑入档：IAB 过渡冻结需禁 transition 断言（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v3.md）" }
+  - name: session-arbitration
+    title: "R12 修复：会话主权仲裁（终结跨端 400 循环）"
+    stages:
+      requirement: { status: complete, note: "D0（2026-10-20 用户确认单设备+选定服务端仲裁）：重开会话顶掉同 token 旧席，输家 PUT 打进赢家会话报 seq-400，R11 不认此分支→无限循环" }
+      design: { status: complete, note: "C-02 PageSpec §18 v2.6（D29-D31）；上报带 sessionId 比对 409 让位+双击守卫；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "report() 先比对 body.sessionId（不符→409 code:session_taken，无 id→旧行为，sendError 透传 code）；sessionRef 四处构建点（start/recover/takeover/reclaim）全带 sessionId；409→让位终态（不恢复不存记录+i18n takenByOther 三语）；startingRef 双击守卫；112 tests(+3)/lint 0/build ✓；战争→和平实证：A 开会话→curl 顶位→A 心跳 409 让位（芯片消失不自愈不复活），修复前幽灵阶段（reclaim 漏带 id 被接受为无主权上报）已补齐；Gate 2 PASS（05-reports/2026-10-20-gate2-session-arbitration.md）" }
   - name: session-self-heal
     title: "R11 修复：主机会话自愈（网络切换不再中断远程控制）"
     stages:

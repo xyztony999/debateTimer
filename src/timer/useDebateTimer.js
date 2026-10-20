@@ -75,6 +75,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
 
     const sessionRef = useRef(null); // { shareToken, displayUrl, failures }
     const seqRef = useRef(0);
+    // D23 (PageSpec §16): session generation guard — a changed sessionId
+    // means the server restarted the seq space, so the dedup must reset.
+    const sessionIdRef = useRef(null);
     const followingRef = useRef(false);
     const lastStateAtRef = useRef(0);
     const bannerTimerRef = useRef(null);
@@ -308,6 +311,17 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // Session sync (controller reports, display adopts).
     // ------------------------------------------------------------------
     const adoptFromSnapshot = useCallback((snapshot) => {
+        // D23 (PageSpec §16): detect a new session generation before the seq
+        // dedup — without this, every post-restart snapshot reads as stale
+        // and the display stays frozen on the previous session's stage.
+        // Direct-link frames carry no sessionId and pass through untouched.
+        const sessionId = snapshot?.sessionId;
+        if (sessionId && sessionIdRef.current && sessionId !== sessionIdRef.current) {
+            seqRef.current = 0;
+        }
+        if (sessionId) {
+            sessionIdRef.current = sessionId;
+        }
         // D21 (PageSpec §15): relayed snapshots carry serverTime — advance
         // running clocks by the time spent in flight. Direct-link frames
         // (no serverTime) and the host itself pass through unchanged.
@@ -828,6 +842,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                 onSignal: (frame) => signalListenerRef.current?.(frame),
                 onSession: (event) => {
                     if (event.type === 'started') {
+                        seqRef.current = 0; // D23: new generation, fresh dedup
                         setFollowing(true);
                         setDisplayBanner('following');
                         return;

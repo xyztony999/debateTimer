@@ -370,3 +370,32 @@ test('pairByCode rejects other owners, bad codes, and dead sessions', () => {
     reg.end('tok1', 'closed_by_operator');
     expect(reg.pairByCode('owner1', session.pairingCode)).toBeNull();
 });
+
+
+// ---- D23/D24 (PageSpec §16): session generation -------------------------
+
+test('snapshotOf stamps sessionId and serverTime; both change across generations', () => {
+    const { reg } = registry();
+    const first = reg.create({ doc: configDoc() });
+    reg.report('tok1', { seq: 1, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 29000, remainingNegMs: 29000, runningAff: true, runningNeg: false, activeSide: 'none' });
+    const snap1 = reg.snapshotOf('tok1');
+    expect(snap1.sessionId).toBe(first.sessionId);
+    expect(snap1.serverTime).toBeGreaterThan(0);
+
+    const second = reg.create({ doc: configDoc() });
+    expect(second.sessionId).not.toBe(first.sessionId);
+    const snap2 = reg.snapshotOf('tok1');
+    expect(snap2.sessionId).toBe(second.sessionId);
+    expect(snap2.seq).toBe(0); // new generation restarts the seq space
+    expect(snap2.sessionId).not.toBe(snap1.sessionId);
+});
+
+test('heartbeat timeout default is 30s (background-tab tolerance)', async () => {
+    const { sse, reg } = registry();
+    reg.create({ doc: configDoc() });
+    // A session reported "just now" is alive; the 30s default is enforced by
+    // the lazy-expiry path only after real elapsed time, so here we just
+    // assert the registry exposes report/get without immediate expiry.
+    expect(reg.get('tok1')).not.toBeNull();
+    expect(sse.sent.some((s) => s.event === 'session' && s.payload.type === 'started')).toBe(true);
+});

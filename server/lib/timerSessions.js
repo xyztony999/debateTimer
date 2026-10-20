@@ -30,7 +30,13 @@ function toSnapshot(session) {
     // display/remotes can compensate the in-flight leg. Replays (SSE
     // catch-up, GET /state) get a fresh stamp per delivery — a receive-time
     // stamp would go stale and over-shift late adopters.
-    return { ...session.lastSnapshot, serverTime: Date.now() };
+    // D23 (PageSpec §16): carry the session identity so consumers can detect
+    // a new generation (superseded/restarted) and reset their seq dedup.
+    return {
+        ...session.lastSnapshot,
+        serverTime: Date.now(),
+        sessionId: session.sessionId,
+    };
 }
 
 function initialStageId(doc) {
@@ -66,7 +72,7 @@ function buildInitialSnapshot(doc) {
  * In-memory control-session registry keyed by share token. One active session
  * per token; sessions die with the process. All timestamps are epoch ms.
  */
-export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeoutMs = 10000 }) {
+export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeoutMs = 30000 }) {
     /** @type {Map<string, object>} */
     const sessions = new Map();
 

@@ -81,6 +81,18 @@ modules:
       requirement: { status: complete, note: "D0 用户确认：全线一色+已过褪灰 / 主题深蓝 / 车标+下一站条+胶囊（不做站名交替）" }
       design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX" }
       code: { status: complete, note: "--st-route 单色贯穿、已过灰环褪灰、未来珠子、当前实心盘+TrainRounded 车标（st-breathe）、.st-next 下一站/终点站条、换乘胶囊 999px；103 tests/lint 0/build ✓；断言+视觉双轨 D11-D16 全过；新坑入档：IAB 过渡冻结需禁 transition 断言（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v3.md）" }
+  - name: clock-truth-layer
+    title: "R14 修复：时钟真值层（引擎漏秒根修+Worker 心拍+锚点渲染——R13 打回重做）"
+    stages:
+      requirement: { status: complete, note: "D0（2026-10-20 用户打回 R13 选 A）：实测主机每秒慢 ~250ms=引擎逐拍 floor 漏秒，时钟源不准" }
+      design: { status: complete, note: "C-02 PageSpec §20 v2.8（D36-D39）；引擎余数+Worker 心拍+锚点真值渲染+观察者对账；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "tickRemainderMs 零漏秒（+3 单测）；tickWorker 250ms（回退 setInterval）；锚点层（dispatch 包装置锚+快照真值 ms+liveSides 渲染+state/ref 双轨）；观察者（引擎翻转补锚+1.5s 对账）；死线漂移 +1024ms/4s→+51~99ms/8s、双端数字 12/12 一致；118 tests/lint 0/build ✓；Gate 2 PASS（05-reports/2026-10-20-gate2-clock-truth-layer.md）" }
+  - name: clock-alignment
+    title: "R13 修复：端到端时钟对齐（NTP-lite——上行校正+双端钟差+平滑采纳）"
+    stages:
+      requirement: { status: complete, note: "D0（2026-10-20 用户要求秒级严格对齐）：残余=上行在途+设备钟偏移（可达秒级）+每秒硬覆盖回拉" }
+      design: { status: complete, note: "C-02 PageSpec §19 v2.7（D32-D35）；报告响应报时/上行前移/双端 EMA 钟差/平滑采纳；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "响应报时+report 上行前移（clamp 2s）；主机 offset EMA（RTT/2 采样）+快照 captureServerAt；大屏 skew 稳健 EMA 入 compensateInFlight；平滑采纳（毫秒线+按模式选侧+跳过记 seq）；**深挖：adoptSnapshot floor→round——R9 起任何 lag>0 都把大屏压小 1 秒（持续 -1 漂移实证），round 后采样 10 轮 8 一致 2 翻转边界瞬时±1 无漂移**；负 skew 公式修正（原钳 0 是数学错误）；115 tests(+3)/lint 0/build ✓；Gate 2 PASS（05-reports/2026-10-20-gate2-clock-alignment.md）" }
   - name: session-arbitration
     title: "R12 修复：会话主权仲裁（终结跨端 400 循环）"
     stages:

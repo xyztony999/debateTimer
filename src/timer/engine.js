@@ -46,6 +46,7 @@ export function initialState() {
         },
         advance: null, // auto-advance countdown seconds; null = not pending
         freeAutoSwitch: false, // free-debate auto handover armed
+        tickRemainderMs: 0, // D36: sub-second carry so floor() never leaks time
         events: [],
     };
 }
@@ -162,9 +163,18 @@ function singleBeat(state, events) {
  * MAX_CATCHUP_BEATS to prevent runaway fast-forwards).
  */
 function clockTick(state, elapsedMs = 1000) {
-    const beats = Math.max(0, Math.min(MAX_CATCHUP_BEATS, Math.floor(elapsedMs / 1000)));
+    if (!hasClockActivity(state)) {
+        return state; // nothing was ticking — time does not accumulate
+    }
+    // D36: carry the sub-second remainder across beats. Flooring the elapsed
+    // ms per tick used to silently drop 0-300ms on every beat (interval
+    // jitter), which compounded into a real clock drift of hundreds of ms per
+    // minute — the host itself was the drifting source the displays mirrored.
+    const total = (state.tickRemainderMs || 0) + Math.max(0, elapsedMs);
+    const beats = Math.min(MAX_CATCHUP_BEATS, Math.floor(total / 1000));
+    const remainder = total - beats * 1000;
     if (beats === 0) {
-        return state;
+        return { ...state, tickRemainderMs: remainder };
     }
     const events = [];
     let sides = state.sides;
@@ -172,9 +182,9 @@ function clockTick(state, elapsedMs = 1000) {
         sides = singleBeat({ ...state, sides }, events);
     }
     if (sides === state.sides && events.length === 0) {
-        return state; // nothing was ticking — identity preserved for no-op checks
+        return { ...state, tickRemainderMs: remainder };
     }
-    return withEvents({ ...state, sides }, events);
+    return withEvents({ ...state, sides, tickRemainderMs: remainder }, events);
 }
 
 /** Free-debate handover: stopping `side` explicitly yields the floor. */

@@ -21,12 +21,15 @@ const MAX_IN_FLIGHT_MS = 3000;
  * and pass through untouched. Must run BEFORE adoptSnapshot's second
  * floor — it works on the millisecond wire fields.
  */
-export function compensateInFlight(snapshot, now = Date.now()) {
+export function compensateInFlight(snapshot, now = Date.now(), skewMs = 0) {
     const sentAt = Number(snapshot?.serverTime);
     if (!Number.isFinite(sentAt)) {
         return snapshot;
     }
-    const lagMs = Math.min(Math.max(now - sentAt, 0), MAX_IN_FLIGHT_MS);
+    // D34: skewMs is the consumer's estimated (local − server) clock offset
+    // (EMA of frame arrival samples) — subtracting it makes `now` comparable
+    // with the server clock the stamp lives in.
+    const lagMs = Math.min(Math.max(now - sentAt - skewMs, 0), MAX_IN_FLIGHT_MS);
     if (lagMs <= 0) {
         return snapshot;
     }
@@ -48,7 +51,7 @@ function makeSide(remaining, running, phase, graceLeft) {
  * Controller side: engine state → wire snapshot. In single mode the single
  * clock is mirrored onto both wire sides (server enforces the mirror).
  */
-export function buildSnapshot(state, seq) {
+export function buildSnapshot(state, seq, liveMs = null) {
     const single = state.stageMode === 'single';
     const aff = single ? state.sides.single : state.sides.aff;
     const neg = single ? state.sides.single : state.sides.neg;
@@ -58,8 +61,11 @@ export function buildSnapshot(state, seq) {
         seq,
         stageId: state.stageId,
         stageMode: state.stageMode,
-        remainingAffMs: aff.remaining * 1000,
-        remainingNegMs: (single ? aff.remaining : neg.remaining) * 1000,
+        // D38 (PageSpec §20): prefer the wall-clock anchor extrapolation —
+        // the engine int is a whole-second quantization that loses the
+        // sub-second phase the display needs to flip in lockstep.
+        remainingAffMs: Math.max(0, Math.round(liveMs?.affMs ?? aff.remaining * 1000)),
+        remainingNegMs: Math.max(0, Math.round(liveMs?.negMs ?? (single ? aff.remaining : neg.remaining) * 1000)),
         runningAff: aff.running,
         runningNeg: single ? false : neg.running,
         activeSide: state.stageMode === 'free'
@@ -81,14 +87,20 @@ export function adoptSnapshot(snapshot) {
     if (!snapshot || !snapshot.stageId) {
         return null;
     }
-    const secondsAff = Math.max(0, Math.floor((snapshot.remainingAffMs || 0) / 1000));
-    const secondsNeg = Math.max(0, Math.floor((snapshot.remainingNegMs || 0) / 1000));
+    // D35 (PageSpec §19): ROUND, not floor. The wire value is quantized to
+    // whole seconds at the host; in-flight compensation subtracts the real
+    // lag before this conversion, so flooring would push the adopted second
+    // below the host's current second whenever lag > 0 (a systematic -1s).
+    // Rounding keeps the digits identical for total flight < 500ms.
+    const roundS = (ms) => Math.max(0, Math.round(ms / 1000));
+    const secondsAff = roundS(snapshot.remainingAffMs || 0);
+    const secondsNeg = roundS(snapshot.remainingNegMs || 0);
     const single = snapshot.stageMode === 'single';
     const affPhase = snapshot.phaseAff || (secondsAff <= 0 ? PHASE_LOCKED : PHASE_RUNNING);
     const negPhase = snapshot.phaseNeg
         || (single ? affPhase : (secondsNeg <= 0 ? PHASE_LOCKED : PHASE_RUNNING));
-    const graceSecAff = Math.max(0, Math.floor((snapshot.graceAffMs || 0) / 1000));
-    const graceSecNeg = Math.max(0, Math.floor((snapshot.graceNegMs || 0) / 1000));
+    const graceSecAff = roundS(snapshot.graceAffMs || 0);
+    const graceSecNeg = roundS(snapshot.graceNegMs || 0);
 
     return {
         seq: Number(snapshot.seq) || 0,

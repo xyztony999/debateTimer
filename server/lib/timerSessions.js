@@ -177,6 +177,34 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
             throw error;
         }
         const snapshot = validateSnapshot(body, session);
+        // D32 (PageSpec §19): the host captured these values at captureServerAt
+        // (its estimate of the server clock at capture). Advance running
+        // clocks by the uplink leg so the stored values line up with the
+        // receive time — otherwise every consumer is systematically stale by
+        // the host→server latency. Clamped: a bogus stamp shifts by ≤2s.
+        const captureAt = Number(body?.captureServerAt);
+        if (Number.isFinite(captureAt) && captureAt > 0) {
+            const uplinkMs = Math.min(Math.max(Date.now() - captureAt, 0), 2000);
+            if (uplinkMs > 0) {
+                const shift = (ms) => Math.max(0, ms - uplinkMs);
+                if (snapshot.runningAff) {
+                    snapshot.remainingAffMs = shift(snapshot.remainingAffMs);
+                }
+                if (snapshot.runningNeg) {
+                    snapshot.remainingNegMs = shift(snapshot.remainingNegMs);
+                }
+                if (snapshot.phaseAff === 'grace') {
+                    snapshot.graceAffMs = shift(snapshot.graceAffMs);
+                }
+                if (snapshot.phaseNeg === 'grace') {
+                    snapshot.graceNegMs = shift(snapshot.graceNegMs);
+                }
+                if (snapshot.stageMode === 'single') {
+                    snapshot.remainingNegMs = snapshot.remainingAffMs;
+                    snapshot.graceNegMs = snapshot.graceAffMs;
+                }
+            }
+        }
         session.lastSnapshot = snapshot;
         session.lastSeq = snapshot.seq;
         session.lastSeenAt = Date.now();

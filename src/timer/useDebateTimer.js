@@ -56,7 +56,8 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         signal: (frame) => hostSignalListenerRef.current?.(frame),
     }), []);
     const { config, status } = useDebateConfig(shareToken, isDisplay ? null : configNamedEvents);
-    const [state, dispatch] = useReducer(reducer, undefined, initialState);
+    const [state, rawDispatch] = useReducer(reducer, undefined, initialState);
+
 
     // --- Control session (operator) / follow state (display) ---
     const [sessionState, setSessionState] = useState('idle'); // idle | starting | active | weak
@@ -85,6 +86,10 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     const recoveringRef = useRef(false);
     const startingRef = useRef(false); // D31: sync double-click guard for start
     const recoveryFailuresRef = useRef(0);
+    // D33: host clock offset vs the API server (EMA over report RTTs).
+    const hostClockOffsetRef = useRef(null);
+    // D34: consumer clock offset vs the API server (EMA over SSE frames).
+    const consumerClockSkewRef = useRef(null);
     const lastRecoveryAtRef = useRef(0);
     const recoverSessionRef = useRef(null);
     const reportSnapshotRef = useRef(null);
@@ -109,6 +114,83 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // Latest-state mirror for event handlers, intervals, and SSE callbacks
     // that must not re-register on every tick.
     const stateRef = useRef(null);
+    // ------------------------------------------------------------------
+    // D38 (PageSpec §20): wall-clock truth layer. The engine tracks whole
+    // seconds (its events/locks stay authoritative); these anchors carry the
+    // exact millisecond clock derived from wall time, so snapshots and every
+    // rendered digit share one phase on host and displays alike.
+    // anchor: { running, endAt, frozenMs }
+    // ------------------------------------------------------------------
+    // anchors live in state (render reads) mirrored into a ref (event-time
+    // writes) — react-compiler forbids reading refs during render.
+    const [anchors, setAnchors] = useState({});
+    const anchorsRef = useRef(anchors);
+    const writeAnchor = (side, anchor) => {
+        anchorsRef.current = { ...anchorsRef.current, [side]: anchor };
+        setAnchors(anchorsRef.current);
+    };
+    const anchorMsOf = (book, side) => {
+        const a = book[side];
+        if (!a) {
+            return null;
+        }
+        return a.running ? Math.max(0, a.endAt - Date.now()) : a.frozenMs;
+    };
+    const setRunningAnchor = (side, ms) => {
+        writeAnchor(side, { running: true, endAt: Date.now() + Math.max(0, ms), frozenMs: 0 });
+    };
+    const setFrozenAnchor = (side, ms) => {
+        writeAnchor(side, { running: false, endAt: 0, frozenMs: Math.max(0, ms) });
+    };
+    const freezeAnchor = (side) => {
+        const a = anchorsRef.current[side];
+        if (a?.running) {
+            setFrozenAnchor(side, a.endAt - Date.now());
+        }
+    };
+
+    const dispatch = useCallback((action) => {
+        // Maintain precise anchors at the exact moments of user intent,
+        // before the engine applies its whole-second view.
+        const eng = stateRef.current?.state;
+        if (eng) {
+            const side = action.side;
+            const anchorNow = () => {
+                const ms = anchorMsOf(anchorsRef.current, side) ?? (eng.sides[side]?.remaining ?? 0) * 1000;
+                setRunningAnchor(side, ms);
+            };
+            switch (action.type) {
+                case 'START':
+                    anchorNow();
+                    break;
+                case 'STOP':
+                    freezeAnchor(side);
+                    break;
+                case 'TOGGLE':
+                    if (eng.sides[side]?.running) {
+                        freezeAnchor(side);
+                    } else {
+                        anchorNow();
+                    }
+                    break;
+                case 'RESET':
+                    setFrozenAnchor(side, eng.durationSec * 1000);
+                    break;
+                case 'APPLY_STAGE':
+                case 'PREP_ZERO':
+                    ['single', 'aff', 'neg'].forEach((k) => setFrozenAnchor(
+                        k,
+                        action.type === 'PREP_ZERO' && k === 'single' ? 0 : eng.durationSec * 1000,
+                    ));
+                    break;
+                default:
+                    break;
+            }
+        }
+        rawDispatch(action);
+    }, []);
+
+
     const orderedStages = useMemo(() => {
         const stages = config.stages;
         if (config.stageOrder.length > 0) {
@@ -206,6 +288,40 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // throttled/backgrounded tab catches up to truth instead of drifting;
     // coming back visible re-anchors immediately.
     // ------------------------------------------------------------------
+    // D38/D39 watcher: engine-driven flips (free handover, zero-lock) keep
+    // anchors in step without a user dispatch, and any anchor↔engine
+    // divergence beyond 1.5s re-anchors to the engine (structure authority).
+    useEffect(() => {
+        ['single', 'aff', 'neg'].forEach((side) => {
+            const eng = state.sides[side];
+            const a = anchorsRef.current[side];
+            if (!a) {
+                if (eng.running) {
+                    setRunningAnchor(side, eng.remaining * 1000);
+                } else {
+                    setFrozenAnchor(side, eng.remaining * 1000);
+                }
+                return;
+            }
+            if (eng.running && !a.running) {
+                setRunningAnchor(side, eng.remaining * 1000);
+                return;
+            }
+            if (!eng.running && a.running) {
+                freezeAnchor(side); // engine-driven stop or zero-lock
+                return;
+            }
+            const ms = a.running ? a.endAt - Date.now() : a.frozenMs;
+            if (Math.abs(ms - eng.remaining * 1000) > 1500) {
+                if (eng.running) {
+                    setRunningAnchor(side, eng.remaining * 1000);
+                } else {
+                    setFrozenAnchor(side, eng.remaining * 1000);
+                }
+            }
+        });
+    }, [state]);
+
     const activity = hasClockActivity(state);
     useEffect(() => {
         if (!activity) {
@@ -213,13 +329,32 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             return undefined;
         }
         lastTickAtRef.current = Date.now();
-        const id = window.setInterval(() => {
+        const onTick = () => {
             const now = Date.now();
             const elapsed = now - (lastTickAtRef.current ?? now);
             lastTickAtRef.current = now;
             dispatch({ type: 'TICK', elapsedMs: Math.max(0, elapsed) });
-        }, 1000);
-        return () => window.clearInterval(id);
+        };
+        // D37 (PageSpec §20): heartbeat lives in a worker so a backgrounded
+        // tab keeps real time (window timers throttle to ~1/min); 250ms
+        // cadence + the engine's remainder carry make beats exact.
+        let worker = null;
+        let fallback = null;
+        try {
+            worker = new Worker(new URL('./tickWorker.js', import.meta.url), { type: 'module' });
+            worker.onmessage = onTick;
+            worker.postMessage('start');
+        } catch {
+            fallback = window.setInterval(onTick, 250);
+        }
+        return () => {
+            if (worker) {
+                worker.terminate();
+            }
+            if (fallback) {
+                window.clearInterval(fallback);
+            }
+        };
     }, [activity]);
 
     useEffect(() => {
@@ -332,10 +467,76 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (sessionId) {
             sessionIdRef.current = sessionId;
         }
-        // D21 (PageSpec §15): relayed snapshots carry serverTime — advance
-        // running clocks by the time spent in flight. Direct-link frames
-        // (no serverTime) and the host itself pass through unchanged.
-        const adopted = adoptSnapshot(compensateInFlight(snapshot));
+        // D34 (PageSpec §19): sample (local − server) clock skew off every
+        // stamped frame; robust EMA — samples far from the running estimate
+        // (network spikes) are discarded so they cannot drag it.
+        const sentAt = Number(snapshot?.serverTime);
+        if (Number.isFinite(sentAt)) {
+            const sample = Date.now() - sentAt;
+            const prev = consumerClockSkewRef.current;
+            consumerClockSkewRef.current = !Number.isFinite(prev) || Math.abs(sample - prev) <= 1500
+                ? (Number.isFinite(prev) ? prev * 0.9 + sample * 0.1 : sample)
+                : prev;
+        }
+        // D35 (PageSpec §19): smooth adopt — compare on the compensated
+        // millisecond wire (adoptSnapshot floors to seconds, which would make
+        // any tolerance meaningless): when structure is unchanged and every
+        // active side is within 200ms, keep the local tick; re-adopting every
+        // second would visibly pull the clock back by whatever the residual
+        // compensation error is. seq still advances on skip — a skipped frame
+        // must not resurrect the dedup window for stale dual-source frames.
+        const { state: cur } = stateRef.current ?? {};
+        const comp = compensateInFlight(snapshot, Date.now(), consumerClockSkewRef.current);
+        // D38: anchor the truth layer to the compensated wire milliseconds —
+        // the sub-second phase the host sent survives into local rendering.
+        if (comp && comp.stageId) {
+            const single = comp.stageMode === 'single';
+            const affMs = Number(comp.remainingAffMs);
+            const negMs = Number(comp.remainingNegMs);
+            if (Number.isFinite(affMs)) {
+                if (comp.runningAff) {
+                    setRunningAnchor('aff', affMs);
+                    if (single) {
+                        setRunningAnchor('single', affMs);
+                    }
+                } else {
+                    setFrozenAnchor('aff', affMs);
+                    if (single) {
+                        setFrozenAnchor('single', affMs);
+                    }
+                }
+            }
+            if (!single && Number.isFinite(negMs)) {
+                if (comp.runningNeg) {
+                    setRunningAnchor('neg', negMs);
+                } else {
+                    setFrozenAnchor('neg', negMs);
+                }
+            }
+        }
+        const candidate = adoptSnapshot(comp);
+        if (cur && candidate && cur.stageId === candidate.stageId
+            && cur.stageMode === candidate.stageMode) {
+            const wireClose = (wireRunning, wirePhase, wireMs, local) => {
+                if (wireRunning !== local.running || wirePhase !== local.phase) {
+                    return false;
+                }
+                if (wirePhase === 'grace' && Math.abs(wireMs - (local.graceLeft ?? 0) * 1000) >= 1000) {
+                    return false; // grace counts whole seconds — allow 1s slack
+                }
+                return Math.abs(wireMs - local.remaining * 1000) < 200;
+            };
+            const single = cur.stageMode === 'single';
+            const closeEnough = single
+                ? wireClose(comp.runningAff, comp.phaseAff, comp.remainingAffMs, cur.sides.aff)
+                : wireClose(comp.runningAff, comp.phaseAff, comp.remainingAffMs, cur.sides.aff)
+                    && wireClose(comp.runningNeg, comp.phaseNeg, comp.remainingNegMs, cur.sides.neg);
+            if (closeEnough && candidate.seq > 0) {
+                seqRef.current = Math.max(seqRef.current, candidate.seq);
+                return; // shows the same thing — keep ticking locally
+            }
+        }
+        const adopted = candidate;
         if (!adopted) {
             return;
         }
@@ -364,12 +565,29 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             return;
         }
         const { state: s, config: cfg } = stateRef.current;
-        const snapshot = buildSnapshot(s, (seqRef.current += 1));
+        // D38: wire the anchor truth (ms + sub-second phase), engine ints as
+        // fallback for sides without an anchor yet.
+        const singleMode = s.stageMode === 'single';
+        const liveAff = anchorMsOf(anchorsRef.current, singleMode ? 'single' : 'aff');
+        const liveNeg = anchorMsOf(anchorsRef.current, singleMode ? 'single' : 'neg');
+        const liveMs = (liveAff != null || liveNeg != null)
+            ? {
+                affMs: liveAff ?? s.sides[singleMode ? 'single' : 'aff'].remaining * 1000,
+                negMs: liveNeg ?? s.sides[singleMode ? 'single' : 'neg'].remaining * 1000,
+            }
+            : null;
+        const snapshot = buildSnapshot(s, (seqRef.current += 1), liveMs);
         // D29 (PageSpec §18): claim sovereignty — the server arbitrates this
         // id against the live session on the token and 409s us off if
         // another console recreated the session underneath us.
         if (session.sessionId) {
             snapshot.sessionId = session.sessionId;
+        }
+        const sentAtLocal = Date.now();
+        // D33 (PageSpec §19): tell the server when (in ITS clock) these
+        // values were captured, so it can burn off the uplink leg.
+        if (Number.isFinite(hostClockOffsetRef.current)) {
+            snapshot.captureServerAt = sentAtLocal + hostClockOffsetRef.current;
         }
         const result = await TimerSessionService.reportSnapshot(cfg.name, snapshot);
         // Direct-link remote gets the same snapshot without the server hop.
@@ -380,6 +598,19 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         if (result.success) {
             session.failures = 0;
             setSessionState('active');
+            // D33: NTP-lite sample — offset = serverTime − (t0 + RTT/2);
+            // EMA-smoothed, samples on laggy round trips discarded.
+            const serverTime = Number(result.data?.serverTime);
+            if (Number.isFinite(serverTime)) {
+                const rtt = Date.now() - sentAtLocal;
+                if (rtt > 0 && rtt <= 2000) {
+                    const sample = serverTime - (sentAtLocal + rtt / 2);
+                    const prev = hostClockOffsetRef.current;
+                    hostClockOffsetRef.current = Number.isFinite(prev)
+                        ? prev * 0.9 + sample * 0.1
+                        : sample;
+                }
+            }
             return;
         }
         session.failures = (session.failures || 0) + 1;
@@ -1028,6 +1259,19 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         applyStage,
     }), [goToAdjacentStage, applyStage]);
 
+    // D38: rendering sides — remaining comes from the truth anchors so host
+    // and displays flip in the same instant; everything else stays engine.
+    const liveSides = useMemo(() => {
+        const map = {};
+        ['single', 'aff', 'neg'].forEach((side) => {
+            const ms = anchorMsOf(anchors, side);
+            map[side] = ms == null
+                ? state.sides[side]
+                : { ...state.sides[side], remaining: Math.floor(ms / 1000) };
+        });
+        return map;
+    }, [state, anchors]);
+
     const derived = useMemo(() => ({
         mode: state.stageMode,
         isDual: state.stageMode === 'double' || state.stageMode === 'free',
@@ -1047,6 +1291,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         config,
         status,
         state,
+        liveSides,
         derived,
         orderedStages,
         following,

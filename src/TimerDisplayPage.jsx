@@ -30,6 +30,7 @@ export default function TimerDisplayPage() {
         following,
         displayBanner,
         actions,
+    liveSides,
     } = useDebateTimer({ shareToken: token });
 
     useTimerKeyboardShortcuts({
@@ -154,7 +155,7 @@ export default function TimerDisplayPage() {
                         <React.Fragment>
                             <TimerBox
                                 variant="display"
-                                sideState={state.sides.aff}
+                                sideState={liveSides.aff}
                                 blinking={derived.blinking.aff}
                                 active={derived.isFree && derived.activeSide === 'aff'}
                                 title={affLabel}
@@ -171,7 +172,7 @@ export default function TimerDisplayPage() {
                             />
                             <TimerBox
                                 variant="display"
-                                sideState={state.sides.neg}
+                                sideState={liveSides.neg}
                                 blinking={derived.blinking.neg}
                                 active={derived.isFree && derived.activeSide === 'neg'}
                                 title={negLabel}
@@ -190,7 +191,7 @@ export default function TimerDisplayPage() {
                     ) : (
                         <TimerBox
                             variant="display"
-                            sideState={state.sides.single}
+                            sideState={liveSides.single}
                             blinking={derived.blinking.single}
                             graceText={t('timer.graceHint')}
                             readonly={following}

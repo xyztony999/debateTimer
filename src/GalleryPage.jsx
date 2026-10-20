@@ -2,10 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert, Box, Button, Card, CardActionArea, CardContent, Chip, CircularProgress,
-    Container, Dialog, DialogActions, DialogContent, DialogTitle, Grid,
-    Stack, TextField, Typography,
+    Alert, AppBar, Box, Button, Card, CardActionArea, CardContent, Chip, CircularProgress,
+    Container, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton,
+    Stack, TextField, Toolbar, Typography,
 } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import GalleryService from './services/GalleryService';
 import { useAuth } from './context/AuthContext';
@@ -119,24 +122,32 @@ export default function GalleryPage() {
     }
 
     return (
-        <div className={darkMode ? 'gallery-page dark-mode' : 'gallery-page'}>
-            <div className="settings-header">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {user ? (
-                        <Button onClick={() => navigate('/')}>{t('timer.title')}</Button>
-                    ) : (
-                        <Button onClick={() => navigate('/login')}>{t('auth.login')}</Button>
-                    )}
+        <Box sx={{ minHeight: '100dvh' }}>
+            {/* 顶部与计时器控制台同款 AppBar（PageSpec S-04 v1.1 G1） */}
+            <AppBar position="sticky" elevation={2}>
+                <Toolbar sx={{ gap: 1 }}>
+                    <IconButton
+                        color="inherit"
+                        onClick={() => navigate(user ? '/' : '/login')}
+                        title={user ? t('settings.backToTimer') : t('auth.login')}
+                    >
+                        <ArrowBackIcon />
+                    </IconButton>
+                    <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 'auto' }}>
+                        🌐 {t('gallery.title')}
+                    </Typography>
                     <LanguageSwitcher variant="mui" size="small" />
-                    <Button onClick={toggleDarkMode} title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}>
-                        {darkMode ? '☀️' : '🌙'}
-                    </Button>
-                </Box>
-                <Typography variant="h5">{t('gallery.title')}</Typography>
-                <Box sx={{ width: 120 }} />
-            </div>
+                    <IconButton
+                        color="inherit"
+                        onClick={toggleDarkMode}
+                        title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}
+                    >
+                        {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+                    </IconButton>
+                </Toolbar>
+            </AppBar>
 
-            <Container maxWidth="md" sx={{ pb: 4 }}>
+            <Container maxWidth="md" sx={{ pb: 4, pt: 2.5 }}>
                 {state === 'error' ? (
                     <Stack spacing={2} sx={{ alignItems: 'center', py: 4 }}>
                         <Alert severity="error">{t('gallery.loadFailed')}</Alert>
@@ -147,16 +158,29 @@ export default function GalleryPage() {
                         {t('gallery.empty')}
                     </Alert>
                 ) : (
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid container spacing={2}>
                         {items.map((item) => (
                             <Grid key={item.id} size={{ xs: 12, sm: 6 }}>
-                                <Card variant="outlined">
-                                    <CardActionArea onClick={() => openDetail(item)}>
+                                <Card
+                                    variant="outlined"
+                                    sx={{
+                                        borderRadius: '16px',
+                                        transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
+                                        '&:hover': {
+                                            transform: 'translateY(-2px)',
+                                            boxShadow: (theme) => theme.palette.mode === 'dark'
+                                                ? '0 6px 18px rgba(0,0,0,0.45)'
+                                                : '0 6px 18px rgba(15,23,42,0.12)',
+                                            borderColor: 'primary.main',
+                                        },
+                                    }}
+                                >
+                                    <CardActionArea onClick={() => openDetail(item)} sx={{ borderRadius: 'inherit' }}>
                                         <CardContent>
                                             <Typography variant="h6" noWrap>{item.name}</Typography>
                                             <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
                                                 <Chip size="small" label={t('gallery.stageCount', { n: item.stageCount })} />
-                                                <Chip size="small" label={formatDuration(item.totalSeconds)} />
+                                                <Chip size="small" variant="outlined" label={formatDuration(item.totalSeconds)} />
                                             </Stack>
                                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                                                 {item.modeSummary} · {new Date(item.updatedAt).toLocaleDateString()}
@@ -168,7 +192,7 @@ export default function GalleryPage() {
                         ))}
                         {nextBefore ? (
                             <Grid size={{ xs: 12 }} sx={{ textAlign: 'center' }}>
-                                <Button onClick={() => load({ before: nextBefore })}>
+                                <Button variant="outlined" onClick={() => load({ before: nextBefore })}>
                                     {t('records.loadMore')}
                                 </Button>
                             </Grid>
@@ -241,6 +265,6 @@ export default function GalleryPage() {
                     </>
                 ) : null}
             </Dialog>
-        </div>
+        </Box>
     );
 }

@@ -78,6 +78,15 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // D23 (PageSpec §16): session generation guard — a changed sessionId
     // means the server restarted the seq space, so the dedup must reset.
     const sessionIdRef = useRef(null);
+    // D26 (PageSpec §17): session self-heal state — in-flight guard, backoff
+    // timestamp, consecutive-failure cap, and late-bound mutual refs
+    // (reportSnapshot ↔ recoverSession are mutually recursive and render-time
+    // ref writes are forbidden).
+    const recoveringRef = useRef(false);
+    const recoveryFailuresRef = useRef(0);
+    const lastRecoveryAtRef = useRef(0);
+    const recoverSessionRef = useRef(null);
+    const reportSnapshotRef = useRef(null);
     const followingRef = useRef(false);
     const lastStateAtRef = useRef(0);
     const bannerTimerRef = useRef(null);
@@ -371,13 +380,77 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             setSessionState('weak');
         }
         if ([400, 403, 404].includes(result.status)) {
-            // Session is gone (expired, superseded, or access denied).
+            // D26 (PageSpec §17): an expired session is recoverable — rebuild
+            // it transparently (same token) and keep reporting; displays and
+            // remotes re-follow via the R10 generation events. Access errors
+            // and other rejections stay terminal.
+            if (result.status === 400 && /no active session/i.test(String(result.message))) {
+                await recoverSessionRef.current?.(session);
+                return;
+            }
+            // Session is gone (superseded, or access denied).
             sessionRef.current = null;
             setSessionState('idle');
             setSessionNotice(t('timer.session.ended'));
             saveMatchRecord(true);
         }
     }, [t, saveMatchRecord]);
+
+    const recoverSession = useCallback(async (deadSession) => {
+        const now = Date.now();
+        if (recoveringRef.current || now - lastRecoveryAtRef.current < 5000) {
+            return;
+        }
+        recoveringRef.current = true;
+        lastRecoveryAtRef.current = now;
+        try {
+            if (recoveryFailuresRef.current >= 3) {
+                throw new Error('recovery exhausted');
+            }
+            const cfg = stateRef.current?.config;
+            if (!cfg?.shareEnabled) {
+                throw new Error('share disabled');
+            }
+            const result = await TimerSessionService.startSession(cfg.name);
+            if (!result.success) {
+                throw new Error(result.message || 'start failed');
+            }
+            // Stopped or replaced while recovering — nothing to heal.
+            if (sessionRef.current !== deadSession) {
+                return;
+            }
+            sessionRef.current = {
+                shareToken: result.data.shareToken,
+                displayUrl: result.data.displayUrl,
+                failures: 0,
+            };
+            selfHostMemory.write({
+                configName: cfg.name,
+                shareToken: result.data.shareToken,
+                pairingCode: result.data.pairingCode ?? null,
+            });
+            setPairingCode(result.data.pairingCode ?? null);
+            seqRef.current = result.data.snapshot?.seq ?? 0;
+            setSessionState('active');
+            recoveryFailuresRef.current = 0;
+            setSessionNotice(t('timer.session.reconnected'));
+            reportSnapshotRef.current?.();
+        } catch {
+            recoveryFailuresRef.current += 1;
+            sessionRef.current = null;
+            setSessionState('idle');
+            setSessionNotice(t('timer.session.ended'));
+            saveMatchRecord(true);
+        } finally {
+            recoveringRef.current = false;
+        }
+    }, [t, saveMatchRecord]);
+
+    // Late-bound refs: reportSnapshot ↔ recoverSession are mutually recursive.
+    useEffect(() => {
+        reportSnapshotRef.current = reportSnapshot;
+        recoverSessionRef.current = recoverSession;
+    }, [reportSnapshot, recoverSession]);
 
     const handleStartSession = useCallback(async () => {
         if (sessionRef.current || sessionState === 'starting') {
@@ -414,6 +487,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         });
         setPairingCode(result.data.pairingCode ?? null);
         seqRef.current = result.data.snapshot?.seq ?? 0;
+        recoveryFailuresRef.current = 0; // D26: fresh session, fresh cap
         setSessionState('active');
         reportSnapshot();
     }, [user, config, sessionState, reportSnapshot, t]);
@@ -423,6 +497,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         sessionRef.current = null;
         setSessionState('idle');
         setPairingCode(null);
+        recoveryFailuresRef.current = 0; // D26: explicit stop resets the cap
         selfHostMemory.clear();
         if (wasActive) {
             const result = await TimerSessionService.stopSession(stateRef.current.config.name);

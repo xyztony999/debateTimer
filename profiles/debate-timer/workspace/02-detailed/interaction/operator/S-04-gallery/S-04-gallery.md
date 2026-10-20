@@ -2,7 +2,7 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
+| 版本 | v1.1 |
 | 日期 | 2026-10-11 |
 | 用户类型 | 操作员 / 匿名访客（浏览）；管理员（下架） |
 | 页面类型 | `config`（列表/详情） |
@@ -64,5 +64,28 @@ gallery.modeSummary 单双自由沿用 settings.*Timer。
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v1.0 | 2026-10-11 | 初稿 |
+| v1.1 | 2026-10-12 | 视觉对齐计时器控制台：AppBar 化 + 卡片现代化（见 §9） |
+
+## 9. v1.1 增量：视觉对齐计时器控制台（2026-10-12）
+
+**背景**：用户反馈——①广场样式未对齐重构后的计时器（仍为遗留 hero 横幅 + 自制按钮行）；②返回按钮等未做现代化排版。
+
+**设计决策**：
+
+| # | 决策 | 内容 |
+|---|------|------|
+| G1 | AppBar 化 | 顶部改为与 TimerControlPage 同款 MUI AppBar（sticky/primary 深蓝）：左 `←` IconButton 返回（登录→/，匿名→/login）+ "🌐 模板广场" h6 标题；右 LanguageSwitcher(onDark) + 主题切换 IconButton（LightMode/DarkMode 图标，替代 emoji） |
+| G2 | 卡片现代化 | hover 上浮 2px + 阴影加深 + 边框 primary 强调（对齐 tb-box/st-step 交互语言）；圆角 16px 对齐；chips 与 meta 排版不变 |
+| G3 | 遗留清理 | `.gallery-page`/`.settings-header` 不再用于广场（RecordsPage 仍用 settings-header，CSS 保留） |
+
+**不变项**：Action/API/i18n 零变更；详情 Dialog 结构保留；匿名浏览与登录复制流程不变。
+
+**验收标准**：
+
+- [ ] AppBar 视觉与计时器控制台一致（同色/同高/图标按钮风格）
+- [ ] 卡片 hover 有上浮+边框强调反馈；圆角与计时器卡片一致
+- [ ] 返回按钮为图标按钮且语义正确（登录态→计时器，匿名→登录）
+- [ ] 暗色/浅色两主题正常；触屏无回归
+- [ ] lint/test/build 全绿
 
 > FX 适配说明同前。

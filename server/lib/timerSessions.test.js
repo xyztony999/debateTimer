@@ -438,3 +438,41 @@ test('report without sessionId keeps legacy behavior (seq check only)', () => {
     reg.report('tok1', { seq: 1, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 29000, remainingNegMs: 29000, runningAff: false, runningNeg: false, activeSide: 'none' });
     expect(reg.snapshotOf('tok1').seq).toBe(1);
 });
+
+
+// ---- D32 (PageSpec §19): uplink correction ------------------------------
+
+test('report shifts running clocks by the uplink leg when captureServerAt is present', async () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+    const t0 = Date.now();
+    // captured "150ms ago" in server-clock terms, only aff running
+    const body = {
+        seq: 1,
+        stageId: 'sound_check',
+        stageMode: 'double',
+        remainingAffMs: 60000,
+        remainingNegMs: 90000,
+        runningAff: true,
+        runningNeg: false,
+        activeSide: 'aff',
+        captureServerAt: t0 - 150,
+    };
+    // server clock advances ~0-5ms during the call; shift ≈150ms
+    reg.report('tok1', body);
+    const snap = reg.snapshotOf('tok1');
+    expect(snap.remainingAffMs).toBeLessThanOrEqual(59850 + 5);
+    expect(snap.remainingAffMs).toBeGreaterThanOrEqual(59850);
+    expect(snap.remainingNegMs).toBe(90000); // paused side untouched
+});
+
+test('report clamps bogus captureServerAt and skips when absent', () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+    reg.report('tok1', { seq: 1, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 60000, remainingNegMs: 60000, runningAff: true, runningNeg: false, activeSide: 'none', captureServerAt: Date.now() - 99999 });
+    const clamped = reg.snapshotOf('tok1');
+    expect(clamped.remainingAffMs).toBe(58000); // max 2s shift
+    reg.report('tok1', { seq: 2, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 60000, remainingNegMs: 60000, runningAff: true, runningNeg: false, activeSide: 'none' });
+    const plain = reg.snapshotOf('tok1');
+    expect(plain.remainingAffMs).toBe(60000); // legacy: untouched
+});

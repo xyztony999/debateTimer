@@ -185,3 +185,17 @@ test('compensateInFlight passes snapshots without serverTime through untouched',
     const direct = wireSnapshot({ serverTime: undefined }); // direct-link frame
     expect(compensateInFlight(direct, 99999)).toBe(direct);
 });
+
+
+// ---- D34 (PageSpec §19): consumer clock-skew correction ----------------
+
+test('compensateInFlight subtracts the consumer clock skew from the lag', () => {
+    const snap = wireSnapshot({ affMs: 50000, runAff: true, serverTime: 1000 });
+    // display clock 800ms ahead of server: lag 1500 - 800 = 700ms
+    const out = compensateInFlight(snap, 2500, 800);
+    expect(out.remainingAffMs).toBe(49300);
+    // negative skew (display clock behind server) means MORE true lag:
+    // raw 6500ms clamps at the 3s ceiling
+    const behind = compensateInFlight(snap, 2500, -5000);
+    expect(behind.remainingAffMs).toBe(47000);
+});

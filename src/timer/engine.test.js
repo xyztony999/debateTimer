@@ -322,3 +322,38 @@ test('grace catches up across a long freeze and locks', () => {
     expect(after.sides.single.phase).toBe('locked');
     expect(events.sounds).toEqual(['timeUp', 'mustStop']);
 });
+
+
+// ---- D36: sub-second remainder carry (drift-free beats) ----------------
+
+test('clockTick carries sub-second remainders so jittered beats leak no time', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 120 });
+    state = reducer(state, { type: 'START', side: 'single' });
+    // 5 beats of 1250ms real elapsed = 6250ms -> exactly 6 seconds
+    for (let i = 0; i < 5; i += 1) {
+        state = reducer(state, { type: 'TICK', elapsedMs: 1250 });
+    }
+    expect(state.sides.single.remaining).toBe(114);
+    expect(state.tickRemainderMs).toBe(250); // 6250 - 6000
+});
+
+test('clockTick sub-second beats accumulate without decrementing', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 60 });
+    state = reducer(state, { type: 'START', side: 'single' });
+    state = reducer(state, { type: 'TICK', elapsedMs: 300 });
+    expect(state.sides.single.remaining).toBe(60);
+    expect(state.tickRemainderMs).toBe(300);
+    state = reducer(state, { type: 'TICK', elapsedMs: 300 });
+    state = reducer(state, { type: 'TICK', elapsedMs: 300 });
+    expect(state.sides.single.remaining).toBe(60); // 900ms < 1 beat
+    state = reducer(state, { type: 'TICK', elapsedMs: 300 });
+    expect(state.sides.single.remaining).toBe(59); // 1200ms crosses
+    expect(state.tickRemainderMs).toBe(200);
+});
+
+test('idle engine accumulates no remainder', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 60 });
+    state = reducer(state, { type: 'TICK', elapsedMs: 5000 });
+    expect(state.tickRemainderMs ?? 0).toBe(0);
+    expect(state.sides.single.remaining).toBe(60);
+});

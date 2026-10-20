@@ -288,7 +288,9 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth, t
             const session = timerSessions.report(existing.shareToken, req.body);
             res.json({
                 success: true,
-                data: { accepted: true, seq: session.lastSeq },
+                // D32 (PageSpec §19): server clock for the host's NTP-lite
+                // offset measurement (sample = serverTime − (t0 + RTT/2)).
+                data: { accepted: true, seq: session.lastSeq, serverTime: Date.now() },
             });
         } catch (error) {
             sendError(res, error, 'PUT /api/configurations/:name/session/state');

@@ -128,6 +128,7 @@ export default function TimerControlPage() {
         handleStopSession,
         handleCopyDisplayUrl,
         saveMatchRecord,
+    liveSides,
     } = useDebateTimer();
 
     // C-02-07: in remote mode buttons relay commands to the host instead of
@@ -286,8 +287,8 @@ export default function TimerControlPage() {
 
     // Remote layout: single stages show ONE centered clock (dual/free two).
     const remoteShowDual = derived.isDual;
-    const remoteAff = derived.isDual ? state.sides.aff : state.sides.single;
-    const remoteNeg = derived.isDual ? state.sides.neg : state.sides.single;
+    const remoteAff = derived.isDual ? liveSides.aff : liveSides.single;
+    const remoteNeg = derived.isDual ? liveSides.neg : liveSides.single;
     const remoteAffBlink = derived.isDual ? derived.blinking.aff : derived.blinking.single;
     const remoteAffLive = derived.isDual && derived.activeSide === 'aff';
 
@@ -727,7 +728,7 @@ export default function TimerControlPage() {
                         {derived.isDual ? (
                             <React.Fragment>
                                 <TimerBox
-                                    sideState={state.sides.aff}
+                                    sideState={liveSides.aff}
                                     blinking={derived.blinking.aff}
                                     active={derived.isFree && derived.activeSide === 'aff'}
                                     readonly={readOnly}
@@ -744,7 +745,7 @@ export default function TimerControlPage() {
                                     onReset={actions.resetAff}
                                 />
                                 <TimerBox
-                                    sideState={state.sides.neg}
+                                    sideState={liveSides.neg}
                                     blinking={derived.blinking.neg}
                                     active={derived.isFree && derived.activeSide === 'neg'}
                                     readonly={readOnly}
@@ -763,7 +764,7 @@ export default function TimerControlPage() {
                             </React.Fragment>
                         ) : (
                             <TimerBox
-                                sideState={state.sides.single}
+                                sideState={liveSides.single}
                                 blinking={derived.blinking.single}
                                 graceText={t('timer.graceHint')}
                                 hint={t('timer.hintSingle')}

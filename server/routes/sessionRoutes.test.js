@@ -213,7 +213,9 @@ test('session lifecycle: start, report, read, subscribe, end', async () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(snapshot),
     }).then((r) => r.json());
-    expect(accepted.data).toEqual({ accepted: true, seq: 1 });
+    expect(accepted.data.accepted).toBe(true);
+    expect(accepted.data.seq).toBe(1);
+    expect(typeof accepted.data.serverTime).toBe('number'); // D32 报时
 
     const replay = await fetch(`${base}/api/configurations/default/session/state`, {
         method: 'PUT',

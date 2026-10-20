@@ -1,0 +1,12 @@
+fix(session): 会话主权仲裁——上报带 sessionId 比对，409 让位终结跨端 400 循环（R12，D29-D31）
+
+- 根因：会话表按 shareToken 一键一席，重开会话顶掉旧席；输家的 PUT 打进
+  赢家会话报「seq must be greater than N」≠「No active session」，R11 自愈
+  分支不认 → 永不恢复永不放弃 → 心跳每秒 400 无限循环
+- D29：PUT session/state 带可选 sessionId；report() 先比对，不符 →
+  409 {code:'session_taken'}（sendError 透传 code）；无 id 保持旧行为
+- D30：客户端 409 让位终态——不恢复、不存比赛记录、提示「另一设备正在控制」；
+  sessionRef 四个构建点（start/recover/takeover/reclaim）统一携带 sessionId
+- D31：startingRef 双击守卫（双 create 互顶的源头之一）
+- 单测 +3；战争→和平实证：顶位后旧持有者一笔心跳内让位、不自愈不复活
+- 112 tests/lint 0/build ✓；Gate 2 PASS

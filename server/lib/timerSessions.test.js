@@ -399,3 +399,42 @@ test('heartbeat timeout default is 30s (background-tab tolerance)', async () => 
     expect(reg.get('tok1')).not.toBeNull();
     expect(sse.sent.some((s) => s.event === 'session' && s.payload.type === 'started')).toBe(true);
 });
+
+
+// ---- D29 (PageSpec §18): sovereignty arbitration ------------------------
+
+test('report with a foreign sessionId is rejected 409 session_taken', () => {
+    const { reg } = registry();
+    const s = reg.create({ doc: configDoc() });
+    reg.report('tok1', { seq: 1, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 29000, remainingNegMs: 29000, runningAff: false, runningNeg: false, activeSide: 'none' });
+    // Another console recreated the session under the same token.
+    const winner = reg.create({ doc: configDoc() });
+    expect(winner.sessionId).not.toBe(s.sessionId);
+    let err = null;
+    try {
+        reg.report('tok1', { sessionId: s.sessionId, seq: 99, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 28000, remainingNegMs: 28000, runningAff: true, runningNeg: false, activeSide: 'none' });
+    } catch (e) {
+        err = e;
+    }
+    expect(err).not.toBeNull();
+    expect(err.status).toBe(409);
+    expect(err.code).toBe('session_taken');
+});
+
+test('report with the matching sessionId succeeds and is stored clean of it', () => {
+    const { reg } = registry();
+    const s = reg.create({ doc: configDoc() });
+    reg.report('tok1', { sessionId: s.sessionId, seq: 1, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 29000, remainingNegMs: 29000, runningAff: true, runningNeg: false, activeSide: 'none' });
+    const snap = reg.snapshotOf('tok1');
+    expect(snap.seq).toBe(1);
+    expect(snap.sessionId).toBe(s.sessionId); // outbound stamp, not stored inbound
+    // stored snapshot keeps no double sessionId key semantics: stamp overrides anyway
+});
+
+test('report without sessionId keeps legacy behavior (seq check only)', () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+    // no id carried: passes validation regardless of who recreated before
+    reg.report('tok1', { seq: 1, stageId: 'sound_check', stageMode: 'single', remainingAffMs: 29000, remainingNegMs: 29000, runningAff: false, runningNeg: false, activeSide: 'none' });
+    expect(reg.snapshotOf('tok1').seq).toBe(1);
+});

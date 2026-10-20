@@ -55,6 +55,7 @@ class TimerSessionService {
                     success: false,
                     status,
                     message: data.message || `Request failed (${status})`,
+                    code: data.code ?? null, // D29 §18: session_taken arbitration
                 };
             }
             return { success: true, data: data.data };

@@ -163,6 +163,19 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         if (!session) {
             throw invalid('No active session');
         }
+        // D29 (PageSpec §18): sovereignty check — a reporter carrying a
+        // different session id is putting into a session that was recreated
+        // under the same token (another console won the seat). Tell it to
+        // yield instead of letting it grind on the winner's seq space with
+        // endless "seq must be greater" 400s. Reports without an id keep the
+        // legacy behavior (older clients).
+        const claimedId = typeof body?.sessionId === 'string' ? body.sessionId : null;
+        if (claimedId && claimedId !== session.sessionId) {
+            const error = new Error('Session is held by another controller');
+            error.status = 409;
+            error.code = 'session_taken';
+            throw error;
+        }
         const snapshot = validateSnapshot(body, session);
         session.lastSnapshot = snapshot;
         session.lastSeq = snapshot.seq;

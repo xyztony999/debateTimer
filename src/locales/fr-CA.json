@@ -38,6 +38,7 @@
             "weak": "Signal faible",
             "ended": "Contrôle à distance terminé",
             "reconnected": "Contrôle à distance reconnecté",
+            "takenByOther": "Un autre appareil a le contrôle ; cet appareil a cessé d’envoyer",
             "enableShareFirst": "Activez d’abord le partage dans les paramètres",
             "copyUrl": "Copier le lien écran",
             "copied": "Lien copié",

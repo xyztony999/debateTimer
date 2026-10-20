@@ -83,6 +83,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // (reportSnapshot ↔ recoverSession are mutually recursive and render-time
     // ref writes are forbidden).
     const recoveringRef = useRef(false);
+    const startingRef = useRef(false); // D31: sync double-click guard for start
     const recoveryFailuresRef = useRef(0);
     const lastRecoveryAtRef = useRef(0);
     const recoverSessionRef = useRef(null);
@@ -364,6 +365,12 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         }
         const { state: s, config: cfg } = stateRef.current;
         const snapshot = buildSnapshot(s, (seqRef.current += 1));
+        // D29 (PageSpec §18): claim sovereignty — the server arbitrates this
+        // id against the live session on the token and 409s us off if
+        // another console recreated the session underneath us.
+        if (session.sessionId) {
+            snapshot.sessionId = session.sessionId;
+        }
         const result = await TimerSessionService.reportSnapshot(cfg.name, snapshot);
         // Direct-link remote gets the same snapshot without the server hop.
         hostChannelRef.current?.send({ snapshot });
@@ -378,6 +385,16 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         session.failures = (session.failures || 0) + 1;
         if (session.failures >= 2) {
             setSessionState('weak');
+        }
+        if (result.status === 409 && result.code === 'session_taken') {
+            // D30 (PageSpec §18): another console holds the seat on this
+            // token — yield for good: no self-heal, no match record (the
+            // winner owns the save), just a clear notice.
+            sessionRef.current = null;
+            setSessionState('idle');
+            setPairingCode(null);
+            setSessionNotice(t('timer.session.takenByOther'));
+            return;
         }
         if ([400, 403, 404].includes(result.status)) {
             // D26 (PageSpec §17): an expired session is recoverable — rebuild
@@ -421,6 +438,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             }
             sessionRef.current = {
                 shareToken: result.data.shareToken,
+                sessionId: result.data.sessionId ?? null, // D29: sovereignty claim
                 displayUrl: result.data.displayUrl,
                 failures: 0,
             };
@@ -453,8 +471,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     }, [reportSnapshot, recoverSession]);
 
     const handleStartSession = useCallback(async () => {
-        if (sessionRef.current || sessionState === 'starting') {
-            return;
+        if (sessionRef.current || sessionState === 'starting' || startingRef.current) {
+            return; // D31: ref guard closes the double-click window (two
+            // creates supersede each other and the loser grinds 400s).
         }
         // A follower cannot start its own session on top of the live one.
         if (followTokenRef.current) {
@@ -468,7 +487,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             setSessionNotice(t('timer.session.enableShareFirst'));
             return;
         }
+        startingRef.current = true;
         setSessionState('starting');
+        try {
         const result = await TimerSessionService.startSession(config.name);
         if (!result.success) {
             setSessionState('idle');
@@ -477,6 +498,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         }
         sessionRef.current = {
             shareToken: result.data.shareToken,
+            sessionId: result.data.sessionId ?? null, // D29: sovereignty claim
             displayUrl: result.data.displayUrl,
             failures: 0,
         };
@@ -490,6 +512,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         recoveryFailuresRef.current = 0; // D26: fresh session, fresh cap
         setSessionState('active');
         reportSnapshot();
+        } finally {
+            startingRef.current = false;
+        }
     }, [user, config, sessionState, reportSnapshot, t]);
 
     const handleStopSession = useCallback(async () => {
@@ -724,6 +749,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         adoptFromSnapshot(result.data.snapshot);
         sessionRef.current = {
             shareToken: info.shareToken,
+            sessionId: result.data.snapshot?.sessionId ?? null, // D29
             displayUrl: `/display/${info.shareToken}`,
             failures: 0,
         };
@@ -759,6 +785,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                 adoptFromSnapshot(mine.data.snapshot);
                 sessionRef.current = {
                     shareToken: self.shareToken,
+                    sessionId: mine.data.snapshot?.sessionId ?? null, // D29
                     displayUrl: `/display/${self.shareToken}`,
                     failures: 0,
                 };

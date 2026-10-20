@@ -203,16 +203,12 @@
   opacity: 0.55;
 }
 
-/* MTR arrival display panel: a reserved row under the line — blank when
-   idle, so announcing never shifts the layout and never covers station
-   names. The pill fades in/out over 3s (paired with the React timer that
-   unmounts it). */
+/* MTR arrival display slot (v2.5): lives in the AppBar toolbar center —
+   flex:1 keeps the layout stable, the pill fades in/out over 3s (paired
+   with the React timer that unmounts it). */
 .st-announce {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  height: 2.1rem;
-  padding: 0.15rem 0.5rem 0;
+  align-items: center;
+  min-width: 0;
 }
 
 .st-announce-pill {

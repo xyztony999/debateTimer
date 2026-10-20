@@ -37,6 +37,7 @@
             "active": "Contrôle à distance actif",
             "weak": "Signal faible",
             "ended": "Contrôle à distance terminé",
+            "reconnected": "Contrôle à distance reconnecté",
             "enableShareFirst": "Activez d’abord le partage dans les paramètres",
             "copyUrl": "Copier le lien écran",
             "copied": "Lien copié",

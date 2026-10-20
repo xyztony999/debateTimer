@@ -37,6 +37,7 @@
             "active": "Remote control active",
             "weak": "Weak signal",
             "ended": "Remote control ended",
+            "reconnected": "Remote control reconnected",
             "enableShareFirst": "Enable sharing in settings first",
             "copyUrl": "Copy display link",
             "copied": "Link copied",

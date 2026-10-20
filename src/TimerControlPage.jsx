@@ -261,16 +261,6 @@ export default function TimerControlPage() {
                     );
                 })}
             </Box>
-            {/* MTR arrival display panel: the row is always reserved (blank
-                when idle) so nothing below ever jumps; the pill shows for the
-                3s announce window. */}
-            <div className="st-announce" role="status" aria-live="polite">
-                {stageAnnounce && (
-                    <span key={stageAnnounce.key} className="st-announce-pill">
-                        {t('timer.currentStage')} · {stageAnnounce.name}
-                    </span>
-                )}
-            </div>
         </div>
     );
 
@@ -312,10 +302,38 @@ export default function TimerControlPage() {
             }}
         >
             <AppBar position="sticky" elevation={2}>
-                <Toolbar sx={{ gap: 1 }}>
-                    <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 'auto' }}>
+                <Toolbar sx={{ gap: 1, position: 'relative' }}>
+                    <Typography variant="h6" component="h1" sx={{ fontWeight: 700 }}>
                         🎯 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('timer.title')}</Box>
                     </Typography>
+
+                    {/* 到站播报槽（v2.5 A1）：绝对定位于视口正中，不参与 flex，
+                        出现/消失零推挤；pointerEvents none 不挡按钮 */}
+                    <Box
+                        className="st-announce"
+                        role="status"
+                        aria-live="polite"
+                        sx={{
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            minWidth: 0,
+                            maxWidth: 'min(50vw, 26rem)',
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        {stageAnnounce && (
+                            <span key={stageAnnounce.key} className="st-announce-pill">
+                                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                                    {t('timer.currentStage')} ·{' '}
+                                </Box>
+                                {stageAnnounce.name}
+                            </span>
+                        )}
+                    </Box>
 
                     <Button
                         color="inherit"

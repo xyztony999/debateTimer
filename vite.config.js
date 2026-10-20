@@ -32,6 +32,9 @@ export default defineConfig(({ mode }) => {
       // so timer sync / template data never goes stale-offline.
       VitePWA({
         registerType: 'autoUpdate',
+        // D25 (PageSpec §16): the app registers the SW itself (src/index.jsx)
+        // to hook controllerchange — disable the plugin's auto-injection.
+        injectRegister: null,
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'robots.txt'],
         manifest: {
           name: '辩论赛计时器 Debate Match Timer',

@@ -81,6 +81,12 @@ modules:
       requirement: { status: complete, note: "D0 用户确认：全线一色+已过褪灰 / 主题深蓝 / 车标+下一站条+胶囊（不做站名交替）" }
       design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX" }
       code: { status: complete, note: "--st-route 单色贯穿、已过灰环褪灰、未来珠子、当前实心盘+TrainRounded 车标（st-breathe）、.st-next 下一站/终点站条、换乘胶囊 999px；103 tests/lint 0/build ✓；断言+视觉双轨 D11-D16 全过；新坑入档：IAB 过渡冻结需禁 transition 断言（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v3.md）" }
+  - name: session-generation
+    title: "R10 修复：会话代际自愈（卡旧阶段/后台误杀/常开大屏旧代码）"
+    stages:
+      requirement: { status: complete, note: "D0（2026-10-15 用户选定 A 全套）：换会话序号不重置→大屏冻结旧阶段；心跳 10s 后台误杀；常开大屏 SW 不重载延时修复到不了" }
+      design: { status: complete, note: "C-02 PageSpec §16 v2.4（D23-D25）；快照信封 sessionId+消费端换代重置+心跳 30s+SW controllerchange 重载；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "toSnapshot 加 sessionId（三路出口全盖）+ adoptFromSnapshot 换代重置 seqRef + 'started' 事件重置 + heartbeatTimeoutMs 30s + injectRegister null/手动 registerSW/controllerchange 重载；109 tests(+2)/lint 0/build ✓；浏览器换代自愈实证（会话A sound_check 跟随中→重开会话B aff_c1→大屏自动跳新阶段无横幅）；坑：mongod 临时 dbpath 被清需重建+裸 & 子壳随会话退出（后台循环必须 nohup）；Gate 2 PASS（05-reports/2026-10-15-gate2-session-generation.md）" }
   - name: display-sync-fix
     title: "R9 修复：大屏同步延时（快照盖章+在途补偿+心跳 1s）"
     stages:

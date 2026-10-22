@@ -62,7 +62,11 @@ modules:
       design: { status: complete, note: "AA v1.8（C-02-08）+ FL v1.6 + prd/p2p-remote + api-p2p-remote（信令端点+SSE signal 事件）+ C-02 PageSpec v1.6；Gate 1 PASS（内联）" }
       code: { status: complete, note: "服务端信令转发（relaySignal+SSE signal 事件）+ rtcChannel 双端封装（early-ICE 缓冲/3s 超时/静默回退）+ hook 集成（直连序号 1e9 空间/双来源 adopt 守卫/快照副本直推）+ 胶囊直连指示；98 tests（+3）/lint 0/build ✓；服务端链路 curl 实证；浏览器端到端联调受 IAB 工具限制未完成（回退设计保证零劣化）；Gate 2 WARN-可交付（05-reports/2026-10-14-gate2-p2p-remote.md）" }
   - name: pairing-and-fixes
-    title: "R3 真机反馈包：数字配对码 + mp3 音频 + 单钟区分 + SSE 连接池根因修复
+    title: "R3 真机反馈包：数字配对码 + mp3 音频 + 单钟区分 + SSE 连接池根因修复"
+    stages:
+      requirement: { status: complete, note: "用户三项反馈（音频慢/配对入口/单钟不区分）+ D0 确认配对码方案" }
+      design: { status: complete, note: "prd/pairing-and-fixes（配对码 owner 匹配/音频 mp3/单钟）；AA/FL 挂 C-02-01 扩展" }
+      code: { status: complete, note: "pairingCode+pair 端点（+3 tests）；mp3 转码 46KB（10.7×）；遥控单钟；**SSE 连接池根因修复**（主机 command/signal 迁 owner 流，连接 4→3）——Gate 2 PASS（05-reports/2026-10-14-gate2-pairing-fixes.md），直连+心跳历史 WARN 全闭" }
   - name: pid-timeline
     title: "R5 视觉：比赛流程时间线地铁 PID 化（经典线路图）"
     stages:
@@ -79,8 +83,13 @@ modules:
     title: "R7 视觉：港铁现役 PID 原生化（全线一色+已过褪灰+车标+下一站条+换乘胶囊）"
     stages:
       requirement: { status: complete, note: "D0 用户确认：全线一色+已过褪灰 / 主题深蓝 / 车标+下一站条+胶囊（不做站名交替）" }
-      design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX" }
+      design: { status: complete, note: "C-02 PageSpec v2.1 §14 增补（D11-D16）+ i18n 三语 nextStage/terminus；纯视觉+约 12 行 JSX；2026-10-22 增量 v2.9 §21：当前环节语义图标，Gate 1 PASS" }
       code: { status: complete, note: "--st-route 单色贯穿、已过灰环褪灰、未来珠子、当前实心盘+TrainRounded 车标（st-breathe）、.st-next 下一站/终点站条、换乘胶囊 999px；103 tests/lint 0/build ✓；断言+视觉双轨 D11-D16 全过；新坑入档：IAB 过渡冻结需禁 transition 断言（Gate 2 PASS：05-reports/2026-10-15-gate2-pid-timeline-v3.md）" }
+      frontend: { status: complete, note: "2026-10-22 增量：StageIcon 映射16个稳定 ID + 模式回退，替换固定火车图标；SSR 40例、128 tests、lint 0 error（15既有warning）、build PASS" }
+      validation: { status: complete, note: "2026-10-22-gate2-pid-stage-icons.md；激活链规则与无契约差异核查 PASS" }
+    gates:
+      gate1: { status: pass, note: "2026-10-22-gate1-pid-stage-icons.md" }
+      gate2: { status: pass, note: "2026-10-22-gate2-pid-stage-icons.md" }
   - name: clock-truth-layer
     title: "R14 修复：时钟真值层（引擎漏秒根修+Worker 心拍+锚点渲染——R13 打回重做）"
     stages:
@@ -128,9 +137,5 @@ modules:
     stages:
       requirement: { status: complete, note: "用户确认：移除弹窗+配对内发现（推荐项）" }
       design: { status: complete, note: "AA v1.9（C-02-06 描述更新）+ PageSpec v1.8 附记（D1-D4）；零 API 变更" }
-      code: { status: complete, note: "移除 pendingSession 弹窗；detectedSession + probeForPairingDialog（弹窗打开时探测）；resumeFromMemories 静默恢复链（selfHost/lastRemote 记忆，localStorage 模块级工具）；直连路径补记忆；103 tests；浏览器验收 D1-D4 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-r4-no-auto-dialog.md）" }"
-    stages:
-      requirement: { status: complete, note: "用户三项反馈（音频慢/配对入口/单钟不区分）+ D0 确认配对码方案" }
-      design: { status: complete, note: "prd/pairing-and-fixes（配对码 owner 匹配/音频 mp3/单钟）；AA/FL 挂 C-02-01 扩展" }
-      code: { status: complete, note: "pairingCode+pair 端点（+3 tests）；mp3 转码 46KB（10.7×）；遥控单钟；**SSE 连接池根因修复**（主机 command/signal 迁 owner 流，连接 4→3）——Gate 2 PASS（05-reports/2026-10-14-gate2-pairing-fixes.md），直连+心跳历史 WARN 全闭" }
+      code: { status: complete, note: "移除 pendingSession 弹窗；detectedSession + probeForPairingDialog（弹窗打开时探测）；resumeFromMemories 静默恢复链（selfHost/lastRemote 记忆，localStorage 模块级工具）；直连路径补记忆；103 tests；浏览器验收 D1-D4 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-r4-no-auto-dialog.md）" }
 ---

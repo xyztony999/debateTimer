@@ -3,8 +3,8 @@
 
 /* PID line, v3 MTR-native: one uniform route-colored band the whole way —
    state lives on the stations, not the segments. Passed stations fade to
-   gray (behind the train), upcoming stay full color (the road ahead is
-   bright), the current station is a solid disc under a small train marker,
+   gray (before the current stage), upcoming stay full color (the road ahead is
+   bright), the current station is a solid disc under a small stage icon,
    and mode-change stations take the MTR interchange capsule shape. */
 /* Anchor wrapper around the line: carries the theme variables so both the
    timeline and the arrival display row (.st-announce) share them. */
@@ -103,7 +103,7 @@
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Passed station: the whole bead fades to gray — behind the train. */
+/* Passed station: the whole bead fades to gray — before the current stage. */
 .st-step--passed .st-dot {
   border-color: var(--st-pass-ring);
   color: var(--st-pass-ring);
@@ -121,7 +121,7 @@
 }
 
 /* Current station: solid route disc (halo keeps breaking the band behind
-   it); name in bold route color. The train marker carries the motion cue. */
+   it); name in bold route color. The stage icon carries the motion cue. */
 .st-step--current .st-dot {
   background: var(--st-route);
   border-color: var(--st-route);
@@ -132,7 +132,7 @@
   color: #0f1419;
 }
 
-/* Train position marker (MTR "this train" cue) above the current station:
+/* Stage icon above the current station:
    sits in the raised top padding shared by every step. */
 .st-marker {
   position: absolute;
@@ -180,7 +180,7 @@
 
 /* Current station: full name always readable — no clamp and no font bump
    (the bump pushed 10-char names to 4 wrapped lines and the clamp silently
-   hid the tail). Emphasis comes from color + weight + the train marker, and
+   hid the tail). Emphasis comes from color + weight + the stage icon, and
    the row height stays uniform with the neighbors. */
 .st-step--current .st-name {
   color: var(--st-route);

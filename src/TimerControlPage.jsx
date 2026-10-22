@@ -25,7 +25,6 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import TrainRounded from '@mui/icons-material/TrainRounded';
 import PublicIcon from '@mui/icons-material/Public';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -38,6 +37,7 @@ import CableIcon from '@mui/icons-material/Cable';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { InstallButton } from './components/PwaBits';
 import TimerBox from './components/TimerBox';
+import StageIcon from './components/StageIcon';
 import useDebateTimer from './timer/useDebateTimer';
 import useTimerKeyboardShortcuts from './timer/useTimerKeyboardShortcuts';
 import { formatTime } from './timer/engine';
@@ -255,7 +255,7 @@ export default function TimerControlPage() {
                             onClick={() => fire.applyStage(stage)}
                             title={stageName(stage)}
                         >
-                            {current && <TrainRounded className="st-marker" aria-hidden="true" />}
+                            {current && <StageIcon stageId={stage} mode={config.modes[stage]} className="st-marker" aria-hidden="true" />}
                             <span className="st-dot">{index + 1}</span>
                             <span className="st-name">{stageName(stage)}</span>
                         </button>

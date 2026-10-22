@@ -12,7 +12,7 @@ function sessionPath(name) {
 class TimerSessionService {
     async startSession(name) {
         try {
-            const { data, status } = await apiClient.post(sessionPath(name));
+            const { data, status } = await apiClient.post(sessionPath(name), undefined, { timeout: 10000 });
             if (!data.success) {
                 return {
                     success: false,
@@ -49,6 +49,7 @@ class TimerSessionService {
             const { data, status } = await apiClient.put(
                 `${sessionPath(name)}/state`,
                 snapshot,
+                { timeout: 5000 },
             );
             if (!data.success) {
                 return {

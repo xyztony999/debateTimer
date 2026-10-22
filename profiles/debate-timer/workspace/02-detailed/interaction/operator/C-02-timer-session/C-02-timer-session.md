@@ -2,8 +2,8 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v2.5 |
-| 日期 | 2026-10-12（v1.0：2026-10-10） |
+| 版本 | v2.9 |
+| 日期 | 2026-10-22（v1.0：2026-10-10） |
 | 模块编码 | C-02（含 C-01-03 交互） |
 | App | 辩论赛计时器（debatetimer.tonyxyz.com） |
 | 用户类型 | 计时操作员（认证） |
@@ -113,6 +113,7 @@
 | v2.6 | 2026-10-20 | §18 增量（见 §18）：会话主权仲裁——上报带 sessionId 比对，409 让位（D29-D31） |
 | v2.7 | 2026-10-20 | §19 增量（见 §19）：端到端时钟对齐——NTP-lite 三层消差+平滑采纳（D32-D35） |
 | v2.8 | 2026-10-20 | §20 增量（见 §20）：时钟真值层——引擎余数累积+Worker 心拍+锚点外推渲染（D36-D39，R13 打回后重做） |
+| v2.9 | 2026-10-22 | §21 增量：PID 当前节点显示环节语义图标，替换固定火车图标；按稳定 stageId 映射，自定义环节按模式回退 |
 | v1.6 | 2026-10-14 | 增量：P2P 遥控直连（见 §13，C-02-08）；同网 WebRTC 直连消除跨国延迟 |
 
 ## 9. v1.2 增量：融合式阶段导航（2026-10-12）
@@ -553,3 +554,26 @@ No active session）；浏览器双标签战争→和平（A 开会话→B 顶�
 - [ ] lint/test/build 全绿
 
 > 校验说明：v2.5 沿用既有口径，替代性验收 5 条如上。
+
+## 21. v2.9 增量：PID 当前节点环节图标（2026-10-22）
+
+用户要求当前节点显示符合比赛环节的图标，替换固定火车图标。
+
+- `sound_check`：`VolumeUpRounded`（声音测试）。
+- `aff_c1`、`neg_c1`：`MicRounded`（发言）。
+- `neg_x_aff_c1`、`aff_x_neg_c1`、`aff_poii`、`neg_poii`：`QuestionAnswerRounded`（盘问）。
+- `aff_rebuttal_2`、`neg_rebuttal_2`：`ReplyRounded`（驳论）。
+- `crossfire_2v2`、`free_debate`：`ForumRounded`（对辩/自由辩论）。
+- `aff_poii_sum`、`neg_poii_sum`：`SummarizeRounded`（质询小结）。
+- `tactical_pause`：`PauseCircleRounded`（战术暂停）。
+- `neg_closing`、`aff_closing`：`FlagRounded`（总结陈词）。
+
+自定义或未知环节：按现有计时模式回退，single/0 为 `TimerRounded`、double/1 为 `CompareArrowsRounded`、free/2 为 `ForumRounded`；缺失或无效模式回退 `TimerRounded`。
+预置环节的稳定 ID 优先于模式，不依赖当前语言或可修改的环节名称。
+
+图标只出现在当前节点上方，沿用 `.st-marker` 的尺寸、定位、主题色与呼吸动画。
+图标设置 `aria-hidden="true"`；节点名称继续通过现有文字和 title 提供。
+阶段序号、阶段切换、键盘、只读态、线带和窄屏横滑行为沿用现有契约。
+实现使用现有 MUI 图标库，不增加依赖、API、配置字段、持久化或 i18n 文案。
+
+验收：16 个预置 ID 均有映射；自定义环节含三种模式与无效值回退；首尾节点切换仅保留一个当前图标；明暗主题、桌面和遥控共用同一时间线；lint/test/build 通过。

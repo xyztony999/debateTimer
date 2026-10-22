@@ -20,6 +20,8 @@ import {
 import { buildSnapshot, adoptSnapshot, compensateInFlight } from './snapshotCodec.js';
 import { beginStageCapture, bumpOverrun, buildMatchPayload } from './matchCapture.js';
 import { initiateDirectChannel, answerDirectChannel } from './rtcChannel.js';
+import { anchorResetsForAction } from './clockAnchors.js';
+import { createSnapshotQueue, snapshotFailureAction } from './snapshotReporting.js';
 
 /**
  * Timer runtime assembly: wires the engine reducer to the wall clock,
@@ -76,11 +78,12 @@ export default function useDebateTimer({ shareToken = null } = {}) {
 
     const sessionRef = useRef(null); // { shareToken, displayUrl, failures }
     const seqRef = useRef(0);
+    const snapshotQueueRef = useRef(createSnapshotQueue());
     // D23 (PageSpec §16): session generation guard — a changed sessionId
     // means the server restarted the seq space, so the dedup must reset.
     const sessionIdRef = useRef(null);
     // D26 (PageSpec §17): session self-heal state — in-flight guard, backoff
-    // timestamp, consecutive-failure cap, and late-bound mutual refs
+    // timestamp, failure backoff, and late-bound mutual refs
     // (reportSnapshot ↔ recoverSession are mutually recursive and render-time
     // ref writes are forbidden).
     const recoveringRef = useRef(false);
@@ -154,6 +157,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         // before the engine applies its whole-second view.
         const eng = stateRef.current?.state;
         if (eng) {
+            Object.entries(anchorResetsForAction(eng, action)).forEach(([key, ms]) => {
+                setFrozenAnchor(key, ms);
+            });
             const side = action.side;
             const anchorNow = () => {
                 const ms = anchorMsOf(anchorsRef.current, side) ?? (eng.sides[side]?.remaining ?? 0) * 1000;
@@ -172,16 +178,6 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                     } else {
                         anchorNow();
                     }
-                    break;
-                case 'RESET':
-                    setFrozenAnchor(side, eng.durationSec * 1000);
-                    break;
-                case 'APPLY_STAGE':
-                case 'PREP_ZERO':
-                    ['single', 'aff', 'neg'].forEach((k) => setFrozenAnchor(
-                        k,
-                        action.type === 'PREP_ZERO' && k === 'single' ? 0 : eng.durationSec * 1000,
-                    ));
                     break;
                 default:
                     break;
@@ -559,113 +555,130 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         });
     }, []);
 
-    const reportSnapshot = useCallback(async () => {
+    const reportSnapshot = useCallback(() => {
         const session = sessionRef.current;
         if (!session) {
             return;
         }
-        const { state: s, config: cfg } = stateRef.current;
-        // D38: wire the anchor truth (ms + sub-second phase), engine ints as
-        // fallback for sides without an anchor yet.
-        const singleMode = s.stageMode === 'single';
-        const liveAff = anchorMsOf(anchorsRef.current, singleMode ? 'single' : 'aff');
-        const liveNeg = anchorMsOf(anchorsRef.current, singleMode ? 'single' : 'neg');
-        const liveMs = (liveAff != null || liveNeg != null)
-            ? {
-                affMs: liveAff ?? s.sides[singleMode ? 'single' : 'aff'].remaining * 1000,
-                negMs: liveNeg ?? s.sides[singleMode ? 'single' : 'neg'].remaining * 1000,
+        return snapshotQueueRef.current.enqueue(async () => {
+            if (sessionRef.current !== session) {
+                return;
             }
-            : null;
-        const snapshot = buildSnapshot(s, (seqRef.current += 1), liveMs);
-        // D29 (PageSpec §18): claim sovereignty — the server arbitrates this
-        // id against the live session on the token and 409s us off if
-        // another console recreated the session underneath us.
-        if (session.sessionId) {
-            snapshot.sessionId = session.sessionId;
-        }
-        const sentAtLocal = Date.now();
-        // D33 (PageSpec §19): tell the server when (in ITS clock) these
-        // values were captured, so it can burn off the uplink leg.
-        if (Number.isFinite(hostClockOffsetRef.current)) {
-            snapshot.captureServerAt = sentAtLocal + hostClockOffsetRef.current;
-        }
-        const result = await TimerSessionService.reportSnapshot(cfg.name, snapshot);
-        // Direct-link remote gets the same snapshot without the server hop.
-        hostChannelRef.current?.send({ snapshot });
-        if (!sessionRef.current) {
-            return; // session was stopped while the request was in flight
-        }
-        if (result.success) {
-            session.failures = 0;
-            setSessionState('active');
-            // D33: NTP-lite sample — offset = serverTime − (t0 + RTT/2);
-            // EMA-smoothed, samples on laggy round trips discarded.
-            const serverTime = Number(result.data?.serverTime);
-            if (Number.isFinite(serverTime)) {
-                const rtt = Date.now() - sentAtLocal;
-                if (rtt > 0 && rtt <= 2000) {
-                    const sample = serverTime - (sentAtLocal + rtt / 2);
-                    const prev = hostClockOffsetRef.current;
-                    hostClockOffsetRef.current = Number.isFinite(prev)
-                        ? prev * 0.9 + sample * 0.1
-                        : sample;
+            const { state: s, config: cfg } = stateRef.current;
+            // D38: wire the anchor truth (ms + sub-second phase), engine ints as
+            // fallback for sides without an anchor yet.
+            const singleMode = s.stageMode === 'single';
+            const liveAff = anchorMsOf(anchorsRef.current, singleMode ? 'single' : 'aff');
+            const liveNeg = anchorMsOf(anchorsRef.current, singleMode ? 'single' : 'neg');
+            const liveMs = (liveAff != null || liveNeg != null)
+                ? {
+                    affMs: liveAff ?? s.sides[singleMode ? 'single' : 'aff'].remaining * 1000,
+                    negMs: liveNeg ?? s.sides[singleMode ? 'single' : 'neg'].remaining * 1000,
                 }
+                : null;
+            const snapshot = buildSnapshot(s, (seqRef.current += 1), liveMs);
+            // D29 (PageSpec §18): claim sovereignty — the server arbitrates this
+            // id against the live session on the token and 409s us off if
+            // another console recreated the session underneath us.
+            if (session.sessionId) {
+                snapshot.sessionId = session.sessionId;
             }
-            return;
-        }
-        session.failures = (session.failures || 0) + 1;
-        if (session.failures >= 2) {
-            setSessionState('weak');
-        }
-        if (result.status === 409 && result.code === 'session_taken') {
-            // D30 (PageSpec §18): another console holds the seat on this
-            // token — yield for good: no self-heal, no match record (the
-            // winner owns the save), just a clear notice.
-            sessionRef.current = null;
-            setSessionState('idle');
-            setPairingCode(null);
-            setSessionNotice(t('timer.session.takenByOther'));
-            return;
-        }
-        if ([400, 403, 404].includes(result.status)) {
-            // D26 (PageSpec §17): an expired session is recoverable — rebuild
-            // it transparently (same token) and keep reporting; displays and
-            // remotes re-follow via the R10 generation events. Access errors
-            // and other rejections stay terminal.
-            if (result.status === 400 && /no active session/i.test(String(result.message))) {
+            const sentAtLocal = Date.now();
+            // D33 (PageSpec §19): tell the server when (in ITS clock) these
+            // values were captured, so it can burn off the uplink leg.
+            if (Number.isFinite(hostClockOffsetRef.current)) {
+                snapshot.captureServerAt = sentAtLocal + hostClockOffsetRef.current;
+            }
+            // Direct-link remote gets the same snapshot without the server hop.
+            hostChannelRef.current?.send({ snapshot });
+            const result = await TimerSessionService.reportSnapshot(cfg.name, snapshot);
+            if (sessionRef.current !== session) {
+                return; // old responses cannot change a stopped or replacement session
+            }
+            if (result.success) {
+                session.failures = 0;
+                setSessionState('active');
+                // D33: NTP-lite sample — offset = serverTime − (t0 + RTT/2);
+                // EMA-smoothed, samples on laggy round trips discarded.
+                const serverTime = Number(result.data?.serverTime);
+                if (Number.isFinite(serverTime)) {
+                    const rtt = Date.now() - sentAtLocal;
+                    if (rtt > 0 && rtt <= 2000) {
+                        const sample = serverTime - (sentAtLocal + rtt / 2);
+                        const prev = hostClockOffsetRef.current;
+                        hostClockOffsetRef.current = Number.isFinite(prev)
+                            ? prev * 0.9 + sample * 0.1
+                            : sample;
+                    }
+                }
+                return;
+            }
+            const failureAction = snapshotFailureAction(result);
+            if (failureAction === 'ignore') {
+                return;
+            }
+            session.failures = (session.failures || 0) + 1;
+            if (session.failures >= 2) {
+                setSessionState('weak');
+            }
+            if (failureAction === 'yield') {
+                // D30 (PageSpec §18): another console holds the seat on this
+                // token — yield for good: no self-heal, no match record (the
+                // winner owns the save), just a clear notice.
+                sessionRef.current = null;
+                setSessionState('idle');
+                setPairingCode(null);
+                setSessionNotice(t('timer.session.takenByOther'));
+                return;
+            }
+            if (failureAction === 'recover') {
                 await recoverSessionRef.current?.(session);
                 return;
             }
-            // Session is gone (superseded, or access denied).
-            sessionRef.current = null;
-            setSessionState('idle');
-            setSessionNotice(t('timer.session.ended'));
-            saveMatchRecord(true);
-        }
+            if (failureAction === 'end') {
+                sessionRef.current = null;
+                setSessionState('idle');
+                setSessionNotice(t('timer.session.ended'));
+                saveMatchRecord(true);
+            }
+            if (failureAction === 'retry' && result.status === 400 && session.failures === 1) {
+                console.warn('Timer snapshot rejected:', result.message);
+            }
+        });
     }, [t, saveMatchRecord]);
 
     const recoverSession = useCallback(async (deadSession) => {
         const now = Date.now();
-        if (recoveringRef.current || now - lastRecoveryAtRef.current < 5000) {
+        const backoffMs = Math.min(5000 * (2 ** Math.min(recoveryFailuresRef.current, 3)), 30000);
+        if (sessionRef.current !== deadSession || recoveringRef.current
+            || now - lastRecoveryAtRef.current < backoffMs) {
             return;
         }
         recoveringRef.current = true;
         lastRecoveryAtRef.current = now;
         try {
-            if (recoveryFailuresRef.current >= 3) {
-                throw new Error('recovery exhausted');
-            }
             const cfg = stateRef.current?.config;
             if (!cfg?.shareEnabled) {
-                throw new Error('share disabled');
+                sessionRef.current = null;
+                setSessionState('idle');
+                setPairingCode(null);
+                setSessionNotice(t('timer.session.ended'));
+                saveMatchRecord(true);
+                return;
             }
             const result = await TimerSessionService.startSession(cfg.name);
-            if (!result.success) {
-                throw new Error(result.message || 'start failed');
-            }
-            // Stopped or replaced while recovering — nothing to heal.
             if (sessionRef.current !== deadSession) {
                 return;
+            }
+            if (!result.success) {
+                if ([403, 404].includes(result.status)) {
+                    sessionRef.current = null;
+                    setSessionState('idle');
+                    setSessionNotice(t('timer.session.ended'));
+                    saveMatchRecord(true);
+                    return;
+                }
+                throw new Error(result.message || 'start failed');
             }
             sessionRef.current = {
                 shareToken: result.data.shareToken,
@@ -685,11 +698,13 @@ export default function useDebateTimer({ shareToken = null } = {}) {
             setSessionNotice(t('timer.session.reconnected'));
             reportSnapshotRef.current?.();
         } catch {
+            if (sessionRef.current !== deadSession) {
+                return;
+            }
+            // Keep the heartbeat alive through a network outage; the next
+            // missing-session response retries recovery after the backoff.
             recoveryFailuresRef.current += 1;
-            sessionRef.current = null;
-            setSessionState('idle');
-            setSessionNotice(t('timer.session.ended'));
-            saveMatchRecord(true);
+            setSessionState('weak');
         } finally {
             recoveringRef.current = false;
         }
@@ -740,7 +755,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         });
         setPairingCode(result.data.pairingCode ?? null);
         seqRef.current = result.data.snapshot?.seq ?? 0;
-        recoveryFailuresRef.current = 0; // D26: fresh session, fresh cap
+        recoveryFailuresRef.current = 0; // fresh session, reset recovery backoff
         setSessionState('active');
         reportSnapshot();
         } finally {
@@ -753,7 +768,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         sessionRef.current = null;
         setSessionState('idle');
         setPairingCode(null);
-        recoveryFailuresRef.current = 0; // D26: explicit stop resets the cap
+        recoveryFailuresRef.current = 0; // explicit stop resets recovery backoff
         selfHostMemory.clear();
         if (wasActive) {
             const result = await TimerSessionService.stopSession(stateRef.current.config.name);
@@ -1091,6 +1106,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         state.sides.single.phase === 'locked',
         state.sides.aff.phase === 'locked',
         state.sides.neg.phase === 'locked',
+        state.sides.single.blinkOverride,
     ].join('|');
     useEffect(() => {
         if (isDisplay || !sessionRef.current) {

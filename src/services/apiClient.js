@@ -31,5 +31,10 @@ apiClient.interceptors.response.use((response) => {
 
 export function toServiceError(error, prefix) {
     const message = error.response?.data?.message || error.message || 'Request failed';
-    return { success: false, message: `${prefix}: ${message}` };
+    return {
+        success: false,
+        status: error.response?.status,
+        code: error.response?.data?.code ?? null,
+        message: `${prefix}: ${message}`,
+    };
 }

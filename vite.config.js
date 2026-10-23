@@ -66,6 +66,17 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'build',
+      rollupOptions: {
+        output: {
+          // Split the heavy vendors out of the app chunk so timer-page
+          // updates don't re-download MUI & friends (better SW precache reuse).
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'mui-vendor': ['@mui/material', '@emotion/react', '@emotion/styled'],
+            'i18n-vendor': ['i18next', 'react-i18next'],
+          },
+        },
+      },
     },
     server: {
       port: 3000,

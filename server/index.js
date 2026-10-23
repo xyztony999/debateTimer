@@ -8,6 +8,7 @@ import { migrateLegacyConfigurations } from './lib/migrateConfigurations.js';
 import { buildMongoUri } from './lib/mongoUri.js';
 import { createSseHub } from './lib/sseHub.js';
 import { createTimerSessionRegistry } from './lib/timerSessions.js';
+import { createRateLimiter } from './lib/rateLimit.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createConfigurationsRouter } from './routes/configurations.js';
@@ -35,6 +36,9 @@ function logMongoAuthHelp() {
 }
 
 const app = express();
+// Baota nginx fronts the API; without this every request shares the proxy IP
+// (which would also collapse the per-IP rate-limit buckets).
+app.set('trust proxy', 1);
 const sse = createSseHub();
 const timerSessions = createTimerSessionRegistry({ sse });
 
@@ -112,8 +116,12 @@ async function start() {
     app.use(attachUser);
 
     app.use('/api/auth', createAuthRouter({ users, sessions, configurations }));
-    app.use('/api/display', createDisplayRouter({ configurations, sse, timerSessions }));
-    app.use('/api/gallery', createGalleryRouter({ configurations, requireAuth, requireAdmin }));
+    // Anonymous public surfaces get in-memory per-IP limits (SSE streams on
+    // /display are long-lived and count once at connect).
+    const galleryRateLimit = createRateLimiter({ windowMs: 60_000, max: 120 });
+    const displayRateLimit = createRateLimiter({ windowMs: 60_000, max: 60 });
+    app.use('/api/display', displayRateLimit, createDisplayRouter({ configurations, sse, timerSessions }));
+    app.use('/api/gallery', galleryRateLimit, createGalleryRouter({ configurations, requireAuth, requireAdmin }));
     app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }));
     app.use('/api/session', createPairingRouter({ timerSessions, requireAuth }));
     app.use('/api/match-logs', createMatchLogsRouter({ matchLogs, requireAuth }));

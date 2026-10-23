@@ -224,8 +224,12 @@ export default function TimerControlPage() {
     }, [state.stageId, config.stageLabels, t, i18n.language]);
 
     // Shared between both layout branches.
+    const pidOptions = config.pidOptions || {};
     const stageTimeline = (
-        <div className="st-anchor">
+        <div
+            className="st-anchor"
+            style={pidOptions.lineColor ? { '--st-route': pidOptions.lineColor } : undefined}
+        >
             <Box
                 className="stage-timeline"
                 role="tablist"
@@ -236,9 +240,19 @@ export default function TimerControlPage() {
                     const passed = !current && index < orderedStages.indexOf(state.stageId);
                     // Interchange station: where the stage mode (single/double/free)
                     // changes from the previous station — data-driven, adapts to
-                    // any template without hardcoding stage names.
-                    const interchange = index > 0
-                        && config.modes[stage] !== config.modes[orderedStages[index - 1]];
+                    // any template without hardcoding stage names. The stage-level
+                    // PID station type overrides the automatic rule (S-01-07).
+                    const stationType = config.stagePid?.[stage]?.station;
+                    const interchange = stationType === 'interchange'
+                        ? true
+                        : stationType === 'normal'
+                            ? false
+                            : index > 0
+                                && config.modes[stage] !== config.modes[orderedStages[index - 1]];
+                    // Current-station marker: stage icon > template marker > semantic.
+                    const markerOverride = current
+                        ? (config.stagePid?.[stage]?.icon || pidOptions.marker)
+                        : config.stagePid?.[stage]?.icon;
                     return (
                         <button
                             key={stage}
@@ -255,7 +269,7 @@ export default function TimerControlPage() {
                             onClick={() => fire.applyStage(stage)}
                             title={stageName(stage)}
                         >
-                            {current && <StageIcon stageId={stage} mode={config.modes[stage]} className="st-marker" aria-hidden="true" />}
+                            {current && <StageIcon stageId={stage} mode={config.modes[stage]} override={markerOverride} className="st-marker" aria-hidden="true" />}
                             <span className="st-dot">{index + 1}</span>
                             <span className="st-name">{stageName(stage)}</span>
                         </button>
@@ -438,10 +452,12 @@ export default function TimerControlPage() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-                <MenuItem onClick={() => { setMenuAnchor(null); openPairDialog(); }}>
-                    <ListItemIcon><CableIcon fontSize="small" /></ListItemIcon>
-                    {t('timer.session.connectPC')}
-                </MenuItem>
+                {remoteMode ? (
+                    <MenuItem onClick={() => { setMenuAnchor(null); openPairDialog(); }}>
+                        <ListItemIcon><CableIcon fontSize="small" /></ListItemIcon>
+                        {t('timer.session.connectPC')}
+                    </MenuItem>
+                ) : null}
                 <MenuItem onClick={() => { setMenuAnchor(null); navigate('/settings'); }}>
                     <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
                     {t('timer.settings')}

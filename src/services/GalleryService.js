@@ -7,12 +7,14 @@ import ConfigurationService from './ConfigurationService';
  * the existing configuration save endpoint (no server-side copy endpoint).
  */
 class GalleryService {
-    async listTemplates({ limit = 20, before } = {}) {
+    async listTemplates({ limit = 20, before, q, sort } = {}) {
         try {
             const { data, status } = await apiClient.get('/api/gallery', {
                 params: {
                     limit,
                     ...(before ? { before } : {}),
+                    ...(q ? { q } : {}),
+                    ...(sort && sort !== 'updated' ? { sort } : {}),
                 },
                 skipAuthRedirect: true,
             });
@@ -51,11 +53,11 @@ class GalleryService {
         }
     }
 
-    async updateVisibility(name, isPublic) {
+    async updateVisibility(name, isPublic, creditName) {
         try {
             const { data, status } = await apiClient.post(
                 `/api/configurations/${encodeURIComponent(name)}/visibility`,
-                { public: isPublic },
+                { public: isPublic, ...(creditName !== undefined ? { creditName } : {}) },
             );
             if (!data.success) {
                 return {
@@ -90,6 +92,15 @@ class GalleryService {
         }
     }
 
+    // Popularity signal: fire-and-forget after a successful copy.
+    async markCopied(id) {
+        try {
+            await apiClient.post(`/api/gallery/${encodeURIComponent(id)}/copy`);
+        } catch (error) {
+            console.warn('Copy count not recorded:', error.message);
+        }
+    }
+
     // Read → save under the current user's namespace as an independent copy.
     async copyTemplate(id, targetName) {
         const detail = await this.loadTemplate(id);
@@ -97,7 +108,7 @@ class GalleryService {
             return detail;
         }
         const src = detail.data;
-        return ConfigurationService.saveConfiguration(
+        const result = await ConfigurationService.saveConfiguration(
             targetName,
             src.debateStages,
             src.timerSettings,
@@ -110,6 +121,10 @@ class GalleryService {
                 teamNames: src.teamNames || {},
             },
         );
+        if (result.success) {
+            this.markCopied(id);
+        }
+        return result;
     }
 }
 

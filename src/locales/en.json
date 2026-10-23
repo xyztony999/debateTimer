@@ -179,7 +179,21 @@
             "chime": "Two-tone chime"
         },
         "publishToGallery": "Publish to gallery",
-        "published": "Published to gallery"
+        "published": "Published to gallery",
+        "creditName": "Credit (optional)",
+        "creditNameHint": "Leave blank to stay anonymous",
+        "creditSaved": "Credit updated",
+        "pidStage": "Customize PID timeline",
+        "pidTitle": "PID timeline",
+        "pidDesc": "Current-station marker & route color (saved with the template)",
+        "pidIcon": "Station icon",
+        "pidIconAuto": "Auto (semantic)",
+        "pidStation": "Station type",
+        "pidStation_auto": "Auto",
+        "pidStation_interchange": "Interchange",
+        "pidStation_normal": "Regular",
+        "pidMarker": "Current-station marker (first is the default train)",
+        "pidLineColor": "Route color (first is the default navy)"
     },
     "auth": {
         "loginTitle": "Sign in",
@@ -311,7 +325,12 @@
         "loadFailed": "Failed to load",
         "unpublish": "Unpublish",
         "unpublishConfirm": "Unpublish “{{name}}” from the gallery?",
-        "publicChip": "Public"
+        "publicChip": "Public",
+        "search": "Search templates…",
+        "sortUpdated": "Latest",
+        "sortCopies": "Popular",
+        "noMatch": "No matching templates",
+        "credit": "By {{name}}"
     },
     "pwa": {
         "offline": "Offline: timer works, cloud sync unavailable",

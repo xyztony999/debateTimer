@@ -179,7 +179,21 @@
             "chime": "Carillon"
         },
         "publishToGallery": "Publier dans la galerie",
-        "published": "Publié dans la galerie"
+        "published": "Publié dans la galerie",
+        "creditName": "Signature (facultatif)",
+        "creditNameHint": "Vide = anonyme",
+        "creditSaved": "Signature mise à jour",
+        "pidStage": "Personnaliser la ligne PID",
+        "pidTitle": "Ligne PID",
+        "pidDesc": "Repère de la phase active et couleur de la ligne (suivies au modèle)",
+        "pidIcon": "Icône de la station",
+        "pidIconAuto": "Auto (sémantique)",
+        "pidStation": "Type de station",
+        "pidStation_auto": "Auto",
+        "pidStation_interchange": "Correspondance",
+        "pidStation_normal": "Normale",
+        "pidMarker": "Repère de la phase active (premier = train par défaut)",
+        "pidLineColor": "Couleur de la ligne (premier = bleu par défaut)"
     },
     "auth": {
         "loginTitle": "Connexion",
@@ -311,7 +325,12 @@
         "loadFailed": "Échec du chargement",
         "unpublish": "Dépublier",
         "unpublishConfirm": "Dépublier « {{name}} » de la galerie ?",
-        "publicChip": "Public"
+        "publicChip": "Public",
+        "search": "Rechercher…",
+        "sortUpdated": "Récentes",
+        "sortCopies": "Populaires",
+        "noMatch": "Aucun modèle correspondant",
+        "credit": "Par {{name}}"
     },
     "pwa": {
         "offline": "Hors ligne : chrono disponible, synchro indisponible",

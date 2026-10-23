@@ -342,6 +342,7 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth, t
     });
 
     // Publish / unpublish the template to the public gallery (owner only).
+    // Optional self-chosen credit name (empty string clears it; absent keeps it).
     router.post('/:name/visibility', async (req, res) => {
         try {
             const existing = await findOwnConfig(req, res);
@@ -349,15 +350,26 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth, t
                 return;
             }
             const isPublic = req.body?.public === true;
+            const updates = { isPublic, updatedAt: Date.now() };
+            if (typeof req.body?.creditName === 'string') {
+                const creditName = req.body.creditName.trim().slice(0, 20);
+                updates.creditName = creditName || null;
+            }
             await configurations.updateOne(
                 { _id: existing._id },
-                { $set: { isPublic, updatedAt: Date.now() } },
+                { $set: updates },
             );
             sse.broadcast({
                 ownerId: String(existing.ownerId),
                 name: existing.name,
             });
-            res.json({ success: true, data: { isPublic } });
+            res.json({
+                success: true,
+                data: {
+                    isPublic,
+                    ...(updates.creditName ? { creditName: updates.creditName } : {}),
+                },
+            });
         } catch (error) {
             sendError(res, error, 'POST /api/configurations/:name/visibility');
         }

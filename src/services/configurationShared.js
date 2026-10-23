@@ -17,7 +17,7 @@ export function buildConfigurationPayload(name, debateStages, timerSettings, sta
     };
     // Optional stage-enhancement fields (schema v3): grace seconds, auto
     // advance flags, team display names. Omitted keys keep server defaults.
-    const { stageGrace, stageAutoAdvance, teamNames } = extras;
+    const { stageGrace, stageAutoAdvance, teamNames, stagePid, pidOptions } = extras;
     if (stageGrace && Object.keys(stageGrace).length > 0) {
         payload.stageGrace = stageGrace;
     }
@@ -28,6 +28,15 @@ export function buildConfigurationPayload(name, debateStages, timerSettings, sta
         payload.teamNames = {
             ...(teamNames.aff ? { aff: teamNames.aff } : {}),
             ...(teamNames.neg ? { neg: teamNames.neg } : {}),
+        };
+    }
+    if (stagePid && Object.keys(stagePid).length > 0) {
+        payload.stagePid = stagePid;
+    }
+    if (pidOptions && (pidOptions.marker || pidOptions.lineColor)) {
+        payload.pidOptions = {
+            ...(pidOptions.marker ? { marker: pidOptions.marker } : {}),
+            ...(pidOptions.lineColor ? { lineColor: pidOptions.lineColor } : {}),
         };
     }
     return payload;
@@ -47,6 +56,8 @@ export function parseLoadedConfiguration(configData) {
         stageGrace: configData.stageGrace || {},
         stageAutoAdvance: configData.stageAutoAdvance || {},
         teamNames: configData.teamNames || {},
+        stagePid: configData.stagePid || {},
+        pidOptions: configData.pidOptions || {},
         schemaVersion: configData.schemaVersion || 1,
     };
 }

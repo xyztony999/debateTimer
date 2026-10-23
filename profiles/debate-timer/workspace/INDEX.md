@@ -137,5 +137,17 @@ modules:
     stages:
       requirement: { status: complete, note: "用户确认：移除弹窗+配对内发现（推荐项）" }
       design: { status: complete, note: "AA v1.9（C-02-06 描述更新）+ PageSpec v1.8 附记（D1-D4）；零 API 变更" }
-      code: { status: complete, note: "移除 pendingSession 弹窗；detectedSession + probeForPairingDialog（弹窗打开时探测）；resumeFromMemories 静默恢复链（selfHost/lastRemote 记忆，localStorage 模块级工具）；直连路径补记忆；103 tests；浏览器验收 D1-D4 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-r4-no-auto-dialog.md）" }
+      code: { status: complete, note: "移除 pendingSession 弹窗；detectedSession + probeForPairingDialog（弹窗打开时探测）；resumeFromMemories 静默恢复链（selfHost/lastRemote 记忆，localStorage 模块级工具）；直连路径补记忆；103 tests；浏览器验收 D1-D4 全过（Gate 2 PASS：05-reports/2026-10-15-gate2-r4-no-auto-dialog.md）" }
+  - name: gallery-ops
+    title: "模板生态运营（S-04 扩展：复制计数/搜索排序/可选署名）+ 工程债首批"
+    stages:
+      requirement: { status: complete, note: "方向讨论定案（2026-10-23）：做生态运营；决策 G-C1~C5" }
+      design: { status: complete, note: "合并简报 05-reports/2026-10-23-brief-gallery-ops.md；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "copy 端点+q/sort 白名单+creditName（visibility 扩展）；GalleryPage 搜索/排序/署名；限流中间件（gallery 120/display 60 每分，trust proxy 1）；matchCapture sessionStorage 兜底（configKey 指纹恢复）；manualChunks vendor 拆分（主 chunk 555KB→280KB）；134 tests/lint 0 err/build ✓；同批清理 R12-COMMIT.txt（提交门误报拦截，转用户终端提交）" }
+  - name: pid-custom
+    title: "PID 图标自定义（A 站型/B 站点图标/C 车标/D 线色）+ 配对入口限遥控形态"
+    stages:
+      requirement: { status: complete, note: "用户反馈×2；四项全选定（2026-10-23），E/F 不做；决策 D-1、P-1~P-5" }
+      design: { status: complete, note: "合并简报 05-reports/2026-10-23-brief-pid-custom.md；BA v1.4/AA v2.1/FL v1.8；零新端点；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "图标注册表(18)+车标子集(8)+7色板；服务端白名单校验(+1 test 含 echo/404 断言)；设置页阶段弹层+模板卡片；PID 消费(站型覆盖/图标优先级 阶段>车标>语义/线色 --st-route 覆盖)；配对入口限 remoteMode；135 tests/lint 0/build ✓" }
 ---

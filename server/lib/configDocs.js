@@ -7,7 +7,17 @@ const CONFIG_FIELDS = [
     'stageGrace',
     'stageAutoAdvance',
     'teamNames',
+    'stagePid',
+    'pidOptions',
 ];
+
+// PID presentation (schema v4): icon ids are registry strings on the client;
+// the server validates format only ('auto' allowed as the default sentinel).
+const PID_ICON_ID_RE = /^[a-z0-9_]{1,32}$/;
+const PID_STATION_TYPES = new Set(['auto', 'interchange', 'normal']);
+const PID_LINE_COLORS = new Set([
+    '#1e3a5f', '#c62828', '#2e7d32', '#ef6c00', '#6a1b9a', '#00695c', '#455a64',
+]);
 
 // Accepted timerSettings values; legacy numeric 0/1 map to single/double.
 const TIMER_SETTING_VALUES = {
@@ -92,6 +102,80 @@ function normalizeTeamNames(value) {
     return normalized;
 }
 
+function normalizePidOptions(value) {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        const error = new Error('pidOptions must be an object');
+        error.status = 400;
+        throw error;
+    }
+    const normalized = {};
+    if (value.marker !== undefined && value.marker !== null && value.marker !== '') {
+        if (typeof value.marker !== 'string' || !PID_ICON_ID_RE.test(value.marker)) {
+            const error = new Error('pidOptions.marker must be an icon id ([a-z0-9_], ≤32)');
+            error.status = 400;
+            throw error;
+        }
+        normalized.marker = value.marker;
+    }
+    if (value.lineColor !== undefined && value.lineColor !== null && value.lineColor !== '') {
+        if (typeof value.lineColor !== 'string' || !PID_LINE_COLORS.has(value.lineColor)) {
+            const error = new Error('pidOptions.lineColor is not in the palette whitelist');
+            error.status = 400;
+            throw error;
+        }
+        normalized.lineColor = value.lineColor;
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeStagePid(value, stages) {
+    if (value === undefined) {
+        return {};
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        const error = new Error('stagePid must be an object keyed by stage');
+        error.status = 400;
+        throw error;
+    }
+    const normalized = {};
+    for (const [stage, raw] of Object.entries(value)) {
+        if (!Object.prototype.hasOwnProperty.call(stages, stage)) {
+            const error = new Error(`stagePid references unknown stage "${stage}"`);
+            error.status = 400;
+            throw error;
+        }
+        if (!raw || typeof raw !== 'object') {
+            const error = new Error(`stagePid.${stage} must be an object`);
+            error.status = 400;
+            throw error;
+        }
+        const entry = {};
+        if (raw.icon !== undefined && raw.icon !== null && raw.icon !== '' && raw.icon !== 'auto') {
+            if (typeof raw.icon !== 'string' || !PID_ICON_ID_RE.test(raw.icon)) {
+                const error = new Error(`stagePid.${stage}.icon must be an icon id ([a-z0-9_], ≤32)`);
+                error.status = 400;
+                throw error;
+            }
+            entry.icon = raw.icon;
+        }
+        if (raw.station !== undefined && raw.station !== null && raw.station !== '' && raw.station !== 'auto') {
+            if (!PID_STATION_TYPES.has(raw.station)) {
+                const error = new Error(`stagePid.${stage}.station must be auto/interchange/normal`);
+                error.status = 400;
+                throw error;
+            }
+            entry.station = raw.station;
+        }
+        if (Object.keys(entry).length > 0) {
+            normalized[stage] = entry;
+        }
+    }
+    return normalized;
+}
+
 export function pickConfigFields(body = {}) {
     const payload = {};
     for (const field of CONFIG_FIELDS) {
@@ -116,6 +200,13 @@ export function pickConfigFields(body = {}) {
         validator: (raw) => (raw === true || raw === false ? raw : null),
         message: 'expected boolean',
     });
+    payload.stagePid = normalizeStagePid(payload.stagePid, stages);
+    const pidOptions = normalizePidOptions(payload.pidOptions);
+    if (pidOptions) {
+        payload.pidOptions = pidOptions;
+    } else {
+        delete payload.pidOptions;
+    }
     const teamNames = normalizeTeamNames(payload.teamNames);
     if (teamNames) {
         payload.teamNames = teamNames;
@@ -136,11 +227,14 @@ export function toConfigResponse(doc, { includeShareToken = false } = {}) {
         stageLabels: doc.stageLabels || {},
         stageGrace: doc.stageGrace || {},
         stageAutoAdvance: doc.stageAutoAdvance || {},
+        stagePid: doc.stagePid || {},
+        ...(doc.pidOptions ? { pidOptions: doc.pidOptions } : {}),
         ...(doc.teamNames ? { teamNames: doc.teamNames } : {}),
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
         shareEnabled: Boolean(doc.shareEnabled),
         isPublic: Boolean(doc.isPublic),
+        ...(doc.creditName ? { creditName: doc.creditName } : {}),
         ...(includeShareToken && doc.shareEnabled && doc.shareToken
             ? { shareToken: doc.shareToken }
             : {}),
@@ -181,6 +275,8 @@ export function toDisplayResponse(doc) {
         stageLabels: doc.stageLabels || {},
         stageGrace: doc.stageGrace || {},
         stageAutoAdvance: doc.stageAutoAdvance || {},
+        stagePid: doc.stagePid || {},
+        ...(doc.pidOptions ? { pidOptions: doc.pidOptions } : {}),
         ...(doc.teamNames ? { teamNames: doc.teamNames } : {}),
     };
 }

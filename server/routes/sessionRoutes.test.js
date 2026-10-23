@@ -176,6 +176,72 @@ test('stage enhancement fields are validated and echoed back', async () => {
     });
 });
 
+test('pid customization fields are validated and echoed back', async () => {
+    const ok = await fetch(base + '/api/configurations/default', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180, sound_check: 30 },
+            timerSettings: { free_debate: 'free', sound_check: 'single' },
+            stageOrder: ['sound_check', 'free_debate'],
+            stagePid: { free_debate: { icon: 'trophy', station: 'interchange' }, sound_check: { icon: 'auto' } },
+            pidOptions: { marker: 'mic', lineColor: '#2e7d32' },
+        }),
+    });
+    expect(ok.status).toBe(200);
+
+    const doc = await configurations.findOne({ name: 'default' });
+    doc.shareEnabled = true;
+    doc.shareToken = 'tok-itest';
+    const loaded = await fetch(base + '/api/display/tok-itest').then((r) => r.json());
+    expect(loaded.data.stagePid).toEqual({ free_debate: { icon: 'trophy', station: 'interchange' } });
+    expect(loaded.data.pidOptions).toEqual({ marker: 'mic', lineColor: '#2e7d32' });
+
+    const badIcon = await fetch(base + '/api/configurations/default', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180 },
+            timerSettings: { free_debate: 'free' },
+            stagePid: { free_debate: { icon: 'NOT-VALID' } },
+        }),
+    });
+    expect(badIcon.status).toBe(400);
+
+    const badStation = await fetch(base + '/api/configurations/default', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180 },
+            timerSettings: { free_debate: 'free' },
+            stagePid: { free_debate: { station: 'mega' } },
+        }),
+    });
+    expect(badStation.status).toBe(400);
+
+    const badColor = await fetch(base + '/api/configurations/default', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180 },
+            timerSettings: { free_debate: 'free' },
+            pidOptions: { lineColor: '#ff0000' },
+        }),
+    });
+    expect(badColor.status).toBe(400);
+
+    // Restore a clean document for downstream tests.
+    await fetch(base + '/api/configurations/default', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            debateStages: { free_debate: 180, sound_check: 30 },
+            timerSettings: { free_debate: 'free', sound_check: 'single' },
+            stageOrder: ['sound_check', 'free_debate'],
+        }),
+    });
+});
+
 test('session lifecycle: start, report, read, subscribe, end', async () => {
     // Enable sharing directly on the stubbed document.
     const doc = await configurations.findOne({ name: 'default' });

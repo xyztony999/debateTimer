@@ -18,7 +18,10 @@ import {
     isStageFullyEnded,
 } from './engine.js';
 import { buildSnapshot, adoptSnapshot, compensateInFlight } from './snapshotCodec.js';
-import { beginStageCapture, bumpOverrun, buildMatchPayload } from './matchCapture.js';
+import {
+    beginStageCapture, bumpOverrun, buildMatchPayload,
+    persistCapture, restoreCapture, clearPersistedCapture,
+} from './matchCapture.js';
 import { initiateDirectChannel, answerDirectChannel } from './rtcChannel.js';
 import { anchorResetsForAction } from './clockAnchors.js';
 import { createSnapshotQueue, snapshotFailureAction } from './snapshotReporting.js';
@@ -228,7 +231,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     // ------------------------------------------------------------------
     // Stage application
     // ------------------------------------------------------------------
-    const applyStage = useCallback((stage) => {
+    const applyStage = useCallback((stage, { skipCapture = false } = {}) => {
         const { config: cfg } = stateRef.current ?? {};
         if (!stage || !cfg || !Object.prototype.hasOwnProperty.call(cfg.stages, stage)) {
             return;
@@ -237,17 +240,20 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         const durationSec = Number(cfg.stages[stage] ?? 0);
         const graceSec = Number(cfg.stageGrace[stage] ?? 0);
         dispatch({ type: 'APPLY_STAGE', stageId: stage, mode, durationSec, graceSec });
-        captureRef.current = beginStageCapture(captureRef.current, {
-            stageId: stage,
-            label: stageDisplayName(t, stage, cfg.stageLabels, i18n.language),
-            mode,
-            plannedSeconds: durationSec,
-            graceSeconds: graceSec,
-            now: Date.now(),
-            sidesNow: sidesNowForCapture(),
-        });
-        matchAutoSavedRef.current = false;
-        setCaptureCount(captureRef.current.entries.length);
+        if (!skipCapture) {
+            captureRef.current = beginStageCapture(captureRef.current, {
+                stageId: stage,
+                label: stageDisplayName(t, stage, cfg.stageLabels, i18n.language),
+                mode,
+                plannedSeconds: durationSec,
+                graceSeconds: graceSec,
+                now: Date.now(),
+                sidesNow: sidesNowForCapture(),
+            });
+            matchAutoSavedRef.current = false;
+            persistCapture(captureRef.current, cfg.name);
+        }
+        setCaptureCount(captureRef.current?.entries.length ?? 0);
     }, [t, i18n, sidesNowForCapture]);
 
     const goToAdjacentStage = useCallback((direction) => {
@@ -265,14 +271,21 @@ export default function useDebateTimer({ shareToken = null } = {}) {
     }, [applyStage]);
 
     // Config (re)load: reset the runtime to the first stage and start a
-    // fresh capture — mirrors the old applyLoadedData.
+    // fresh capture — unless a buffered capture for the SAME template is
+    // being restored after a page refresh (sessionStorage safety net).
     useEffect(() => {
         if (orderedStages.length === 0) {
             return;
         }
-        captureRef.current = null;
-        setCaptureCount(0);
-        applyStage(orderedStages[0]);
+        const restored = isDisplay ? null : restoreCapture();
+        if (restored && restored.configKey === config?.name) {
+            captureRef.current = restored.capture;
+            applyStage(orderedStages[0], { skipCapture: true });
+        } else {
+            clearPersistedCapture();
+            captureRef.current = null;
+            applyStage(orderedStages[0]);
+        }
     // applyStage depends on t/i18n only for capture labels; re-running on
     // language change would wipe the match capture, so key on config only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -383,6 +396,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                 playAlert(event.node);
             } else if (event.type === 'overrun') {
                 captureRef.current = bumpOverrun(captureRef.current, event.side, state.stageId);
+                persistCapture(captureRef.current, stateRef.current?.config?.name);
             }
         }
         dispatch({ type: 'CONSUME_EVENTS' });

@@ -26,6 +26,8 @@ export const EMPTY_CONFIG = {
     stageGrace: {},
     stageAutoAdvance: {},
     teamNames: {},
+    stagePid: {},
+    pidOptions: {},
     shareEnabled: false,
     shareToken: null,
 };
@@ -53,6 +55,8 @@ export default function useDebateConfig(shareToken = null, namedEvents = null) {
             stageGrace: data.stageGrace || {},
             stageAutoAdvance: data.stageAutoAdvance || {},
             teamNames: data.teamNames || {},
+            stagePid: data.stagePid || {},
+            pidOptions: data.pidOptions || {},
             shareEnabled: Boolean(data.shareEnabled),
             shareToken: data.shareToken || null,
         });

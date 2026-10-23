@@ -42,6 +42,10 @@ import Switch from '@mui/material/Switch';
 import GroupsIcon from '@mui/icons-material/Groups';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import SoundSettingsPanel from './components/SoundSettingsPanel';
+import Popover from '@mui/material/Popover';
+import TrainRounded from '@mui/icons-material/TrainRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import { PID_ICONS, PID_ICON_IDS, MARKER_IDS, LINE_COLORS, DEFAULT_LINE_COLOR } from './config/pidIcons';
 import GalleryService from './services/GalleryService';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ReorderIcon from '@mui/icons-material/Reorder';
@@ -71,8 +75,8 @@ function generateCustomId() {
 
 const EMPTY_LABELS = { 'zh-Hans': '', 'en': '', 'fr-CA': '' };
 
-function buildConfigSnapshot(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames) {
-    return JSON.stringify({ debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames });
+function buildConfigSnapshot(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames, stagePid, pidOptions) {
+    return JSON.stringify({ debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames, stagePid, pidOptions });
 }
 
 function formatStageTime(seconds) {
@@ -99,6 +103,10 @@ const DebateSetting = () => {
     const [stageGrace, setStageGrace] = useState({});
     const [stageAutoAdvance, setStageAutoAdvance] = useState({});
     const [teamNames, setTeamNames] = useState({ aff: '', neg: '' });
+    const [stagePid, setStagePid] = useState({});
+    const [pidOptions, setPidOptions] = useState({ marker: '', lineColor: '' });
+    const [pidAnchor, setPidAnchor] = useState(null);
+    const [pidStage, setPidStage] = useState(null);
 
     const [configurationNames, setConfigurationNames] = useState([]);
     const [selectedConfigName, setSelectedConfigName] = useState(DEFAULT_CONFIGURATION_NAME);
@@ -116,9 +124,11 @@ const DebateSetting = () => {
     const [shareBusy, setShareBusy] = useState(false);
     const [isPublic, setIsPublic] = useState(false);
     const [visibilityBusy, setVisibilityBusy] = useState(false);
+    const [creditName, setCreditName] = useState('');
+    const loadedCreditRef = useRef('');
 
-    const markClean = useCallback((stages, settings, labels, order, grace = {}, autoAdvance = {}, names = {}) => {
-        savedSnapshotRef.current = buildConfigSnapshot(stages, settings, labels, order, grace, autoAdvance, names);
+    const markClean = useCallback((stages, settings, labels, order, grace = {}, autoAdvance = {}, names = {}, pid = {}, options = {}) => {
+        savedSnapshotRef.current = buildConfigSnapshot(stages, settings, labels, order, grace, autoAdvance, names, pid, options);
     }, []);
 
     const isDirty = useCallback(() => (
@@ -130,8 +140,10 @@ const DebateSetting = () => {
             stageGrace,
             stageAutoAdvance,
             teamNames,
+            stagePid,
+            pidOptions,
         )
-    ), [debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames]);
+    ), [debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames, stagePid, pidOptions]);
 
     const getOrderedStages = () => {
         if (stageOrder.length > 0) {
@@ -164,8 +176,12 @@ const DebateSetting = () => {
         setStageOrder(order);
         setStageGrace(grace);
         setStageAutoAdvance(autoAdvance);
+        const pid = data.stagePid || {};
+        const options = { marker: data.pidOptions?.marker || '', lineColor: data.pidOptions?.lineColor || '' };
         setTeamNames(names);
-        markClean(data.debateStages, data.timerSettings, labels, order, grace, autoAdvance, names);
+        setStagePid(pid);
+        setPidOptions(options);
+        markClean(data.debateStages, data.timerSettings, labels, order, grace, autoAdvance, names, pid, options);
     }, [markClean]);
 
     const applyLocalFallback = useCallback(() => {
@@ -177,7 +193,9 @@ const DebateSetting = () => {
         setStageGrace({});
         setStageAutoAdvance({});
         setTeamNames({ aff: '', neg: '' });
-        markClean(debateStagesData, timerSettingsData, {}, order, {}, {}, { aff: '', neg: '' });
+        setStagePid({});
+        setPidOptions({ marker: '', lineColor: '' });
+        markClean(debateStagesData, timerSettingsData, {}, order, {}, {}, { aff: '', neg: '' }, {}, { marker: '', lineColor: '' });
     }, [markClean]);
 
     const refreshConfigurationList = useCallback(async () => {
@@ -201,6 +219,8 @@ const DebateSetting = () => {
             setShareEnabled(Boolean(result.data.shareEnabled));
             setShareToken(result.data.shareToken || null);
             setIsPublic(Boolean(result.data.isPublic));
+            setCreditName(result.data.creditName || '');
+            loadedCreditRef.current = result.data.creditName || '';
             return true;
         }
         return false;
@@ -286,7 +306,7 @@ const DebateSetting = () => {
                 if (!ownerId) {
                     setStoredConfigurationName(name);
                 }
-                markClean(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames);
+                markClean(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames, stagePid, pidOptions);
                 setShareEnabled(false);
                 setShareToken(null);
                 setIsPublic(false);
@@ -350,6 +370,23 @@ const DebateSetting = () => {
             return;
         }
         setIsPublic(Boolean(result.data.isPublic));
+    };
+
+    // Save the credit name on blur/enter while published (empty = anonymous).
+    const handleCreditCommit = async () => {
+        const next = (creditName || '').trim().slice(0, 20);
+        if (next === (loadedCreditRef.current || '')) {
+            return;
+        }
+        setVisibilityBusy(true);
+        const result = await GalleryService.updateVisibility(selectedConfigName, true, next);
+        setVisibilityBusy(false);
+        if (!result.success) {
+            notify(result.message, { severity: 'error' });
+            return;
+        }
+        loadedCreditRef.current = next;
+        notify(t('settings.creditSaved'), { severity: 'success' });
     };
 
     const displayShareUrl = shareEnabled && shareToken
@@ -418,7 +455,27 @@ const DebateSetting = () => {
         setStageAutoAdvance((prev) => ({ ...prev, [key]: checked }));
     };
 
-    const stageEnhancements = () => ({ stageGrace, stageAutoAdvance, teamNames });
+    const updateStagePid = (key, patch) => {
+        setStagePid((prev) => {
+            const entry = { ...(prev[key] || {}), ...patch };
+            for (const field of Object.keys(entry)) {
+                if (!entry[field]) delete entry[field];
+            }
+            const next = { ...prev };
+            if (Object.keys(entry).length > 0) {
+                next[key] = entry;
+            } else {
+                delete next[key];
+            }
+            return next;
+        });
+    };
+    const closePidPopover = () => {
+        setPidAnchor(null);
+        setPidStage(null);
+    };
+
+    const stageEnhancements = () => ({ stageGrace, stageAutoAdvance, teamNames, stagePid, pidOptions });
 
     const saveChanges = async () => {
         try {
@@ -432,7 +489,7 @@ const DebateSetting = () => {
                 stageEnhancements(),
             );
             if (result.success) {
-                markClean(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames);
+                markClean(debateStages, timerSettings, stageLabels, stageOrder, stageGrace, stageAutoAdvance, teamNames, stagePid, pidOptions);
                 notify(t('settings.savedSuccess', { name: selectedConfigName }), {
                     severity: 'success',
                 });
@@ -461,6 +518,8 @@ const DebateSetting = () => {
         setStageGrace({});
         setStageAutoAdvance({});
         setTeamNames({ aff: '', neg: '' });
+        setStagePid({});
+        setPidOptions({ marker: '', lineColor: '' });
     };
 
     const addTimerItem = () => {
@@ -502,6 +561,7 @@ const DebateSetting = () => {
         const newStageLabels = { ...stageLabels };
         const newStageGrace = { ...stageGrace };
         const newStageAutoAdvance = { ...stageAutoAdvance };
+        const newStagePid = { ...stagePid };
 
         delete newDebateStages[itemName];
         delete newTimerSettings[itemName];
@@ -513,7 +573,9 @@ const DebateSetting = () => {
         setTimerSettings(newTimerSettings);
         setStageLabels(newStageLabels);
         setStageGrace(newStageGrace);
+        delete newStagePid[itemName];
         setStageAutoAdvance(newStageAutoAdvance);
+        setStagePid(newStagePid);
         setStageOrder((prev) => prev.filter((stage) => stage !== itemName));
     };
 
@@ -805,6 +867,19 @@ const DebateSetting = () => {
                                         )}
                                         label={isPublic ? t('settings.published') : t('settings.publishToGallery')}
                                     />
+                                    {isPublic ? (
+                                        <TextField
+                                            size="small"
+                                            label={t('settings.creditName')}
+                                            placeholder={t('settings.creditNameHint')}
+                                            value={creditName}
+                                            disabled={visibilityBusy}
+                                            onChange={(e) => setCreditName(e.target.value)}
+                                            onBlur={handleCreditCommit}
+                                            slotProps={{ htmlInput: { maxLength: 20 } }}
+                                            sx={{ maxWidth: 220 }}
+                                        />
+                                    ) : null}
                                     <Button size="small" onClick={() => navigate('/gallery')}>
                                         🌐 {t('gallery.title')}
                                     </Button>
@@ -879,6 +954,17 @@ const DebateSetting = () => {
                                                         <MenuItem value="free">{t('settings.freeTimer')}</MenuItem>
                                                     </Select>
                                                 </FormControl>
+                                                <Tooltip title={t('settings.pidStage')}>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(event) => {
+                                                            setPidAnchor(event.currentTarget);
+                                                            setPidStage(stage);
+                                                        }}
+                                                    >
+                                                        <TrainRounded fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
                                                 <Tooltip title={t('settings.deleteItemTitle')}>
                                                     <IconButton
                                                         color="error"
@@ -950,6 +1036,66 @@ const DebateSetting = () => {
                                     />
                                 </Grid>
                             </Grid>
+                        </CardContent>
+                    </Card>
+
+                    {/* PID Timeline (S-01-07) */}
+                    <Card>
+                        <CardHeader
+                            avatar={<TrainRounded color="primary" />}
+                            title={t('settings.pidTitle')}
+                            subheader={t('settings.pidDesc')}
+                        />
+                        <CardContent>
+                            <Stack spacing={2}>
+                                <Typography variant="caption" color="text.secondary">
+                                    {t('settings.pidMarker')}
+                                </Typography>
+                                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                                    {MARKER_IDS.map((id) => {
+                                        const MarkerIcon = PID_ICONS[id];
+                                        const selected = (pidOptions.marker || 'train') === id;
+                                        return (
+                                            <IconButton
+                                                key={id}
+                                                size="small"
+                                                color={selected ? 'primary' : 'default'}
+                                                onClick={() => setPidOptions((prev) => ({
+                                                    ...prev,
+                                                    marker: id === 'train' ? '' : id,
+                                                }))}
+                                                sx={{ border: (theme) => `1px solid ${selected ? theme.palette.primary.main : theme.palette.divider}` }}
+                                            >
+                                                <MarkerIcon fontSize="small" />
+                                            </IconButton>
+                                        );
+                                    })}
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                    {t('settings.pidLineColor')}
+                                </Typography>
+                                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                                    {LINE_COLORS.map((color) => {
+                                        const selected = (pidOptions.lineColor || DEFAULT_LINE_COLOR) === color;
+                                        return (
+                                            <IconButton
+                                                key={color}
+                                                size="small"
+                                                onClick={() => setPidOptions((prev) => ({
+                                                    ...prev,
+                                                    lineColor: color === DEFAULT_LINE_COLOR ? '' : color,
+                                                }))}
+                                                sx={{
+                                                    bgcolor: color,
+                                                    width: 32,
+                                                    height: 32,
+                                                    border: (theme) => `2px solid ${selected ? theme.palette.text.primary : 'transparent'}`,
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </Stack>
+                            </Stack>
                         </CardContent>
                     </Card>
 
@@ -1128,6 +1274,65 @@ const DebateSetting = () => {
                             </Alert>
                         </CardContent>
                     </Card>
+
+                <Popover
+                    open={Boolean(pidAnchor)}
+                    anchorEl={pidAnchor}
+                    onClose={closePidPopover}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                >
+                    <Box sx={{ p: 2, maxWidth: 340 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                            {pidStage ? stageDisplayName(t, pidStage, stageLabels, i18n.language) : ''}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {t('settings.pidIcon')}
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', mb: 1.5, mt: 0.5 }}>
+                            <IconButton
+                                size="small"
+                                color={!stagePid[pidStage]?.icon ? 'primary' : 'default'}
+                                onClick={() => pidStage && updateStagePid(pidStage, { icon: '' })}
+                                title={t('settings.pidIconAuto')}
+                            >
+                                <AutoAwesomeRoundedIcon fontSize="small" />
+                            </IconButton>
+                            {PID_ICON_IDS.map((id) => {
+                                const Icon = PID_ICONS[id];
+                                const selected = stagePid[pidStage]?.icon === id;
+                                return (
+                                    <IconButton
+                                        key={id}
+                                        size="small"
+                                        color={selected ? 'primary' : 'default'}
+                                        onClick={() => pidStage && updateStagePid(pidStage, { icon: id })}
+                                        sx={{ border: (theme) => `1px solid ${selected ? theme.palette.primary.main : 'transparent'}` }}
+                                    >
+                                        <Icon fontSize="small" />
+                                    </IconButton>
+                                );
+                            })}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                            {t('settings.pidStation')}
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                            {['auto', 'interchange', 'normal'].map((type) => {
+                                const selected = (stagePid[pidStage]?.station || 'auto') === type;
+                                return (
+                                    <Button
+                                        key={type}
+                                        size="small"
+                                        variant={selected ? 'contained' : 'outlined'}
+                                        onClick={() => pidStage && updateStagePid(pidStage, { station: type === 'auto' ? '' : type })}
+                                    >
+                                        {t('settings.pidStation_' + type)}
+                                    </Button>
+                                );
+                            })}
+                        </Stack>
+                    </Box>
+                </Popover>
 
                     {/* Actions */}
                     <Stack

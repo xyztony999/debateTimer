@@ -22,6 +22,7 @@ function attachShareMeta(parsed, raw) {
         shareEnabled: Boolean(raw?.shareEnabled),
         shareToken: raw?.shareToken || null,
         isPublic: Boolean(raw?.isPublic),
+        ...(raw?.creditName ? { creditName: raw.creditName } : {}),
         ownerId: raw?.ownerId || null,
     };
 }

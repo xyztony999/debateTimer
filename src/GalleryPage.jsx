@@ -4,12 +4,15 @@ import { useTranslation } from 'react-i18next';
 import {
     Alert, AppBar, Box, Button, Card, CardActionArea, CardContent, Chip, CircularProgress,
     Container, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton,
-    Stack, TextField, Toolbar, Typography,
+    InputAdornment, Stack, TextField, ToggleButton, ToggleButtonGroup, Toolbar, Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SearchIcon from '@mui/icons-material/Search';
+import WhatshotIcon from '@mui/icons-material/Whatshot';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import GalleryService from './services/GalleryService';
 import { useAuth } from './context/AuthContext';
 import { useColorMode } from './context/ColorModeContext';
@@ -44,9 +47,12 @@ export default function GalleryPage() {
     const [copyName, setCopyName] = useState('');
     const [copyBusy, setCopyBusy] = useState(false);
     const [copyError, setCopyError] = useState(null);
+    const [searchInput, setSearchInput] = useState('');
+    const [query, setQuery] = useState('');
+    const [sort, setSort] = useState('updated');
 
-    const load = useCallback(async ({ before } = {}) => {
-        const result = await GalleryService.listTemplates({ before });
+    const load = useCallback(async ({ before, q, sort: sortKey } = {}) => {
+        const result = await GalleryService.listTemplates({ before, q, sort: sortKey });
         if (!result.success) {
             setState('error');
             return;
@@ -57,8 +63,14 @@ export default function GalleryPage() {
     }, []);
 
     useEffect(() => {
-        load();
-    }, [load]);
+        load({ q: query, sort });
+    }, [load, query, sort]);
+
+    // Debounce the search box; only committed text hits the API.
+    useEffect(() => {
+        const timer = window.setTimeout(() => setQuery(searchInput.trim()), 300);
+        return () => window.clearTimeout(timer);
+    }, [searchInput]);
 
     // Deep link /gallery/:id opens the detail dialog directly (login next flow).
     useEffect(() => {
@@ -148,14 +160,49 @@ export default function GalleryPage() {
             </AppBar>
 
             <Container maxWidth="md" sx={{ pb: 4, pt: 2.5 }}>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.5}
+                    sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between', mb: 2 }}
+                >
+                    <TextField
+                        size="small"
+                        placeholder={t('gallery.search')}
+                        value={searchInput}
+                        onChange={(event) => setSearchInput(event.target.value)}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon fontSize="small" />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                        sx={{ maxWidth: { sm: 320 } }}
+                    />
+                    <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={sort}
+                        onChange={(_event, value) => value && setSort(value)}
+                    >
+                        <ToggleButton value="updated">
+                            <ScheduleIcon sx={{ fontSize: 16, mr: 0.5 }} />{t('gallery.sortUpdated')}
+                        </ToggleButton>
+                        <ToggleButton value="copies">
+                            <WhatshotIcon sx={{ fontSize: 16, mr: 0.5 }} />{t('gallery.sortCopies')}
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                </Stack>
                 {state === 'error' ? (
                     <Stack spacing={2} sx={{ alignItems: 'center', py: 4 }}>
                         <Alert severity="error">{t('gallery.loadFailed')}</Alert>
-                        <Button onClick={() => load()}>{t('records.retry')}</Button>
+                        <Button onClick={() => load({ q: query, sort })}>{t('records.retry')}</Button>
                     </Stack>
                 ) : items.length === 0 && !id ? (
                     <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
-                        {t('gallery.empty')}
+                        {query ? t('gallery.noMatch') : t('gallery.empty')}
                     </Alert>
                 ) : (
                     <Grid container spacing={2}>
@@ -181,9 +228,16 @@ export default function GalleryPage() {
                                             <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
                                                 <Chip size="small" label={t('gallery.stageCount', { n: item.stageCount })} />
                                                 <Chip size="small" variant="outlined" label={formatDuration(item.totalSeconds)} />
+                                                <Chip
+                                                    size="small"
+                                                    variant="outlined"
+                                                    icon={<WhatshotIcon />}
+                                                    label={item.copies || 0}
+                                                />
                                             </Stack>
                                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                                                 {item.modeSummary} · {new Date(item.updatedAt).toLocaleDateString()}
+                                                {item.creditName ? ` · ${t('gallery.credit', { name: item.creditName })}` : ''}
                                             </Typography>
                                         </CardContent>
                                     </CardActionArea>
@@ -192,7 +246,10 @@ export default function GalleryPage() {
                         ))}
                         {nextBefore ? (
                             <Grid size={{ xs: 12 }} sx={{ textAlign: 'center' }}>
-                                <Button variant="outlined" onClick={() => load({ before: nextBefore })}>
+                                <Button
+                                    variant="outlined"
+                                    onClick={() => load({ before: nextBefore, q: query, sort })}
+                                >
                                     {t('records.loadMore')}
                                 </Button>
                             </Grid>
@@ -214,8 +271,14 @@ export default function GalleryPage() {
                         <DialogContent>
                             <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
                                 <Chip size="small" label={t('gallery.stageCount', { n: detail.stageCount })} />
-                                <Chip size="small" label={formatDuration(detail.totalSeconds)} />
+                                <Chip size="small" variant="outlined" label={formatDuration(detail.totalSeconds)} />
+                                <Chip size="small" variant="outlined" icon={<WhatshotIcon />} label={detail.copies || 0} />
                             </Stack>
+                            {detail.creditName ? (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                    {t('gallery.credit', { name: detail.creditName })}
+                                </Typography>
+                            ) : null}
                             <Stack spacing={0.5}>
                                 {(detail.stageOrder || Object.keys(detail.debateStages || {})).map((stage) => (
                                     <Stack key={stage} direction="row" sx={{ justifyContent: 'space-between' }}>

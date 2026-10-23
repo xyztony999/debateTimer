@@ -179,7 +179,21 @@
             "chime": "双音铃"
         },
         "publishToGallery": "发布到模板广场",
-        "published": "已在模板广场公开"
+        "published": "已在模板广场公开",
+        "creditName": "署名（可选）",
+        "creditNameHint": "留空则匿名",
+        "creditSaved": "署名已更新",
+        "pidStage": "PID 时间线自定义",
+        "pidTitle": "PID 时间线",
+        "pidDesc": "当前站车标与线路主题色（随模板保存，控制端时间线生效）",
+        "pidIcon": "站点图标",
+        "pidIconAuto": "自动（按阶段语义）",
+        "pidStation": "站型",
+        "pidStation_auto": "自动",
+        "pidStation_interchange": "换乘站",
+        "pidStation_normal": "普通站",
+        "pidMarker": "当前站车标（第一个为默认火车）",
+        "pidLineColor": "线路主题色（第一个为默认深蓝）"
     },
     "auth": {
         "loginTitle": "登录",
@@ -311,7 +325,12 @@
         "loadFailed": "加载失败",
         "unpublish": "下架",
         "unpublishConfirm": "确认将「{{name}}」从模板广场下架？",
-        "publicChip": "广场公开"
+        "publicChip": "广场公开",
+        "search": "搜索模板名…",
+        "sortUpdated": "最新",
+        "sortCopies": "最热",
+        "noMatch": "没有匹配的模板",
+        "credit": "贡献者：{{name}}"
     },
     "pwa": {
         "offline": "离线模式：计时可用，云同步暂不可用",

@@ -28,12 +28,19 @@ function toGalleryItem(doc) {
         totalSeconds,
         modeSummary: modeSummary(doc.timerSettings),
         updatedAt: doc.updatedAt,
+        copies: Number(doc.galleryCopyCount) || 0,
+        ...(doc.creditName ? { creditName: doc.creditName } : {}),
     };
+}
+
+function escapeRegex(text) {
+    return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
  * Public template gallery: anonymous read-only view over configurations
- * flagged isPublic. Responses never include owner identity or share tokens.
+ * flagged isPublic. Responses never include owner identity or share tokens
+ * (a self-chosen creditName is the only attribution, opt-in by the owner).
  */
 export function createGalleryRouter({ configurations, requireAuth, requireAdmin }) {
     const router = Router();
@@ -46,9 +53,25 @@ export function createGalleryRouter({ configurations, requireAuth, requireAdmin 
                 isPublic: true,
                 ...(Number.isFinite(before) && before > 0 ? { updatedAt: { $lt: before } } : {}),
             };
+            // Free-text search over template names (case-insensitive).
+            const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 50) : '';
+            if (q) {
+                query.name = { $regex: escapeRegex(q), $options: 'i' };
+            }
+            // Sort whitelist — never derive Mongo sort keys from user input.
+            const SORTS = {
+                updated: { updatedAt: -1 },
+                copies: { galleryCopyCount: -1, updatedAt: -1 },
+            };
+            const sort = SORTS[req.query.sort] || SORTS.updated;
             const docs = await configurations
-                .find(query, { projection: { name: 1, debateStages: 1, timerSettings: 1, updatedAt: 1 } })
-                .sort({ updatedAt: -1 })
+                .find(query, {
+                    projection: {
+                        name: 1, debateStages: 1, timerSettings: 1, updatedAt: 1,
+                        galleryCopyCount: 1, creditName: 1,
+                    },
+                })
+                .sort(sort)
                 .limit(limit + 1)
                 .toArray();
             const hasMore = docs.length > limit;
@@ -90,8 +113,31 @@ export function createGalleryRouter({ configurations, requireAuth, requireAdmin 
         }
     });
 
-    router.post('/:id/unpublish', requireAuth, requireAdmin, async (req, res) => {
+    // Popularity signal: clients call this after a successful copy. Count
+    // only (no copier identity); login required to blunt casual inflation.
+    router.post('/:id/copy', requireAuth, async (req, res) => {
         try {
+            const id = parseObjectId(req.params.id);
+            if (!id) {
+                res.status(404).json({ success: false, message: 'Template not found' });
+                return;
+            }
+            const result = await configurations.updateOne(
+                { _id: id, isPublic: true },
+                { $inc: { galleryCopyCount: 1 } },
+            );
+            if (result.modifiedCount === 0) {
+                res.status(404).json({ success: false, message: 'Template not found' });
+                return;
+            }
+            res.json({ success: true, data: { counted: true } });
+        } catch (error) {
+            console.error('POST /api/gallery/:id/copy', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    });
+
+    router.post('/:id/unpublish', requireAuth, requireAdmin, async (req, res) => {        try {
             const id = parseObjectId(req.params.id);
             if (!id) {
                 res.status(404).json({ success: false, message: 'Template not found' });

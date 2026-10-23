@@ -4,6 +4,9 @@ import {
     bumpOverrun,
     buildMatchPayload,
     computeActuals,
+    persistCapture,
+    restoreCapture,
+    clearPersistedCapture,
 } from './matchCapture.js';
 
 const T0 = 1000000;
@@ -112,4 +115,39 @@ test('buildMatchPayload omits empty team names and returns null without entries'
 
     expect(buildMatchPayload(null, { configName: 'x', teamNames: {}, now: T0, sidesNow: null })).toBeNull();
     expect(buildMatchPayload({ startedAt: T0, entries: [] }, { configName: 'x', teamNames: {}, now: T0, sidesNow: null })).toBeNull();
+});
+
+test('capture persistence round-trips via sessionStorage and degrades safely', () => {
+    // No storage in this environment: the helpers must not throw.
+    clearPersistedCapture();
+    expect(restoreCapture()).toBeNull();
+    persistCapture({ startedAt: T0, entries: [] }, 'default');
+    expect(restoreCapture()).toBeNull();
+
+    const capture = beginStageCapture(null, {
+        stageId: 'a', label: 'A', mode: 'single',
+        plannedSeconds: 60, graceSeconds: 0, now: T0, sidesNow: null,
+    });
+    let stored = null;
+    globalThis.window = {
+        sessionStorage: {
+            map: new Map(),
+            getItem(k) { return this.map.get(k) ?? null; },
+            setItem(k, v) { this.map.set(k, v); },
+            removeItem(k) { this.map.delete(k); },
+        },
+    };
+    try {
+        persistCapture(capture, '默认配置');
+        stored = restoreCapture();
+        expect(stored.configKey).toBe('默认配置');
+        expect(stored.capture.entries).toHaveLength(1);
+        clearPersistedCapture();
+        expect(restoreCapture()).toBeNull();
+        persistCapture(null, 'x');
+        expect(restoreCapture()).toBeNull();
+    } finally {
+        delete globalThis.window;
+    }
+    expect(stored).not.toBeNull();
 });

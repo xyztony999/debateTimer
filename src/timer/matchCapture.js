@@ -92,3 +92,47 @@ export function buildMatchPayload(capture, { configName, teamNames, now, sidesNo
         stages,
     };
 }
+
+// --- Refresh safety net (PRD match-records §10 follow-up) -------------------
+// Stage actuals live in a ref; a page refresh used to wipe them. The buffer
+// is mirrored into sessionStorage so the timer page can resume capture.
+
+const CAPTURE_STORAGE_KEY = 'timer.matchCapture.v1';
+
+/** Persist the buffer tagged with the owning template (configKey). */
+export function persistCapture(capture, configKey) {
+    try {
+        if (!capture || capture.entries.length === 0) {
+            window.sessionStorage.removeItem(CAPTURE_STORAGE_KEY);
+            return;
+        }
+        window.sessionStorage.setItem(CAPTURE_STORAGE_KEY, JSON.stringify({ configKey, capture }));
+    } catch {
+        // Storage unavailable (private mode / quota): in-memory capture only.
+    }
+}
+
+/** Returns { configKey, capture } or null (also when storage is unavailable). */
+export function restoreCapture() {
+    try {
+        const raw = window.sessionStorage.getItem(CAPTURE_STORAGE_KEY);
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.capture?.entries) || parsed.capture.entries.length === 0) {
+            return null;
+        }
+        return { configKey: parsed.configKey || '', capture: parsed.capture };
+    } catch {
+        return null;
+    }
+}
+
+export function clearPersistedCapture() {
+    try {
+        window.sessionStorage.removeItem(CAPTURE_STORAGE_KEY);
+    } catch {
+        // Ignore.
+    }
+}

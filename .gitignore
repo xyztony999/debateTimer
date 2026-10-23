@@ -29,6 +29,7 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 
-# mimosa security-scanner runtime state
+# mimosa security-scanner runtime state (any depth)
 /.mimosa
 /server/.mimosa
+**/.mimosa/

@@ -149,5 +149,11 @@ modules:
     stages:
       requirement: { status: complete, note: "用户反馈×2；四项全选定（2026-10-23），E/F 不做；决策 D-1、P-1~P-5" }
       design: { status: complete, note: "合并简报 05-reports/2026-10-23-brief-pid-custom.md；BA v1.4/AA v2.1/FL v1.8；零新端点；Gate 1 PASS（内联）" }
-      code: { status: complete, note: "图标注册表(18)+车标子集(8)+7色板；服务端白名单校验(+1 test 含 echo/404 断言)；设置页阶段弹层+模板卡片；PID 消费(站型覆盖/图标优先级 阶段>车标>语义/线色 --st-route 覆盖)；配对入口限 remoteMode；135 tests/lint 0/build ✓" }
+      code: { status: complete, note: "图标注册表(18)+车标子集(8)+7色板；服务端白名单校验(+1 test 含 echo/404 断言)；设置页阶段弹层+模板卡片；PID 消费(站型覆盖/图标优先级 阶段>车标>语义/线色 --st-route 覆盖)；配对入口限 remoteMode；135 tests/lint 0/build ✓" }
+  - name: debt-batch-1
+    title: "工程债清偿首批：webhook 核查 / 数据备份 / Playwright E2E / useDebateTimer 拆分"
+    stages:
+      requirement: { status: complete, note: "用户验收🆗后授权清偿全部余债（2026-10-24）" }
+      design: { status: complete, note: "webhook 核查报告（误报+加固）；备份脚本设计（NDJSON+14天轮换+id 键复活）；E2E 策略=前端 only+API mock；拆分=会话域整体搬移 useTimerSessionSync（ctx 同名解构零改写）" }
+      code: { status: complete, note: "backup.js(+reviveDeep 测试，修真 bug：任意 24hex 值误转 ObjectId→改 id 型键白名单)；Playwright 3 spec 8 例（gallery 搜索/详情、display 跟随只读/ended 回退、control PID/键盘/配对门控）+e2e.yml；拆分 1354→515+901，E2E 当场抓住两处拆分缺陷（丢失 capture/lastTick refs 声明、裸 status→window.status 静默早退）修复后 136 单测+8 E2E+build 全绿；lint 0 err/25 warn（新增 10 条 exhaustive-deps 建议级）" }
 ---

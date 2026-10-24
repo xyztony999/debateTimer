@@ -29,6 +29,14 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 
+# backups (server/scripts/backup.js output)
+/server/backups
+/backups
+
+# playwright
+/test-results
+/playwright-report
+
 # mimosa security-scanner runtime state (any depth)
 /.mimosa
 /server/.mimosa

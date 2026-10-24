@@ -114,6 +114,14 @@
 bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 ```
 
+### 数据备份（服务器 cron）
+
+`server/scripts/backup.js`：纯驱动导出 `configurations / users / match_logs` 为 NDJSON 快照（`server/backups/`），保留 14 天自动轮换；`--restore <名称> --force` 整库回放（含 ownerId 深层复活）。服务器 crontab 示例：
+
+```bash
+30 4 * * *  cd /www/wwwroot/debatetimer-api/server && node scripts/backup.js >> /www/wwwlogs/debatetimer-backup.log 2>&1
+```
+
 ## 技术栈
 
 - 前端：React + Vite + Bun；设置页使用 Material UI

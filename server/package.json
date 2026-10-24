@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "import:config": "node scripts/import-configurations.js"
+    "import:config": "node scripts/import-configurations.js",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

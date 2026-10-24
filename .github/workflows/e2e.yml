@@ -1,0 +1,31 @@
+name: E2E
+
+# Frontend-only Playwright suite (all /api traffic mocked per-spec). Runs the
+# full matrix on demand; on pushes runs Chromium only to keep CI fast.
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build
+        run: bun run build
+
+      - name: Run E2E
+        run: bunx playwright test
+        env:
+          CI: 'true'

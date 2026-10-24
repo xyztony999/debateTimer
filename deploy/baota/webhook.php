@@ -14,6 +14,7 @@
  * PHP 进程需要有权限执行 deploy.sh（root 的计划任务 / GitHub Actions SSH 更稳）。
  */
 header('Content-Type: text/plain; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
 
 $scriptDir = __DIR__;
 $envFile = $scriptDir . '/deploy.env';
@@ -71,6 +72,8 @@ if ($ref !== $wanted) {
 }
 
 $log = '/www/wwwlogs/debatetimer-webhook.log';
+// 安全边界（2026-10-24 核查）：命令只含服务器端常量（__DIR__ 与固定日志路径），
+// 不接受任何请求来源输入——改动此处时不得把请求/载荷数据拼进 $cmd。
 $cmd = 'bash ' . escapeshellarg($deployScript) . ' >> ' . escapeshellarg($log) . ' 2>&1 &';
 exec($cmd);
 echo "deploy started\n";

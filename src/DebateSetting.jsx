@@ -64,6 +64,7 @@ import {
 } from './config/configConstants';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { stageDisplayName } from './utils/stageDisplayName';
+import { normalizeOwnerScope, pickInitialTemplate } from './utils/settingsScope';
 import { useColorMode } from './context/ColorModeContext';
 import { useAuth } from './context/AuthContext';
 import { useFeedback } from './context/FeedbackContext';
@@ -92,9 +93,13 @@ const DebateSetting = () => {
     const { darkMode, toggleDarkMode } = useColorMode();
     const { user, logout } = useAuth();
     const { notify, confirm, alert: showAlert } = useFeedback();
-    const ownerId = user?.role === 'admin'
-        ? (searchParams.get('ownerId') || undefined)
-        : undefined;
+    // Admin deep links carry ?ownerId=&name=; editing one's OWN templates must
+    // behave like a normal visit (no banner, memory kept), and ?name=
+    // preselects that template over the remembered one.
+    const ownerId = normalizeOwnerScope(
+        user?.role === 'admin' ? (searchParams.get('ownerId') || undefined) : undefined,
+        user?.id,
+    );
 
     const [debateStages, setDebateStages] = useState({});
     const [timerSettings, setTimerSettings] = useState({});
@@ -238,8 +243,12 @@ const DebateSetting = () => {
             try {
                 await ConfigurationService.initializeDefaultConfigurations(ownerId);
                 const names = await refreshConfigurationList() || [DEFAULT_CONFIGURATION_NAME];
-                const preferred = getStoredConfigurationName();
-                const target = names.includes(preferred) ? preferred : DEFAULT_CONFIGURATION_NAME;
+                const target = pickInitialTemplate(
+                    names,
+                    searchParams.get('name'),
+                    getStoredConfigurationName(),
+                    DEFAULT_CONFIGURATION_NAME,
+                );
                 const loaded = await loadConfigByName(target);
                 if (!loaded) {
                     applyLocalFallback();
@@ -252,7 +261,7 @@ const DebateSetting = () => {
             }
         };
         initializeSettings();
-    }, [refreshConfigurationList, loadConfigByName, applyLocalFallback, ownerId]);
+    }, [refreshConfigurationList, loadConfigByName, applyLocalFallback, ownerId, searchParams]);
 
     const handleTemplateSelect = async (event) => {
         const name = event.target.value;

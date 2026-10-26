@@ -155,5 +155,11 @@ modules:
     stages:
       requirement: { status: complete, note: "用户验收🆗后授权清偿全部余债（2026-10-24）" }
       design: { status: complete, note: "webhook 核查报告（误报+加固）；备份脚本设计（NDJSON+14天轮换+id 键复活）；E2E 策略=前端 only+API mock；拆分=会话域整体搬移 useTimerSessionSync（ctx 同名解构零改写）" }
-      code: { status: complete, note: "backup.js(+reviveDeep 测试，修真 bug：任意 24hex 值误转 ObjectId→改 id 型键白名单)；Playwright 3 spec 8 例（gallery 搜索/详情、display 跟随只读/ended 回退、control PID/键盘/配对门控）+e2e.yml；拆分 1354→515+901，E2E 当场抓住两处拆分缺陷（丢失 capture/lastTick refs 声明、裸 status→window.status 静默早退）修复后 136 单测+8 E2E+build 全绿；lint 0 err/25 warn（新增 10 条 exhaustive-deps 建议级）" }
+      code: { status: complete, note: "backup.js(+reviveDeep 测试，修真 bug：任意 24hex 值误转 ObjectId→改 id 型键白名单)；Playwright 3 spec 8 例（gallery 搜索/详情、display 跟随只读/ended 回退、control PID/键盘/配对门控）+e2e.yml；拆分 1354→515+901，E2E 当场抓住两处拆分缺陷（丢失 capture/lastTick refs 声明、裸 status→window.status 静默早退）修复后 136 单测+8 E2E+build 全绿；lint 0 err/25 warn（新增 10 条 exhaustive-deps 建议级）" }
+  - name: admin-edit-fixes
+    title: "R15 真机反馈：管理页编辑模板——误报他人模板横幅 + 深链不预选"
+    stages:
+      requirement: { status: complete, note: "用户反馈×2（2026-10-26）" }
+      design: { status: complete, note: "简报 05-reports/2026-10-26-brief-admin-edit-fixes.md（根因：ownerId 恒传+横幅只判存在；初始化不看 URL name）；Gate 1 PASS（内联）" }
+      code: { status: complete, note: "normalizeOwnerScope（self 视为本人：横幅消失+记忆恢复）+ pickInitialTemplate（URL name>记忆>默认）纯函数（+2 单测）；AdminPage 深链带 &name=；E2E +2（self 无横幅预选/other 保留横幅）；138 单测+10 E2E/lint 0/build ✓；E2E 基建坑：Playwright glob 含查询串（?ownerId 列表请求需显式 ?* 路由）、Windows 端口排除段漂移换 39173" }
 ---

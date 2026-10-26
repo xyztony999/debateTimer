@@ -14,13 +14,15 @@ export default defineConfig({
     retries: process.env.CI ? 1 : 0,
     workers: process.env.CI ? 1 : undefined,
     use: {
-        baseURL: 'http://127.0.0.1:4173',
+        // Port 39173 sits above the Windows dynamic exclusion ranges
+        // (Hyper-V reboots shift them; 4173/4573 both fell inside).
+        baseURL: 'http://127.0.0.1:39173',
         // Keep runs hermetic: fresh storage, no service-worker state.
         contextOptions: { serviceWorkers: 'block' },
     },
     webServer: {
-        command: 'bun run preview --port 4173 --strictPort --host 127.0.0.1',
-        url: 'http://127.0.0.1:4173',
+        command: 'bun run preview --port 39173 --strictPort --host 127.0.0.1',
+        url: 'http://127.0.0.1:39173',
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
     },

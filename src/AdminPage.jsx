@@ -283,7 +283,10 @@ export default function AdminPage() {
                                                 <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
                                                     <Button
                                                         size="small"
-                                                        onClick={() => navigate(`/settings?ownerId=${encodeURIComponent(row.ownerId)}`)}
+                                                        onClick={() => navigate(
+                                                            `/settings?ownerId=${encodeURIComponent(row.ownerId)}`
+                                                            + `&name=${encodeURIComponent(row.name)}`,
+                                                        )}
                                                     >
                                                         {t('admin.editTemplate')}
                                                     </Button>

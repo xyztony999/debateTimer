@@ -17,6 +17,7 @@ import GalleryService from './services/GalleryService';
 import { useAuth } from './context/AuthContext';
 import { useColorMode } from './context/ColorModeContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import BrandMark from './components/BrandMark';
 import StatusPage from './components/StatusPage';
 
 function formatDuration(totalSeconds) {
@@ -146,7 +147,7 @@ export default function GalleryPage() {
                         <ArrowBackIcon />
                     </IconButton>
                     <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 'auto' }}>
-                        🌐 {t('gallery.title')}
+                        <BrandMark size={22} style={{ marginRight: 6 }} /> {t('gallery.title')}
                     </Typography>
                     <LanguageSwitcher variant="mui" size="small" />
                     <IconButton

@@ -13,6 +13,7 @@ import MatchLogService from './services/MatchLogService';
 import { useAuth } from './context/AuthContext';
 import { useColorMode } from './context/ColorModeContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import BrandMark from './components/BrandMark';
 
 function formatDateTime(value) {
     if (!value) {
@@ -80,7 +81,7 @@ export default function RecordsPage() {
                         <ArrowBackIcon />
                     </IconButton>
                     <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 'auto' }}>
-                        📋 {t('records.title')}
+                        <BrandMark size={22} style={{ marginRight: 6 }} /> {t('records.title')}
                     </Typography>
                     <LanguageSwitcher variant="mui" size="small" />
                     <IconButton

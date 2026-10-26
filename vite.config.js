@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
         // D25 (PageSpec §16): the app registers the SW itself (src/index.jsx)
         // to hook controllerchange — disable the plugin's auto-injection.
         injectRegister: null,
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'robots.txt'],
+        includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'robots.txt'],
         manifest: {
           name: '辩论赛计时器 Debate Match Timer',
           short_name: 'Debate Timer',

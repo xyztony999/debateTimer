@@ -161,5 +161,11 @@ modules:
     stages:
       requirement: { status: complete, note: "用户反馈×2（2026-10-26）" }
       design: { status: complete, note: "简报 05-reports/2026-10-26-brief-admin-edit-fixes.md（根因：ownerId 恒传+横幅只判存在；初始化不看 URL name）；Gate 1 PASS（内联）" }
-      code: { status: complete, note: "normalizeOwnerScope（self 视为本人：横幅消失+记忆恢复）+ pickInitialTemplate（URL name>记忆>默认）纯函数（+2 单测）；AdminPage 深链带 &name=；E2E +2（self 无横幅预选/other 保留横幅）；138 单测+10 E2E/lint 0/build ✓；E2E 基建坑：Playwright glob 含查询串（?ownerId 列表请求需显式 ?* 路由）、Windows 端口排除段漂移换 39173" }
+      code: { status: complete, note: "normalizeOwnerScope（self 视为本人：横幅消失+记忆恢复）+ pickInitialTemplate（URL name>记忆>默认）纯函数（+2 单测）；AdminPage 深链带 &name=；E2E +2（self 无横幅预选/other 保留横幅）；138 单测+10 E2E/lint 0/build ✓；E2E 基建坑：Playwright glob 含查询串（?ownerId 列表请求需显式 ?* 路由）、Windows 端口排除段漂移换 39173" }
+  - name: records-style
+    title: "R16 视觉：比赛记录样式对齐新版规范（方案 A 完整对齐广场页）"
+    stages:
+      requirement: { status: complete, note: "用户反馈（2026-10-26）；三选一选定 A（含现状项 C）" }
+      design: { status: complete, note: "简报 05-reports/2026-10-26-brief-records-style.md（S-1~S-5：双页 AppBar 化/卡片化/详情操作入 AppBar/删私有 CSS/行为零变更）；Gate 1 随选定 PASS" }
+      code: { status: complete, note: "RecordsPage+RecordDetailPage 重排（Gallery 同款 AppBar/卡片 sx/详情补语言+明暗入口+CSV·JSON·删除入 AppBar）；删 .records-page CSS×3；E2E 首次覆盖两页（+2：列表卡片+超时 Chip/详情表格+分侧超时标记）；138 单测+12 E2E 双轮/lint 0/build ✓" }
 ---

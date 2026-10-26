@@ -91,25 +91,6 @@ body {
   padding: 0 2rem;
 }
 
-/* ===== 比赛记录页 ===== */
-.records-page {
-  min-height: 100vh;
-}
-
-.records-page .settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
-}
-
-.records-page.dark-mode {
-  background: #121212;
-  color: #eceff1;
-}
-
 /* ===== PWA：离线横幅 ===== */
 .offline-banner {
   position: sticky;

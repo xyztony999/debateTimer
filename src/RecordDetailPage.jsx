@@ -16,6 +16,7 @@ import { downloadCsv } from './utils/matchRecordCsv';
 import { useFeedback } from './context/FeedbackContext';
 import { useColorMode } from './context/ColorModeContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import BrandMark from './components/BrandMark';
 
 function mmss(total) {
     const seconds = Math.max(0, Number(total) || 0);
@@ -79,7 +80,7 @@ export default function RecordDetailPage() {
                     <ArrowBackIcon />
                 </IconButton>
                 <Typography variant="h6" component="h1" noWrap sx={{ fontWeight: 700, mr: 'auto' }}>
-                    📋 {title}
+                    <BrandMark size={22} style={{ marginRight: 6 }} /> {title}
                 </Typography>
                 {actions}
                 <LanguageSwitcher variant="mui" size="small" />

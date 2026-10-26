@@ -173,5 +173,5 @@ modules:
     stages:
       requirement: { status: complete, note: "用户要求（2026-10-26）；visualize 对比板三方案（A 表盘/B 气泡/C 沙漏，含 16-32px 标签模拟与掩模安全区）用户选定 A" }
       design: { status: complete, note: "对垒表盘：环左半 #1976d2（正方）右半 #c62828（反方）+ 白表盘 + #1a237e 指针；掩模版白底实心几何收进 40% 安全区" }
-      code: { status: complete, note: "程序化栅格（3×3 超采样 PNG 写入器 + PNG-in-ICO favicon 16/32/48 + 关键点颜色探针自检）；产出 favicon.ico/favicon.svg/192/512/掩模/apple-touch 180；index.html 加 SVG 图标链接；删无引用 logo.jpg；138 单测/lint 0/build ✓" }
+      code: { status: complete, note: "程序化栅格（3×3 超采样 PNG 写入器 + PNG-in-ICO favicon 16/32/48 + 关键点颜色探针自检）；产出 favicon.ico/favicon.svg/192/512/掩模/apple-touch 180；index.html 加 SVG 图标链接；删无引用 logo.jpg；138 单测/lint 0/build ✓。**补遗（同日用户反馈漏项）**：新增 BrandMark 组件（对垒表盘内联 SVG，aria-hidden），替换四页 AppBar 标题 emoji（🎯🌐📋）+ 登录卡片标题；12 E2E 复跑绿（可访问名不变）" }
 ---

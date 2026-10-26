@@ -9,6 +9,7 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
+import BrandMark from './BrandMark';
 import { useColorMode } from '../context/ColorModeContext';
 
 /**
@@ -100,13 +101,16 @@ export default function AuthShell({ children, maxWidth = 440 }) {
                             gap: 1,
                         }}
                     >
-                        <Typography
-                            variant="subtitle2"
-                            color="text.secondary"
-                            sx={{ fontWeight: 500, letterSpacing: '0.02em' }}
-                        >
-                            {t('timer.title')}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <BrandMark size={20} />
+                            <Typography
+                                variant="subtitle2"
+                                color="text.secondary"
+                                sx={{ fontWeight: 500, letterSpacing: '0.02em' }}
+                            >
+                                {t('timer.title')}
+                            </Typography>
+                        </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
                             <LanguageSwitcher variant="mui" size="small" tone="onPaper" />
                             <Tooltip title={darkMode ? t('timer.darkLight') : t('timer.darkDark')}>

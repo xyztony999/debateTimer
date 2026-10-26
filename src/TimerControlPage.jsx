@@ -44,6 +44,7 @@ import { formatTime } from './timer/engine';
 import { stageDisplayName } from './utils/stageDisplayName';
 import { useColorMode } from './context/ColorModeContext';
 import { useAuth } from './context/AuthContext';
+import BrandMark from './components/BrandMark';
 import './timer/timer-control.css';
 
 /** Compact clock chip for the remote layout's dual-clock strip. */
@@ -319,7 +320,7 @@ export default function TimerControlPage() {
             <AppBar position="sticky" elevation={2}>
                 <Toolbar sx={{ gap: 1, position: 'relative' }}>
                     <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 'auto' }}>
-                        🎯 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('timer.title')}</Box>
+                        <BrandMark size={22} style={{ marginRight: 6, verticalAlign: 'middle' }} /> <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{t('timer.title')}</Box>
                     </Typography>
 
                     {/* 到站播报槽（v2.5 A1）：绝对定位于视口正中，不参与 flex，

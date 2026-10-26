@@ -167,5 +167,11 @@ modules:
     stages:
       requirement: { status: complete, note: "用户反馈（2026-10-26）；三选一选定 A（含现状项 C）" }
       design: { status: complete, note: "简报 05-reports/2026-10-26-brief-records-style.md（S-1~S-5：双页 AppBar 化/卡片化/详情操作入 AppBar/删私有 CSS/行为零变更）；Gate 1 随选定 PASS" }
-      code: { status: complete, note: "RecordsPage+RecordDetailPage 重排（Gallery 同款 AppBar/卡片 sx/详情补语言+明暗入口+CSV·JSON·删除入 AppBar）；删 .records-page CSS×3；E2E 首次覆盖两页（+2：列表卡片+超时 Chip/详情表格+分侧超时标记）；138 单测+12 E2E 双轮/lint 0/build ✓" }
+      code: { status: complete, note: "RecordsPage+RecordDetailPage 重排（Gallery 同款 AppBar/卡片 sx/详情补语言+明暗入口+CSV·JSON·删除入 AppBar）；删 .records-page CSS×3；E2E 首次覆盖两页（+2：列表卡片+超时 Chip/详情表格+分侧超时标记）；138 单测+12 E2E 双轮/lint 0/build ✓" }
+  - name: logo-rebrand
+    title: "R17 品牌：全站图标重设计——方案 A 对垒表盘（visualize 三选一）"
+    stages:
+      requirement: { status: complete, note: "用户要求（2026-10-26）；visualize 对比板三方案（A 表盘/B 气泡/C 沙漏，含 16-32px 标签模拟与掩模安全区）用户选定 A" }
+      design: { status: complete, note: "对垒表盘：环左半 #1976d2（正方）右半 #c62828（反方）+ 白表盘 + #1a237e 指针；掩模版白底实心几何收进 40% 安全区" }
+      code: { status: complete, note: "程序化栅格（3×3 超采样 PNG 写入器 + PNG-in-ICO favicon 16/32/48 + 关键点颜色探针自检）；产出 favicon.ico/favicon.svg/192/512/掩模/apple-touch 180；index.html 加 SVG 图标链接；删无引用 logo.jpg；138 单测/lint 0/build ✓" }
 ---

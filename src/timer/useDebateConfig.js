@@ -33,6 +33,19 @@ export const EMPTY_CONFIG = {
 };
 
 /**
+ * Fingerprint of a loaded configuration document (+ its name). The SSE
+ * 'change' broadcast and the 5s poll fallback re-deliver the same
+ * configuration repeatedly; structurally identical payloads must yield the
+ * same fingerprint so applyLoadedData can no-op instead of minting a fresh
+ * config identity (which cascades into the timer runtime reset in
+ * useDebateTimer's [config] effect — the follow-bug). Payloads come from
+ * one server serializer, so key order is stable per source.
+ */
+export function configFingerprint(configName, data) {
+    return JSON.stringify({ ...data, name: configName });
+}
+
+/**
  * Loads the active debate configuration and keeps it live:
  * controller pages follow the user's configuration list (SSE), display
  * pages follow the shared token's configuration. Pure data — no timer
@@ -43,8 +56,19 @@ export default function useDebateConfig(shareToken = null, namedEvents = null) {
     // 'loading' | 'ok' | 'missing' | 'error' (display mode); 'ok' for controller.
     const [status, setStatus] = useState(shareToken ? 'loading' : 'ok');
     const nameRef = useRef(DEFAULT_CONFIGURATION_NAME);
+    // Serialized fingerprint of the last applied document. The SSE 'change'
+    // broadcast and the 5s poll fallback re-deliver the same configuration
+    // constantly; a fresh object identity per delivery would cascade into
+    // the timer runtime reset ([config] effect in useDebateTimer) — so an
+    // identical re-delivery is a full no-op here.
+    const lastAppliedRef = useRef(null);
 
     const applyLoadedData = useCallback((configName, data, persistName = true) => {
+        const fingerprint = configFingerprint(configName, data);
+        if (fingerprint === lastAppliedRef.current) {
+            return;
+        }
+        lastAppliedRef.current = fingerprint;
         nameRef.current = configName;
         setConfig({
             name: configName,

@@ -25,12 +25,13 @@ function displayConfig() {
  * hold the state payload until the config GET has been served.
  *
  * NOTE on stage adoption: the config listener re-loads the config (poll
- * fallback while the mocked SSE body ends immediately) and the config effect
- * resets the engine to the first stage — in production snapshots keep
- * arriving over the long-lived stream and win, but with a single-shot mock
- * frame the reset can land last. Stage adoption itself is covered by engine
- * unit tests (snapshotCodec) and the R13/R14 browser validations; these
- * specs pin the follow-mode UX contracts (banner / read-only / fallback).
+ * fallback while the mocked SSE body ends immediately). Since the follow-bug
+ * fix this re-delivery is a no-op (identical payload keeps the config object
+ * identity) and the [config] runtime reset is guarded while following, so
+ * the stage adopted from the snapshot survives. Stage adoption mechanics
+ * themselves are covered by engine unit tests (snapshotCodec); these specs
+ * pin the follow-mode UX contracts (banner / read-only / runtime stability /
+ * fallback).
  */
 function until(cond) {
     return new Promise((resolve) => {
@@ -64,14 +65,32 @@ test.beforeEach(async ({ page }) => {
 test('display follows a live session read-only', async ({ page }) => {
     await page.goto('/display/e2etoken');
 
-    // Follow banner appears; the shared config's first stage renders.
+    // Follow banner appears; the snapshot's stage (not the config's first
+    // stage) renders and survives the config poll fallback.
     await expect(page.getByText(/正在大屏跟随|Live from controller|Diffusion/i).first()).toBeVisible();
-    await expect(page.locator('.dt-stage-name')).toContainText(/试音|Sound check/i);
+    await expect(page.locator('.dt-stage-name')).toContainText(/自由辩论|Free debate|Débat libre/i);
 
     // Read-only while following: no start buttons anywhere on the screen.
     await expect(page.getByRole('button', { name: /▶/ })).toHaveCount(0);
     // Sound panel entry stays available for the venue's local bell prefs.
     await expect(page.getByRole('button', { name: /🔊|提示音|Alert sounds/i }).first()).toBeVisible();
+});
+
+test('display keeps the adopted runtime when identical config is re-delivered mid-follow', async ({ page }) => {
+    await page.goto('/display/e2etoken');
+
+    // The one-shot state frame adopts free_debate with the negative clock
+    // running (15s left in the shared snapshot body).
+    await expect(page.locator('.dt-stage-name')).toContainText(/自由辩论|Free debate|Débat libre/i);
+
+    // The mocked stream body ends immediately, so the config listener falls
+    // back to its 5s poll — every tick re-delivers the SAME config document.
+    // Wait past two poll ticks: the adopted stage and running clocks must
+    // not be reset back to the first stage at full duration.
+    await page.waitForTimeout(6500);
+    await expect(page.locator('.dt-stage-name')).toContainText(/自由辩论|Free debate|Débat libre/i);
+    await expect(page.locator('.dt-stage-name')).not.toContainText(/试音|Sound check|Test audio/i);
+    await expect(page.getByText(/^\d{1,2}:\d{2}$/).first()).toBeVisible();
 });
 
 test('display falls back to standalone after the session ends', async ({ page }) => {

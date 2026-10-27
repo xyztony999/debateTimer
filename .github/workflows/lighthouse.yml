@@ -1,0 +1,49 @@
+name: Lighthouse CI
+
+# 性能预算门禁（配置见根目录 lighthouserc.json）：
+# bun run build → vite preview(127.0.0.1:39173, SPA fallback)→ Lighthouse 审计 '/' 3 次 → 断言预算。
+# 触发对齐 ci.yml（push/PR → master|main），另支持 workflow_dispatch 手动校准阈值；
+# 与 deploy.yml（仅 push deploy/production，concurrency group "pages"）无任何交集，不阻塞部署。
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # 与 ci.yml 构建保持一致：不注入 VITE_API_BASE_URL。
+      # 注入生产 API 会让非公开路径遇 401 跳 /login（apiClient），且 /api 打到静态服务器属预期噪音，
+      # 故只审计公开路径 '/'，且不压 Best Practices 断言（范围见 lighthouserc.json）。
+      - name: Build
+        run: bun run build
+
+      # ubuntu-latest 预装 Google Chrome stable；显式 pin 路径防 puppeteer 解析漂移。
+      # 若镜像变更导致缺 Chrome，fallback（e2e.yml 先例）：
+      #   bunx playwright install --with-deps chromium
+      # 并把 CHROME_PATH 指向 ~/.cache/ms-playwright/chromium-*/chrome-linux/chrome
+      - name: Verify Chrome
+        run: google-chrome --version
+
+      # bunx 按需拉取 @lhci/cli（固定 0.15.1，与本地验证版本一致），不改 package.json。
+      # 若 bun 运行时与 @lhci/cli 不兼容，fallback：前置 actions/setup-node 并改用 npx @lhci/cli@0.15.1。
+      - name: Run Lighthouse CI
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: bunx --package @lhci/cli@0.15.1 lhci autorun

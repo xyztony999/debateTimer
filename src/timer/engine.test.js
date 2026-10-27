@@ -29,10 +29,14 @@ function overruns(state) {
     return state.events.filter((e) => e.type === 'overrun').map((e) => e.side);
 }
 
+function voices(state) {
+    return state.events.filter((e) => e.type === 'voice').map((e) => ({ node: e.node, side: e.side }));
+}
+
 // Tick and keep the accumulated events for assertions, then clear them.
 function step(state, count = 1) {
     const after = ticks(state, count);
-    const events = { sounds: sounds(after), overruns: overruns(after) };
+    const events = { sounds: sounds(after), overruns: overruns(after), voices: voices(after) };
     return [reducer(after, { type: 'CONSUME_EVENTS' }), events];
 }
 
@@ -265,6 +269,106 @@ test('formatTime pads minutes and seconds', () => {
     expect(formatTime(0)).toBe('00:00');
     expect(formatTime(65)).toBe('01:05');
     expect(formatTime(600)).toBe('10:00');
+});
+
+// ---------------------------------------------------------------------------
+// Voice announcements: voice events ride the bell nodes plus the free-debate
+// handover paths (TTS theme).
+// ---------------------------------------------------------------------------
+
+test('single mode: voice events mirror warn30 and mustStop with the single side', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 32 });
+    state = reducer(state, { type: 'START', side: 'single' });
+
+    let events;
+    [state, events] = step(state, 2); // 32 → 30
+    expect(events.voices).toEqual([{ node: 'warn30', side: 'single' }]);
+
+    [state, events] = step(state, 30); // → 0
+    expect(events.voices).toEqual([{ node: 'mustStop', side: 'single' }]);
+});
+
+test('free mode: time-up announces the ending side and the handover', () => {
+    let state = applyStage(initialState(), { mode: 'free', durationSec: 3 });
+    state = reducer(state, { type: 'START', side: 'aff' });
+
+    let events;
+    [state, events] = step(state, 3);
+    expect(state.sides.neg.running).toBe(true);
+    expect(events.voices).toEqual([
+        { node: 'mustStop', side: 'aff' },
+        { node: 'handover', side: 'neg' },
+    ]);
+
+    // Second side runs out: nothing left to hand over, no handover voice.
+    [state, events] = step(state, 3);
+    expect(events.voices).toEqual([{ node: 'mustStop', side: 'neg' }]);
+});
+
+test('free mode: explicit stop announces the handover to the other side', () => {
+    let state = applyStage(initialState(), { mode: 'free', durationSec: 60 });
+    state = reducer(state, { type: 'START', side: 'neg' });
+
+    let events;
+    [state, events] = step(reducer(state, { type: 'STOP', side: 'neg' }), 0);
+    expect(state.sides.aff.running).toBe(true);
+    expect(events.voices).toEqual([{ node: 'handover', side: 'aff' }]);
+
+    // Disarmed switch (RESET) → stop is silent again.
+    state = reducer(state, { type: 'RESET', side: 'aff' });
+    [state, events] = step(reducer(state, { type: 'STOP', side: 'aff' }), 0);
+    expect(events.voices).toEqual([]);
+});
+
+test('free mode with grace: timeUp voice then handover, in order', () => {
+    let state = applyStage(initialState(), { mode: 'free', durationSec: 2, graceSec: 5 });
+    state = reducer(state, { type: 'START', side: 'aff' });
+
+    let events;
+    [state, events] = step(state, 2);
+    expect(state.sides.neg.running).toBe(true);
+    expect(events.voices).toEqual([
+        { node: 'timeUp', side: 'aff' },
+        { node: 'handover', side: 'neg' },
+    ]);
+});
+
+test('double mode: no handover voice events ever', () => {
+    let state = applyStage(initialState(), { mode: 'double', durationSec: 2 });
+    state = reducer(state, { type: 'START', side: 'aff' });
+
+    let events;
+    [state, events] = step(state, 2);
+    expect(state.sides.neg.running).toBe(false);
+    expect(events.voices).toEqual([{ node: 'mustStop', side: 'aff' }]);
+
+    state = reducer(state, { type: 'STOP', side: 'neg' });
+    expect(voices(state)).toEqual([]);
+});
+
+test('SOUND_CHECK emits the bell and the voice event for the tested node', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 60, stageId: 'sound_check' });
+
+    let events;
+    [state, events] = step(reducer(state, { type: 'SOUND_CHECK', kind: 'warn30' }), 0);
+    expect(events.sounds).toEqual(['warn30']);
+    expect(events.voices).toEqual([{ node: 'warn30' }]);
+
+    [state, events] = step(reducer(state, { type: 'SOUND_CHECK', kind: 'end' }), 0);
+    expect(events.sounds).toEqual(['mustStop']);
+    expect(events.voices).toEqual([{ node: 'mustStop' }]);
+});
+
+test('ADOPT clears pending voice events along with the bells', () => {
+    let state = applyStage(initialState(), { mode: 'single', durationSec: 60, stageId: 'sound_check' });
+    state = reducer(state, { type: 'SOUND_CHECK', kind: 'warn30' });
+    expect(state.events.some((e) => e.type === 'voice')).toBe(true);
+
+    const adopted = reducer(state, {
+        type: 'ADOPT',
+        patch: { stageId: 'aff_c1', stageMode: 'single', sides: state.sides },
+    });
+    expect(adopted.events).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------

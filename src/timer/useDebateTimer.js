@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useTranslation } from 'react-i18next';
 import TimerSessionService from '../services/TimerSessionService';
 import MatchLogService from '../services/MatchLogService';
-import { playAlert, warmupSounds } from '../services/soundPrefs';
+import { loadSoundPrefs, playAlert, warmupSounds } from '../services/soundPrefs';
+import { primeTts, speakAnnouncement } from '../services/speech';
 import { stageDisplayName } from '../utils/stageDisplayName';
 import { useAuth } from '../context/AuthContext';
 import useDebateConfig from './useDebateConfig.js';
@@ -207,27 +208,6 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         applyStage(stages[next]);
     }, [applyStage]);
 
-    // Config (re)load: reset the runtime to the first stage and start a
-    // fresh capture — unless a buffered capture for the SAME template is
-    // being restored after a page refresh (sessionStorage safety net).
-    useEffect(() => {
-        if (orderedStages.length === 0) {
-            return;
-        }
-        const restored = isDisplay ? null : restoreCapture();
-        if (restored && restored.configKey === config?.name) {
-            captureRef.current = restored.capture;
-            applyStage(orderedStages[0], { skipCapture: true });
-        } else {
-            clearPersistedCapture();
-            captureRef.current = null;
-            applyStage(orderedStages[0]);
-        }
-    // applyStage depends on t/i18n only for capture labels; re-running on
-    // language change would wipe the match capture, so key on config only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [config]);
-
     // ------------------------------------------------------------------
     // Clock: one interval per activity stretch, anchored to wall-clock time
     // (C-02-07 hardening). Each dispatch carries the real elapsed ms so a
@@ -321,23 +301,63 @@ export default function useDebateTimer({ shareToken = null } = {}) {
 
     useEffect(() => {
         warmupSounds();
+        // Voice announcements obey autoplay policy: if TTS is enabled on this
+        // device, arm the one-shot gesture unlock right away.
+        if (loadSoundPrefs().tts?.enabled) {
+            primeTts();
+        }
     }, []);
 
-    // Engine events: play bells, count overruns.
+    // Engine events: play bells, speak announcements, count overruns. Voice
+    // events in one batch merge into a single utterance ("time up, negative
+    // has the floor"); cancel-then-speak inside speech.js keeps the newest
+    // cue winning.
     useEffect(() => {
         if (state.events.length === 0) {
             return;
         }
+        const ttsPrefs = loadSoundPrefs().tts;
+        const sideLabel = (side) => {
+            if (side !== 'aff' && side !== 'neg') {
+                return '';
+            }
+            const cfg = stateRef.current?.config;
+            return cfg?.teamNames?.[side] || t(side === 'aff' ? 'timer.affirmative' : 'timer.negative');
+        };
+        const voiceText = (event) => {
+            const label = sideLabel(event.side);
+            if (event.node === 'timeUp') {
+                return label ? t('timer.tts.timeUpSide', { team: label }) : t('timer.tts.timeUp');
+            }
+            if (event.node === 'mustStop') {
+                return label
+                    ? t('timer.tts.mustStopSide', { team: label })
+                    : t('timer.tts.mustStop');
+            }
+            if (event.node === 'handover') {
+                return t('timer.tts.handover', { team: label });
+            }
+            return t('timer.tts.warn30');
+        };
+        const spoken = [];
         for (const event of state.events) {
             if (event.type === 'sound') {
                 playAlert(event.node);
             } else if (event.type === 'overrun') {
                 captureRef.current = bumpOverrun(captureRef.current, event.side, state.stageId);
                 persistCapture(captureRef.current, stateRef.current?.config?.name);
+            } else if (event.type === 'voice') {
+                if (ttsPrefs?.enabled && ttsPrefs[event.node]) {
+                    spoken.push(voiceText(event));
+                }
             }
         }
+        if (spoken.length > 0) {
+            const joiner = i18n.language?.startsWith('zh') ? '，' : ', ';
+            speakAnnouncement(spoken.join(joiner), i18n.language);
+        }
         dispatch({ type: 'CONSUME_EVENTS' });
-    }, [state.events, state.stageId]);
+    }, [state.events, state.stageId, t, i18n]);
 
     // ------------------------------------------------------------------
 
@@ -411,6 +431,37 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         startRemoteMode, sendRemoteCommand, pairWithCode,
         probeForPairingDialog, handleCopyDisplayUrl,
     } = sync;
+
+    // Config (re)load: reset the runtime to the first stage and start a
+    // fresh capture — unless a buffered capture for the SAME template is
+    // being restored after a page refresh (sessionStorage safety net).
+    // While following a live session the HOST owns the runtime: config
+    // re-deliveries (SSE 'change' broadcast, the 5s poll fallback after a
+    // dropped stream) must not reset the adopted stage/clocks — the next
+    // host snapshot keeps authority (follow-bug). `following` is read from
+    // the render this effect fires in but deliberately NOT a dependency:
+    // re-running on unfollow ('ended' freeze) would reset right where the
+    // display is supposed to freeze in place.
+    useEffect(() => {
+        if (following) {
+            return;
+        }
+        if (orderedStages.length === 0) {
+            return;
+        }
+        const restored = isDisplay ? null : restoreCapture();
+        if (restored && restored.configKey === config?.name) {
+            captureRef.current = restored.capture;
+            applyStage(orderedStages[0], { skipCapture: true });
+        } else {
+            clearPersistedCapture();
+            captureRef.current = null;
+            applyStage(orderedStages[0]);
+        }
+    // applyStage depends on t/i18n only for capture labels; re-running on
+    // language change would wipe the match capture, so key on config only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [config]);
 
     // Auto advance (C-01-07): arm when the stage is fully over, tick down,
     // then move on. Any manual input cancels (keyboard hook / engine).

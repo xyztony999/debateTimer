@@ -71,6 +71,14 @@ function soundEvent(node) {
     return { type: 'sound', node };
 }
 
+// Voice announcements ride the same nodes as the bells (warn30/timeUp/
+// mustStop) plus the free-debate handover. `side` is the engine side key
+// ('single'|'aff'|'neg'); the consumer decides whether the copy names a
+// team (dual/free) or not (single).
+function voiceEvent(node, side) {
+    return side ? { type: 'voice', node, side } : { type: 'voice', node };
+}
+
 function overrunEvent(side) {
     // Side is capitalized to match the capture entry keys (overrunAff/Neg).
     return { type: 'overrun', side: side === 'neg' ? 'Neg' : 'Aff' };
@@ -90,18 +98,26 @@ function otherSide(side) {
  */
 function handleTimeUp(state, side, events) {
     let sides = patchSide(state, side, { running: false });
+    let handedTo = null;
     if (isFree(state) && state.freeAutoSwitch) {
-        const other = state.sides[otherSide(side)];
+        const otherKey = otherSide(side);
+        const other = state.sides[otherKey];
         if (other.remaining > 0 && other.phase === PHASE_RUNNING && !other.running) {
-            sides = patchSide({ ...state, sides }, otherSide(side), { running: true });
+            sides = patchSide({ ...state, sides }, otherKey, { running: true });
+            handedTo = otherKey;
         }
     }
+    // The ending side's cue comes first so a merged announcement reads
+    // "time is up — [team] has the floor".
     if (state.graceSec > 0) {
         sides = patchSide({ ...state, sides }, side, { phase: PHASE_GRACE, graceLeft: state.graceSec });
-        events.push(soundEvent('timeUp'));
+        events.push(soundEvent('timeUp'), voiceEvent('timeUp', side));
     } else {
         sides = patchSide({ ...state, sides }, side, { phase: PHASE_LOCKED });
-        events.push(soundEvent('mustStop'), overrunEvent(side));
+        events.push(soundEvent('mustStop'), voiceEvent('mustStop', side), overrunEvent(side));
+    }
+    if (handedTo) {
+        events.push(voiceEvent('handover', handedTo));
     }
     return { ...state, sides };
 }
@@ -120,7 +136,7 @@ function singleBeat(state, events) {
             const remaining = s.remaining - 1;
             sides = { ...sides, [side]: { ...s, remaining } };
             if (remaining === BLINK_WINDOW_HIGH) {
-                events.push(soundEvent('warn30'));
+                events.push(soundEvent('warn30'), voiceEvent('warn30', side));
             }
             if (remaining === 0) {
                 sides = handleTimeUp({ ...state, sides }, side, events).sides;
@@ -146,7 +162,7 @@ function singleBeat(state, events) {
                     ...sides,
                     [side]: { ...s, phase: PHASE_LOCKED, graceLeft: null },
                 };
-                events.push(soundEvent('mustStop'), overrunEvent(side));
+                events.push(soundEvent('mustStop'), voiceEvent('mustStop', side), overrunEvent(side));
             } else {
                 sides = { ...sides, [side]: { ...s, graceLeft } };
             }
@@ -188,13 +204,14 @@ function clockTick(state, elapsedMs = 1000) {
 }
 
 /** Free-debate handover: stopping `side` explicitly yields the floor. */
-function freeHandover(state, side) {
+function freeHandover(state, side, events) {
     if (!isFree(state) || !state.freeAutoSwitch) {
         return state.sides;
     }
     const otherKey = otherSide(side);
     const other = state.sides[otherKey];
     if (other.remaining > 0 && other.phase === PHASE_RUNNING && !other.running) {
+        events?.push(voiceEvent('handover', otherKey));
         return { ...state.sides, [otherKey]: { ...other, running: true } };
     }
     return state.sides;
@@ -208,11 +225,11 @@ function freeHandover(state, side) {
 function startTransition(state, side, events) {
     const s = state.sides[side];
     if (s.phase === PHASE_LOCKED) {
-        events.push(soundEvent('mustStop'), overrunEvent(side));
+        events.push(soundEvent('mustStop'), voiceEvent('mustStop', side), overrunEvent(side));
         return state;
     }
     if (s.phase === PHASE_GRACE) {
-        events.push(soundEvent('timeUp'));
+        events.push(soundEvent('timeUp'), voiceEvent('timeUp', side));
         return {
             ...state,
             sides: patchSide(state, side, { running: false, graceLeft: state.graceSec }),
@@ -254,8 +271,10 @@ export function reducer(state, action) {
 
         case 'STOP': {
             const { side } = action;
+            const events = [];
             const stopped = patchSide(state, side, { running: false });
-            return { ...state, sides: freeHandover({ ...state, sides: stopped }, side), advance: null };
+            const sides = freeHandover({ ...state, sides: stopped }, side, events);
+            return withEvents({ ...state, sides, advance: null }, events);
         }
 
         case 'TOGGLE': {
@@ -319,6 +338,8 @@ export function reducer(state, action) {
         }
 
         case 'SOUND_CHECK': {
+            // The test buttons double as a bell + voice check (both fire on
+            // the host that runs the reducer — venue speakers).
             if (action.kind === 'warn30') {
                 return withEvents(
                     {
@@ -331,7 +352,7 @@ export function reducer(state, action) {
                             blinkOverride: true,
                         }),
                     },
-                    [soundEvent('warn30')],
+                    [soundEvent('warn30'), voiceEvent('warn30')],
                 );
             }
             return withEvents(
@@ -345,7 +366,7 @@ export function reducer(state, action) {
                         blinkOverride: false,
                     }),
                 },
-                [soundEvent('mustStop')],
+                [soundEvent('mustStop'), voiceEvent('mustStop')],
             );
         }
 

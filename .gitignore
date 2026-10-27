@@ -37,6 +37,9 @@ package-lock.json
 /test-results
 /playwright-report
 
+# lighthouse-ci (本地预演产物)
+/.lighthouseci
+
 # mimosa security-scanner runtime state (any depth)
 /.mimosa
 /server/.mimosa

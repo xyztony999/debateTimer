@@ -1,5 +1,7 @@
 # 辩论赛计时器 Debate Match Timer
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 因 React 的 Create React App 已被官方弃用，本项目已迁移至 **Vite** 构建，并使用 **Bun** 作为包管理器与脚本运行工具。网页通过 GitHub Actions 自动构建并部署。`master` 分支为主程序，`deploy/production` 分支为封装的静态网页版本。
 
 ## 简介
@@ -19,6 +21,31 @@
 | `bun run lint` | 运行 ESLint 检查 |
 | `bun test` | 运行测试 |
 | `bun run build` | 构建生产版本 |
+
+## 质量门禁：Lighthouse CI 与性能预算
+
+推送到 `master`/`main` 或提 PR 时自动运行（`.github/workflows/lighthouse.yml` + 根目录 `lighthouserc.json`）：`bun run build` → `vite preview`（127.0.0.1:39173，SPA fallback）→ Lighthouse 审计 `/` 3 次 → 断言性能预算，任一 error 级断言失败即 job 红；报告上传 LHCI 临时存储（链接见 Action 日志）。也支持在 Actions 页手动触发（workflow_dispatch）校准阈值。
+
+本地预演（无需安装依赖，报告落 `.lighthouseci/`；断言全过时默认静默，加 `--includePassedAssertions` 可见）：
+
+```bash
+bun run build && bunx --package @lhci/cli@0.15.1 lhci autorun
+# 上传临时存储的 endpoint 国内网络不可达时，本地加 --no-upload 跳过
+```
+
+| 断言 | 级别 | 阈值 | 说明 |
+|------|------|------|------|
+| `categories:performance` | error | ≥ 0.8 | 性能分硬门槛（本地实测 0.84–0.88，取 3 次最优聚合） |
+| `resource-summary:script:size` | error | ≤ 300 KiB | 关键路径 JS 传输量（实测 ≈235 KiB，2026-10-27） |
+| `resource-summary:total:size` | error | ≤ 400 KiB | 页面资源传输总量（实测 ≈283 KiB） |
+| `total-byte-weight` | warn | ≤ 500 KiB | 网络负载观察项（实测 ≈283 KiB，含 Google Fonts） |
+
+> `resource-summary:*:size` 是**传输口径**（transferSize，vite preview 走 gzip），非磁盘 raw 体积（raw ≈731 KiB / 1.1 MiB）。预算基于实测基线上浮约 25–75%，回归超限即 CI 红。
+
+范围说明：
+
+- 只审计 `/`：`base: '/'` + 绝对路径资源，深路由需 SPA fallback，只有 `vite preview` 能正确服务（`staticDistDir` 不行）。
+- 不压 Best Practices / PWA 分数：CI 构建不注入 `VITE_API_BASE_URL`，`/api` 请求失败属预期噪音；headless 下 Service Worker / 可安装性检查不稳定，PWA 回归靠人工验证。
 
 ## 目前功能
 

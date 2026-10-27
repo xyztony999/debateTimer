@@ -19,13 +19,42 @@ export const DEFAULT_SOUND_PREFS = {
     mustStop: { sound: 'notify', volume: 100 },
 };
 
+// Voice announcements share the alert nodes plus the free-debate handover.
+// Master switch off by default (a human moderator usually calls the match);
+// per-node switches on so enabling the master is a one-click setup.
+export const TTS_NODES = ['warn30', 'timeUp', 'mustStop', 'handover'];
+
+export const DEFAULT_TTS_PREFS = {
+    enabled: false,
+    warn30: true,
+    timeUp: true,
+    mustStop: true,
+    handover: true,
+};
+
 const STORAGE_KEY = 'timer.soundPrefs';
+
+function sanitizeTts(raw) {
+    const tts = { ...DEFAULT_TTS_PREFS };
+    if (!raw || typeof raw !== 'object') {
+        return tts;
+    }
+    if (typeof raw.enabled === 'boolean') {
+        tts.enabled = raw.enabled;
+    }
+    for (const node of TTS_NODES) {
+        if (typeof raw[node] === 'boolean') {
+            tts[node] = raw[node];
+        }
+    }
+    return tts;
+}
 
 export function loadSoundPrefs() {
     try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
         if (!raw) {
-            return { ...DEFAULT_SOUND_PREFS };
+            return { ...DEFAULT_SOUND_PREFS, tts: { ...DEFAULT_TTS_PREFS } };
         }
         const parsed = JSON.parse(raw);
         const prefs = { ...DEFAULT_SOUND_PREFS };
@@ -39,9 +68,13 @@ export function loadSoundPrefs() {
                 };
             }
         }
+        // Unknown/invalid tts fields fall back per-key (legacy shapes without
+        // a tts block simply get the defaults; old clients drop the block on
+        // their next save — both directions stay safe).
+        prefs.tts = sanitizeTts(parsed.tts);
         return prefs;
     } catch {
-        return { ...DEFAULT_SOUND_PREFS };
+        return { ...DEFAULT_SOUND_PREFS, tts: { ...DEFAULT_TTS_PREFS } };
     }
 }
 

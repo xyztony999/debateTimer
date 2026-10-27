@@ -72,6 +72,14 @@
         "free": {
             "locked": "Débat libre terminé"
         },
+        "tts": {
+            "warn30": "Trente secondes restantes",
+            "timeUp": "Temps écoulé",
+            "timeUpSide": "Temps écoulé, {{team}}",
+            "mustStop": "Veuillez arrêter de parler",
+            "mustStopSide": "{{team}}, veuillez arrêter de parler",
+            "handover": "{{team}}, à vous la parole"
+        },
         "affBadge": "AFF",
         "negBadge": "NÉG",
         "graceHint": "Conclusion…",
@@ -178,6 +186,14 @@
             "timeup": "Ding simple",
             "chime": "Carillon"
         },
+        "ttsTitle": "Annonces vocales",
+        "ttsDesc": "Annonces parlées aux nœuds du chronomètre (cet appareil, indépendant des sons)",
+        "ttsEnabled": "Activer les annonces vocales",
+        "ttsHandover": "Passage du débat libre",
+        "ttsUnsupported": "Synthèse vocale non prise en charge ; les annonces seront ignorées",
+        "ttsUnlockHint": "La première annonce peut être bloquée ; cliquez ou appuyez sur une touche",
+        "ttsVoiceFallback": "Aucune voix pour cette langue ; la voix par défaut sera utilisée",
+        "ttsVoiceReady": "Voix : {{name}}",
         "publishToGallery": "Publier dans la galerie",
         "published": "Publié dans la galerie",
         "creditName": "Signature (facultatif)",

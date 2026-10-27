@@ -1,0 +1,22 @@
+{
+  "ci": {
+    "collect": {
+      "numberOfRuns": 3,
+      "url": ["http://127.0.0.1:39173/"],
+      "startServerCommand": "bun run preview --port 39173 --strictPort --host 127.0.0.1",
+      "startServerReadyPattern": "Local:",
+      "startServerReadyTimeout": 30000
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.8 }],
+        "resource-summary:script:size": ["error", { "maxNumericValue": 307200 }],
+        "resource-summary:total:size": ["error", { "maxNumericValue": 409600 }],
+        "total-byte-weight": ["warn", { "maxNumericValue": 512000 }]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}

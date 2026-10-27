@@ -8,7 +8,7 @@ import { migrateLegacyConfigurations } from './lib/migrateConfigurations.js';
 import { buildMongoUri } from './lib/mongoUri.js';
 import { createSseHub } from './lib/sseHub.js';
 import { createTimerSessionRegistry } from './lib/timerSessions.js';
-import { createRateLimiter } from './lib/rateLimit.js';
+import { createDisplayRateLimiter, createGalleryRateLimiter } from './lib/rateLimits.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createConfigurationsRouter } from './routes/configurations.js';
@@ -117,11 +117,10 @@ async function start() {
 
     app.use('/api/auth', createAuthRouter({ users, sessions, configurations }));
     // Anonymous public surfaces get in-memory per-IP limits (SSE streams on
-    // /display are long-lived and count once at connect).
-    const galleryRateLimit = createRateLimiter({ windowMs: 60_000, max: 120 });
-    const displayRateLimit = createRateLimiter({ windowMs: 60_000, max: 60 });
-    app.use('/api/display', displayRateLimit, createDisplayRouter({ configurations, sse, timerSessions }));
-    app.use('/api/gallery', galleryRateLimit, createGalleryRouter({ configurations, requireAuth, requireAdmin }));
+    // /display are long-lived and count once at connect). Thresholds are
+    // env-tunable with unchanged defaults — see server/.env.example.
+    app.use('/api/display', createDisplayRateLimiter(), createDisplayRouter({ configurations, sse, timerSessions }));
+    app.use('/api/gallery', createGalleryRateLimiter(), createGalleryRouter({ configurations, requireAuth, requireAdmin }));
     app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }));
     app.use('/api/session', createPairingRouter({ timerSessions, requireAuth }));
     app.use('/api/match-logs', createMatchLogsRouter({ matchLogs, requireAuth }));

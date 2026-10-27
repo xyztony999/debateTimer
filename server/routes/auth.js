@@ -12,6 +12,7 @@ import {
     publicUser,
 } from '../lib/authPolicy.js';
 import { migrateLegacyConfigurations } from '../lib/migrateConfigurations.js';
+import { createLoginRateLimiter, createRegisterRateLimiter } from '../lib/rateLimits.js';
 import {
     createSession,
     destroySession,
@@ -21,6 +22,14 @@ import {
 
 export function createAuthRouter({ users, sessions, configurations }) {
     const router = Router();
+
+    // Credential endpoints get strict per-IP limits (env-tunable, see
+    // server/.env.example): login is the only anonymous password check, so it
+    // gets a brute-force brake on top of bcrypt; register stays counted even
+    // while registration is closed. status/logout/me stay unlimited so a
+    // rate-limited client can still log out cleanly.
+    const loginLimit = createLoginRateLimiter();
+    const registerLimit = createRegisterRateLimiter();
 
     async function registrationState() {
         const userCount = await users.countDocuments();
@@ -42,7 +51,7 @@ export function createAuthRouter({ users, sessions, configurations }) {
         }
     });
 
-    router.post('/register', async (req, res) => {
+    router.post('/register', registerLimit, async (req, res) => {
         try {
             const state = await registrationState();
             if (!state.registrationOpen) {
@@ -92,7 +101,7 @@ export function createAuthRouter({ users, sessions, configurations }) {
         }
     });
 
-    router.post('/login', async (req, res) => {
+    router.post('/login', loginLimit, async (req, res) => {
         try {
             const username = normalizeUsername(req.body?.username);
             const password = req.body?.password;

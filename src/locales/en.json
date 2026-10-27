@@ -72,6 +72,14 @@
         "free": {
             "locked": "Free debate concluded"
         },
+        "tts": {
+            "warn30": "Thirty seconds left",
+            "timeUp": "Time is up",
+            "timeUpSide": "Time is up, {{team}}",
+            "mustStop": "Must stop speaking",
+            "mustStopSide": "{{team}}, must stop speaking",
+            "handover": "{{team}}, your turn to speak"
+        },
         "affBadge": "AFF",
         "negBadge": "NEG",
         "graceHint": "Wrapping up…",
@@ -178,6 +186,14 @@
             "timeup": "Single ding",
             "chime": "Two-tone chime"
         },
+        "ttsTitle": "Voice announcements",
+        "ttsDesc": "Spoken cues at timer nodes (this device, independent of the bells)",
+        "ttsEnabled": "Enable voice announcements",
+        "ttsHandover": "Free-debate handover",
+        "ttsUnsupported": "Speech synthesis is not supported here; announcements are skipped",
+        "ttsUnlockHint": "The first announcement may be blocked until you click or press a key",
+        "ttsVoiceFallback": "No voice for this language; the system default will be used",
+        "ttsVoiceReady": "Voice: {{name}}",
         "publishToGallery": "Publish to gallery",
         "published": "Published to gallery",
         "creditName": "Credit (optional)",

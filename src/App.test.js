@@ -76,3 +76,34 @@ test('stage enhancement strings are present in all three languages', async () =>
     expect(i18n.t('settings.teamNames')).toMatch(/équipes/);
     expect(i18n.t('timer.graceHint')).toMatch(/conclusion/i);
 });
+
+test('tts announcement strings are present in all three languages', async () => {
+    expect(i18n.t('timer.tts.warn30')).toMatch(/thirty seconds left/i);
+    expect(i18n.t('timer.tts.timeUp')).toMatch(/time is up/i);
+    expect(i18n.t('timer.tts.timeUpSide', { team: 'Red' })).toMatch(/time is up, red/i);
+    expect(i18n.t('timer.tts.mustStop')).toMatch(/must stop speaking/i);
+    expect(i18n.t('timer.tts.mustStopSide', { team: 'Red' })).toMatch(/red, must stop speaking/i);
+    expect(i18n.t('timer.tts.handover', { team: 'Blue' })).toMatch(/blue, your turn to speak/i);
+    expect(i18n.t('settings.ttsTitle')).toMatch(/voice announcements/i);
+    expect(i18n.t('settings.ttsEnabled')).toMatch(/enable voice/i);
+    expect(i18n.t('settings.ttsHandover')).toMatch(/free-debate handover/i);
+    expect(i18n.t('settings.ttsUnlockHint')).toMatch(/blocked/i);
+
+    await i18n.changeLanguage('zh-Hans');
+    expect(i18n.t('timer.tts.warn30')).toBe('还剩30秒');
+    expect(i18n.t('timer.tts.timeUp')).toBe('时间到');
+    expect(i18n.t('timer.tts.timeUpSide', { team: '正方' })).toBe('正方时间到');
+    expect(i18n.t('timer.tts.mustStop')).toBe('必须停止发言');
+    expect(i18n.t('timer.tts.mustStopSide', { team: '反方' })).toBe('反方必须停止发言');
+    expect(i18n.t('timer.tts.handover', { team: '反方' })).toBe('请反方发言');
+    expect(i18n.t('settings.ttsTitle')).toMatch(/语音播报/);
+    expect(i18n.t('settings.ttsUnsupported')).toMatch(/不支持语音合成/);
+
+    await i18n.changeLanguage('fr-CA');
+    expect(i18n.t('timer.tts.warn30')).toMatch(/trente secondes restantes/i);
+    expect(i18n.t('timer.tts.timeUpSide', { team: 'Équipe A' })).toMatch(/temps écoulé, équipe a/i);
+    expect(i18n.t('timer.tts.mustStop')).toMatch(/arrêter de parler/i);
+    expect(i18n.t('timer.tts.handover', { team: 'Équipe B' })).toMatch(/équipe b, à vous la parole/i);
+    expect(i18n.t('settings.ttsTitle')).toMatch(/annonces vocales/i);
+    expect(i18n.t('settings.ttsVoiceFallback')).toMatch(/voix par défaut/i);
+});

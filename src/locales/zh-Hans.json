@@ -72,6 +72,14 @@
         "free": {
             "locked": "自由辩论环节已结束"
         },
+        "tts": {
+            "warn30": "还剩30秒",
+            "timeUp": "时间到",
+            "timeUpSide": "{{team}}时间到",
+            "mustStop": "必须停止发言",
+            "mustStopSide": "{{team}}必须停止发言",
+            "handover": "请{{team}}发言"
+        },
         "affBadge": "正",
         "negBadge": "反",
         "graceHint": "收尾中…",
@@ -178,6 +186,14 @@
             "timeup": "单响铃",
             "chime": "双音铃"
         },
+        "ttsTitle": "语音播报",
+        "ttsDesc": "计时节点同步语音播报（本设备偏好，与提示音独立）",
+        "ttsEnabled": "启用语音播报",
+        "ttsHandover": "自由辩论切换",
+        "ttsUnsupported": "此浏览器不支持语音合成，播报将被跳过",
+        "ttsUnlockHint": "首次播报可能被浏览器拦截，点击或按任意键后生效",
+        "ttsVoiceFallback": "未找到当前语言的语音，将使用系统默认语音",
+        "ttsVoiceReady": "将使用语音：{{name}}",
         "publishToGallery": "发布到模板广场",
         "published": "已在模板广场公开",
         "creditName": "署名（可选）",

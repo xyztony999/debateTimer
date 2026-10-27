@@ -1,5 +1,7 @@
 # 辩论赛计时器 Debate Match Timer
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 因 React 的 Create React App 已被官方弃用，本项目已迁移至 **Vite** 构建，并使用 **Bun** 作为包管理器与脚本运行工具。网页通过 GitHub Actions 自动构建并部署。`master` 分支为主程序，`deploy/production` 分支为封装的静态网页版本。
 
 ## 简介

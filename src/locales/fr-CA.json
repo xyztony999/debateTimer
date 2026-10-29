@@ -225,7 +225,8 @@
         "logout": "Se déconnecter",
         "failed": "Échec de la connexion",
         "haveAccount": "Déjà un compte ? Se connecter",
-        "needAccount": "Besoin d’un compte ? S’inscrire"
+        "needAccount": "Besoin d’un compte ? S’inscrire",
+        "registrationClosed": "L’inscription publique est actuellement fermée. Demandez à un administrateur de créer un compte pour vous."
     },
     "admin": {
         "title": "Administration",
@@ -252,7 +253,13 @@
         "editTemplate": "Modifier",
         "confirmDeleteUser": "Supprimer l’utilisateur « {{name}} » et ses modèles ?",
         "confirmDeleteTemplate": "Supprimer le modèle « {{name}} » ?",
-        "editingOtherUser": "Vous modifiez les modèles d’un autre utilisateur."
+        "editingOtherUser": "Vous modifiez les modèles d’un autre utilisateur.",
+        "registrationTitle": "Inscription publique",
+        "registrationDesc": "Autoriser les visiteurs à créer un compte depuis la page de connexion (le premier compte administrateur n’est pas concerné)",
+        "registrationOn": "Inscription ouverte",
+        "registrationOff": "Inscription fermée",
+        "registrationSourceAdmin": "Défini par l’admin {{name}} depuis cette console et stocké dans la base — supprimez l’enregistrement pour revenir à la variable d’environnement.",
+        "registrationSourceEnv": "Pas encore défini depuis cette console — la variable d’environnement ALLOW_REGISTRATION s’applique."
     },
     "share": {
         "title": "Lien d’affichage public",

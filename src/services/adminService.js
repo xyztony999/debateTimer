@@ -60,6 +60,32 @@ export async function listAllConfigurations() {
     }
 }
 
+export async function getRegistrationSetting() {
+    try {
+        const { data, status } = await apiClient.get('/api/admin/settings/registration');
+        if (!data.success) {
+            return { success: false, message: data.message || `Request failed (${status})` };
+        }
+        return data;
+    } catch (error) {
+        return toServiceError(error, 'Get registration setting');
+    }
+}
+
+export async function updateRegistrationSetting(registrationOpen) {
+    try {
+        const { data, status } = await apiClient.put('/api/admin/settings/registration', {
+            registrationOpen,
+        });
+        if (!data.success) {
+            return { success: false, message: data.message || `Request failed (${status})` };
+        }
+        return data;
+    } catch (error) {
+        return toServiceError(error, 'Update registration setting');
+    }
+}
+
 export async function deleteConfigurationById(id) {
     try {
         const { data, status } = await apiClient.delete(

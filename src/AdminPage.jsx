@@ -11,11 +11,13 @@ import CardHeader from '@mui/material/CardHeader';
 import Chip from '@mui/material/Chip';
 import Container from '@mui/material/Container';
 import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -36,8 +38,10 @@ import {
     createUser,
     deleteConfigurationById,
     deleteUser,
+    getRegistrationSetting,
     listAllConfigurations,
     listUsers,
+    updateRegistrationSetting,
     updateUser,
 } from './services/adminService';
 import GalleryService from './services/GalleryService';
@@ -51,15 +55,18 @@ export default function AdminPage() {
 
     const [users, setUsers] = useState([]);
     const [configs, setConfigs] = useState([]);
+    const [registration, setRegistration] = useState(null);
+    const [regBusy, setRegBusy] = useState(false);
     const [error, setError] = useState('');
     const [newUsername, setNewUsername] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newRole, setNewRole] = useState('user');
 
     const refresh = useCallback(async () => {
-        const [usersResult, configsResult] = await Promise.all([
+        const [usersResult, configsResult, registrationResult] = await Promise.all([
             listUsers(),
             listAllConfigurations(),
+            getRegistrationSetting(),
         ]);
         if (!usersResult.success) {
             setError(usersResult.message);
@@ -69,9 +76,14 @@ export default function AdminPage() {
             setError(configsResult.message);
             return;
         }
+        if (!registrationResult.success) {
+            setError(registrationResult.message);
+            return;
+        }
         setError('');
         setUsers(usersResult.data);
         setConfigs(configsResult.data);
+        setRegistration(registrationResult.data);
     }, []);
 
     useEffect(() => {
@@ -97,6 +109,19 @@ export default function AdminPage() {
         setNewPassword('');
         setNewRole('user');
         await refresh();
+    };
+
+    // Controlled switch: the checked value only moves after the PUT succeeds,
+    // so a failed request springs the toggle back to the stored state.
+    const handleRegistrationToggle = async (nextOpen) => {
+        setRegBusy(true);
+        const result = await updateRegistrationSetting(nextOpen);
+        setRegBusy(false);
+        if (!result.success) {
+            setError(result.message);
+            return;
+        }
+        setRegistration(result.data);
     };
 
     return (
@@ -354,6 +379,29 @@ export default function AdminPage() {
                                     ))}
                                 </TableBody>
                             </Table>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader title={t('admin.registrationTitle')} subheader={t('admin.registrationDesc')} />
+                        <CardContent>
+                            <FormControlLabel
+                                control={(
+                                    <Switch
+                                        checked={Boolean(registration?.registrationOpen)}
+                                        disabled={regBusy || !registration}
+                                        onChange={(e) => handleRegistrationToggle(e.target.checked)}
+                                    />
+                                )}
+                                label={registration?.registrationOpen
+                                    ? t('admin.registrationOn')
+                                    : t('admin.registrationOff')}
+                            />
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                {registration?.source === 'admin'
+                                    ? t('admin.registrationSourceAdmin', { name: registration.updatedBy || '—' })
+                                    : t('admin.registrationSourceEnv')}
+                            </Typography>
                         </CardContent>
                     </Card>
                 </Stack>

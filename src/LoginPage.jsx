@@ -91,6 +91,10 @@ export default function LoginPage() {
                     >
                         {mode === 'register' ? t('auth.haveAccount') : t('auth.needAccount')}
                     </Button>
+                ) : status.hasUsers && !status.registrationOpen ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                        {t('auth.registrationClosed')}
+                    </Typography>
                 ) : null}
             </Stack>
         </AuthShell>

@@ -37,6 +37,17 @@ test('registration is open until the first user exists', () => {
     expect(parseAllowRegistration('0')).toBe(false);
 });
 
+test('admin setting overrides env, first-user short circuit beats the db', () => {
+    // Two-arg calls keep the env-only behavior (undefined adminSetting).
+    expect(isRegistrationOpen(1, false, undefined)).toBe(false);
+    expect(isRegistrationOpen(1, true, undefined)).toBe(true);
+    // A stored admin doc wins over the env-derived fallback either way.
+    expect(isRegistrationOpen(1, false, true)).toBe(true);
+    expect(isRegistrationOpen(1, true, false)).toBe(false);
+    // Fresh deployment with a stale closed doc must still register user #1.
+    expect(isRegistrationOpen(0, false, false)).toBe(true);
+});
+
 test('owner isolation: users only access their own configs', () => {
     const alice = { id: 'a1', role: 'user' };
     const bob = { id: 'b2', role: 'user' };

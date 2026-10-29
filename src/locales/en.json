@@ -225,7 +225,8 @@
         "logout": "Sign out",
         "failed": "Sign-in failed",
         "haveAccount": "Already have an account? Sign in",
-        "needAccount": "Need an account? Register"
+        "needAccount": "Need an account? Register",
+        "registrationClosed": "Public registration is currently closed. Please ask an administrator to create an account for you."
     },
     "admin": {
         "title": "Administration",
@@ -252,7 +253,13 @@
         "editTemplate": "Edit",
         "confirmDeleteUser": "Delete user “{{name}}” and their templates?",
         "confirmDeleteTemplate": "Delete template “{{name}}”?",
-        "editingOtherUser": "You are editing another user's templates."
+        "editingOtherUser": "You are editing another user's templates.",
+        "registrationTitle": "Public registration",
+        "registrationDesc": "Let visitors create accounts from the sign-in page (the first admin account is unaffected)",
+        "registrationOn": "Registration open",
+        "registrationOff": "Registration closed",
+        "registrationSourceAdmin": "Set by admin {{name}} from this console and stored in the database — delete the record to follow the environment variable again.",
+        "registrationSourceEnv": "Not set from this console yet — following the ALLOW_REGISTRATION environment variable."
     },
     "share": {
         "title": "Public display link",

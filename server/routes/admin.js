@@ -8,7 +8,7 @@ import {
     validateUsername,
 } from '../lib/password.js';
 import { destroyUserSessions } from '../lib/session.js';
-import { publicUser } from '../lib/authPolicy.js';
+import { parseAllowRegistration, publicUser, REGISTRATION_SETTING_ID } from '../lib/authPolicy.js';
 
 function sendError(res, error, fallback) {
     const status = error.status || 500;
@@ -30,12 +30,76 @@ export function createAdminRouter({
     users,
     sessions,
     configurations,
+    appSettings,
     sse,
     requireAuth,
     requireAdmin,
 }) {
     const router = Router();
     router.use(requireAuth, requireAdmin);
+
+    // Registration toggle: the singleton app_settings doc wins over the env
+    // fallback once an admin has written it; until then env (default closed)
+    // governs. The first-user short circuit is runtime semantics — it lives in
+    // /api/auth/status, not in the values surfaced here.
+    function toRegistrationPayload(setting) {
+        const envDefault = parseAllowRegistration(process.env.ALLOW_REGISTRATION);
+        if (!setting) {
+            return {
+                registrationOpen: envDefault,
+                source: 'env',
+                envDefault,
+                updatedAt: null,
+                updatedBy: null,
+            };
+        }
+        return {
+            registrationOpen: Boolean(setting.registrationOpen),
+            source: 'admin',
+            envDefault,
+            updatedAt: setting.updatedAt ?? null,
+            updatedBy: setting.updatedBy ?? null,
+        };
+    }
+
+    router.get('/settings/registration', async (_req, res) => {
+        try {
+            const setting = appSettings
+                ? await appSettings.findOne({ _id: REGISTRATION_SETTING_ID })
+                : null;
+            res.json({ success: true, data: toRegistrationPayload(setting) });
+        } catch (error) {
+            sendError(res, error, 'GET /api/admin/settings/registration');
+        }
+    });
+
+    router.put('/settings/registration', async (req, res) => {
+        try {
+            if (typeof req.body?.registrationOpen !== 'boolean') {
+                res.status(400).json({ success: false, message: 'registrationOpen must be a boolean' });
+                return;
+            }
+            const updatedAt = Date.now();
+            const updatedBy = req.user?.username ?? null;
+            await appSettings.updateOne(
+                { _id: REGISTRATION_SETTING_ID },
+                { $set: { registrationOpen: req.body.registrationOpen, updatedAt, updatedBy } },
+                { upsert: true },
+            );
+            res.json({
+                success: true,
+                data: {
+                    registrationOpen: req.body.registrationOpen,
+                    source: 'admin',
+                    envDefault: parseAllowRegistration(process.env.ALLOW_REGISTRATION),
+                    updatedAt,
+                    updatedBy,
+                },
+            });
+        } catch (error) {
+            sendError(res, error, 'PUT /api/admin/settings/registration');
+        }
+    });
 
     async function countAdmins(excludeId = null) {
         const filter = { role: 'admin', disabled: { $ne: true } };

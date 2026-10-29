@@ -57,6 +57,30 @@ test('pwa strings are present', async () => {
     expect(i18n.t('pwa.offline')).toMatch(/离线/);
 });
 
+test('registration toggle strings are present in all three languages', async () => {
+    expect(i18n.t('auth.registrationClosed')).toMatch(/registration is/i);
+    expect(i18n.t('admin.registrationTitle')).toMatch(/registration/i);
+    expect(i18n.t('admin.registrationOn')).toMatch(/open/i);
+    expect(i18n.t('admin.registrationOff')).toMatch(/closed/i);
+    expect(i18n.t('admin.registrationSourceAdmin', { name: 'Alice' })).toMatch(/alice/i);
+    expect(i18n.t('admin.registrationSourceEnv')).toMatch(/ALLOW_REGISTRATION/i);
+
+    await i18n.changeLanguage('zh-Hans');
+    expect(i18n.t('auth.registrationClosed')).toMatch(/已关闭/);
+    expect(i18n.t('admin.registrationTitle')).toBe('开放注册');
+    expect(i18n.t('admin.registrationOn')).toMatch(/开放/);
+    expect(i18n.t('admin.registrationOff')).toMatch(/关闭/);
+    expect(i18n.t('admin.registrationSourceAdmin', { name: '管理员' })).toMatch(/管理员/);
+
+    await i18n.changeLanguage('fr-CA');
+    expect(i18n.t('auth.registrationClosed')).toMatch(/fermée/i);
+    expect(i18n.t('admin.registrationTitle')).toMatch(/inscription/i);
+    expect(i18n.t('admin.registrationOn')).toMatch(/ouverte/i);
+    expect(i18n.t('admin.registrationOff')).toMatch(/fermée/i);
+    expect(i18n.t('admin.registrationSourceAdmin', { name: 'Admin' })).toMatch(/admin/i);
+    expect(i18n.t('admin.registrationSourceEnv')).toMatch(/ALLOW_REGISTRATION/i);
+});
+
 test('stage enhancement strings are present in all three languages', async () => {
     expect(i18n.t('settings.graceSeconds')).toMatch(/grace/i);
     expect(i18n.t('settings.autoAdvance')).toMatch(/auto/i);

@@ -225,7 +225,8 @@
         "logout": "退出",
         "failed": "登录失败",
         "haveAccount": "已有账号？去登录",
-        "needAccount": "需要账号？去注册"
+        "needAccount": "需要账号？去注册",
+        "registrationClosed": "公开注册当前已关闭，请联系管理员开通账号。"
     },
     "admin": {
         "title": "管理后台",
@@ -252,7 +253,13 @@
         "editTemplate": "编辑",
         "confirmDeleteUser": "删除用户“{{name}}”及其模板？",
         "confirmDeleteTemplate": "删除模板“{{name}}”？",
-        "editingOtherUser": "你正在编辑其他用户的模板。"
+        "editingOtherUser": "你正在编辑其他用户的模板。",
+        "registrationTitle": "开放注册",
+        "registrationDesc": "允许访客在登录页自行注册账号（首个管理员账号不受影响）",
+        "registrationOn": "注册已开放",
+        "registrationOff": "注册已关闭",
+        "registrationSourceAdmin": "由管理员 {{name}} 在后台设置并存入数据库；删除对应记录可恢复跟随环境变量。",
+        "registrationSourceEnv": "尚未在后台设置，当前跟随环境变量 ALLOW_REGISTRATION。"
     },
     "share": {
         "title": "公开投影链接",

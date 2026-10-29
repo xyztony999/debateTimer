@@ -55,12 +55,11 @@ test('admin flips the registration switch and the PUT carries the new value', as
 
     await page.goto('/admin');
 
-    // Env-sourced closed state: switch off + env source line, switch enabled.
+    // Env-sourced closed state: switch off, switch enabled.
     // MUI Switch renders role="switch", not checkbox.
     const toggle = page.getByRole('switch');
     await expect(toggle).not.toBeChecked();
     await expect(toggle).toBeEnabled();
-    await expect(page.getByText(/ALLOW_REGISTRATION/)).toBeVisible();
 
     await toggle.click();
 

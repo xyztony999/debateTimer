@@ -397,11 +397,6 @@ export default function AdminPage() {
                                     ? t('admin.registrationOn')
                                     : t('admin.registrationOff')}
                             />
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                {registration?.source === 'admin'
-                                    ? t('admin.registrationSourceAdmin', { name: registration.updatedBy || '—' })
-                                    : t('admin.registrationSourceEnv')}
-                            </Typography>
                         </CardContent>
                     </Card>
                 </Stack>

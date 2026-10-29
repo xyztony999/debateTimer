@@ -257,9 +257,7 @@
         "registrationTitle": "Inscription publique",
         "registrationDesc": "Autoriser les visiteurs à créer un compte depuis la page de connexion (le premier compte administrateur n’est pas concerné)",
         "registrationOn": "Inscription ouverte",
-        "registrationOff": "Inscription fermée",
-        "registrationSourceAdmin": "Défini par l’admin {{name}} depuis cette console et stocké dans la base — supprimez l’enregistrement pour revenir à la variable d’environnement.",
-        "registrationSourceEnv": "Pas encore défini depuis cette console — la variable d’environnement ALLOW_REGISTRATION s’applique."
+        "registrationOff": "Inscription fermée"
     },
     "share": {
         "title": "Lien d’affichage public",

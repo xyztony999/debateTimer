@@ -81,6 +81,10 @@ async function start() {
     const users = db.collection('users');
     const sessions = db.collection('sessions');
     const matchLogs = db.collection('match_logs');
+    // Admin-managed app settings (registration toggle). Singleton docs with a
+    // fixed string _id — unique by construction, no index needed. Included in
+    // scripts/backup.js COLLECTIONS so restores keep the toggle.
+    const appSettings = db.collection('app_settings');
 
     await db.command({ ping: 1 });
 
@@ -115,7 +119,7 @@ async function start() {
     const { attachUser, requireAuth, requireAdmin } = createAuthMiddleware({ users, sessions });
     app.use(attachUser);
 
-    app.use('/api/auth', createAuthRouter({ users, sessions, configurations }));
+    app.use('/api/auth', createAuthRouter({ users, sessions, configurations, appSettings }));
     // Anonymous public surfaces get in-memory per-IP limits (SSE streams on
     // /display are long-lived and count once at connect). Thresholds are
     // env-tunable with unchanged defaults — see server/.env.example.
@@ -128,6 +132,7 @@ async function start() {
         users,
         sessions,
         configurations,
+        appSettings,
         sse,
         requireAuth,
         requireAdmin,

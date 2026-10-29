@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Backup / restore the MongoDB business collections (configurations, users,
- * match_logs) as dated NDJSON snapshots with rotation. Pure driver — no
- * mongodump binary needed. Run on the server via cron:
+ * match_logs, app_settings) as dated NDJSON snapshots with rotation. Pure
+ * driver — no mongodump binary needed. Run on the server via cron:
  *
  *   30 4 * * *  cd /www/wwwroot/debatetimer-api/server && \
  *       node scripts/backup.js >> /www/wwwlogs/debatetimer-backup.log 2>&1
@@ -19,7 +19,10 @@ import { fileURLToPath } from 'node:url';
 import { MongoClient, ObjectId } from 'mongodb';
 import { buildMongoUri } from '../lib/mongoUri.js';
 
-const COLLECTIONS = ['configurations', 'users', 'match_logs'];
+// app_settings (admin-managed settings, e.g. the registration toggle) is
+// configuration data — restored copies must keep it or the toggle silently
+// falls back to env. sessions stay excluded on purpose: volatile by design.
+export const COLLECTIONS = ['configurations', 'users', 'match_logs', 'app_settings'];
 const KEEP_DAYS = 14;
 
 // Anchor to the script's own directory so backups land in server/backups

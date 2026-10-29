@@ -10,6 +10,7 @@ import {
     isRegistrationOpen,
     parseAllowRegistration,
     publicUser,
+    REGISTRATION_SETTING_ID,
 } from '../lib/authPolicy.js';
 import { migrateLegacyConfigurations } from '../lib/migrateConfigurations.js';
 import { createLoginRateLimiter, createRegisterRateLimiter } from '../lib/rateLimits.js';
@@ -20,7 +21,7 @@ import {
     SESSION_COOKIE_NAME,
 } from '../lib/session.js';
 
-export function createAuthRouter({ users, sessions, configurations }) {
+export function createAuthRouter({ users, sessions, configurations, appSettings }) {
     const router = Router();
 
     // Credential endpoints get strict per-IP limits (env-tunable, see
@@ -32,12 +33,22 @@ export function createAuthRouter({ users, sessions, configurations }) {
     const registerLimit = createRegisterRateLimiter();
 
     async function registrationState() {
-        const userCount = await users.countDocuments();
+        // One read per request: /status and /register share this snapshot so
+        // the first-user role decision and the toggle can't disagree. The
+        // admin-managed app_settings doc (singleton _id) wins over env when
+        // present; without appSettings injected, behavior is env-only.
+        const [userCount, setting] = await Promise.all([
+            users.countDocuments(),
+            appSettings
+                ? appSettings.findOne({ _id: REGISTRATION_SETTING_ID })
+                : Promise.resolve(null),
+        ]);
         return {
             hasUsers: userCount > 0,
             registrationOpen: isRegistrationOpen(
                 userCount,
                 parseAllowRegistration(process.env.ALLOW_REGISTRATION),
+                setting?.registrationOpen,
             ),
         };
     }

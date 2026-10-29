@@ -47,6 +47,17 @@ function fakeSessions() {
     };
 }
 
+// Singleton app_settings docs keyed by their string _id (e.g. 'registration').
+function fakeAppSettings(seed = []) {
+    const docs = new Map(seed);
+    return {
+        docs,
+        async findOne(query) {
+            return docs.get(String(query._id)) || null;
+        },
+    };
+}
+
 let server;
 let base;
 let users;
@@ -60,7 +71,7 @@ const AUTH_ENV_KEYS = [
     'AUTH_REGISTER_RATE_WINDOW_MS',
 ];
 
-function buildApp(usersCollection) {
+function buildApp(usersCollection, appSettingsCollection) {
     const app = express();
     app.set('trust proxy', 1);
     app.use(express.json());
@@ -68,6 +79,7 @@ function buildApp(usersCollection) {
         users: usersCollection,
         sessions: fakeSessions(),
         configurations: undefined,
+        appSettings: appSettingsCollection,
     }));
     return app;
 }
@@ -213,5 +225,58 @@ test('login limiter thresholds come from env overrides', async () => {
         envServer?.close();
         delete process.env.AUTH_LOGIN_RATE_MAX;
         delete process.env.AUTH_LOGIN_RATE_WINDOW_MS;
+    }
+});
+
+// Registration toggle stored in app_settings (admin console) — DB value wins
+// over ALLOW_REGISTRATION when a doc exists; no doc = env-only, unchanged.
+test('status: admin setting in app_settings overrides env', async () => {
+    const appSettings = fakeAppSettings([['registration', { _id: 'registration', registrationOpen: true }]]);
+    const dbServer = await new Promise((resolve) => {
+        const s = buildApp(users, appSettings).listen(0, () => resolve(s));
+    });
+    try {
+        const dbBase = `http://127.0.0.1:${dbServer.address().port}`;
+        const payload = await fetch(`${dbBase}/api/auth/status`).then((r) => r.json());
+        expect(payload.data).toEqual({ hasUsers: true, registrationOpen: true }); // env unset — DB did it
+    } finally {
+        dbServer?.close();
+    }
+});
+
+test('status and register: a closed admin setting beats ALLOW_REGISTRATION=true', async () => {
+    process.env.ALLOW_REGISTRATION = 'true';
+    const appSettings = fakeAppSettings([['registration', { _id: 'registration', registrationOpen: false }]]);
+    const dbServer = await new Promise((resolve) => {
+        const s = buildApp(users, appSettings).listen(0, () => resolve(s));
+    });
+    try {
+        const dbBase = `http://127.0.0.1:${dbServer.address().port}`;
+        const payload = await fetch(`${dbBase}/api/auth/status`).then((r) => r.json());
+        expect(payload.data).toEqual({ hasUsers: true, registrationOpen: false }); // DB wins over env
+
+        const attempt = await fetch(`${dbBase}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-forwarded-for': '198.51.100.31' },
+            body: JSON.stringify({ username: 'fresh_user', password: 'password123' }),
+        });
+        expect(attempt.status).toBe(403); // 'Registration is closed' — limiter still ahead of the gate
+    } finally {
+        dbServer?.close();
+        delete process.env.ALLOW_REGISTRATION;
+    }
+});
+
+test('status: empty database stays open even with a closed admin setting', async () => {
+    const appSettings = fakeAppSettings([['registration', { _id: 'registration', registrationOpen: false }]]);
+    const dbServer = await new Promise((resolve) => {
+        const s = buildApp(fakeUsers(), appSettings).listen(0, () => resolve(s));
+    });
+    try {
+        const dbBase = `http://127.0.0.1:${dbServer.address().port}`;
+        const payload = await fetch(`${dbBase}/api/auth/status`).then((r) => r.json());
+        expect(payload.data).toEqual({ hasUsers: false, registrationOpen: true }); // first user must get in
+    } finally {
+        dbServer?.close();
     }
 });

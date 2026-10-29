@@ -257,9 +257,7 @@
         "registrationTitle": "开放注册",
         "registrationDesc": "允许访客在登录页自行注册账号（首个管理员账号不受影响）",
         "registrationOn": "注册已开放",
-        "registrationOff": "注册已关闭",
-        "registrationSourceAdmin": "由管理员 {{name}} 在后台设置并存入数据库；删除对应记录可恢复跟随环境变量。",
-        "registrationSourceEnv": "尚未在后台设置，当前跟随环境变量 ALLOW_REGISTRATION。"
+        "registrationOff": "注册已关闭"
     },
     "share": {
         "title": "公开投影链接",

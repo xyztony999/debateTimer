@@ -132,14 +132,21 @@ bun run build && bunx --package @lhci/cli@0.15.1 lhci autorun
 
 ## 生产部署
 
-推送 `deploy/production`：
+推送 `deploy/production`（按改动路径自动拆分，也可在 Actions 手动单发前端 / 后端）：
 
-- **前端**：GitHub Pages（`.github/workflows/deploy.yml`）
-- **API / MongoDB**：宝塔，`deploy.sh --api-only`（[说明](deploy/baota/README.md)）
+- **前端**：GitHub Pages（`.github/workflows/deploy.yml`，改动不含 `server/**`、`deploy/**` 时触发）
+- **API / MongoDB**：宝塔，`deploy.sh --api-only`（[说明](deploy/baota/README.md)；改动含 `server/**` 或 `deploy/baota/**` 时触发）
+- **前端 → 自托管服务器**（可选通道）：`deploy-frontend-selfhost.yml`，CI 构建后下发 `build/`，默认关闭
 
 ```bash
 bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 ```
+
+## 自部署（Self-hosting）
+
+想在自己服务器跑一套完整的前端 + API + MongoDB？见 [`deploy/selfhost/README.md`](deploy/selfhost/README.md)：
+一键脚本支持全栈一体化（一个 Node 进程同时托管页面与 API，`STATIC_DIR=../build`）或
+Nginx 静态 + API 反代两种拓扑，适合内网与社区私有化部署。
 
 ### 数据备份（服务器 cron）
 

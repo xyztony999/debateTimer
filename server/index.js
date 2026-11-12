@@ -1,11 +1,12 @@
 import 'dotenv/config';
 import cookieParser from 'cookie-parser';
-import cors from 'cors';
 import express from 'express';
 import { MongoClient } from 'mongodb';
 import { createAuthMiddleware } from './lib/authMiddleware.js';
 import { migrateLegacyConfigurations } from './lib/migrateConfigurations.js';
 import { buildMongoUri } from './lib/mongoUri.js';
+import { createCorsMiddleware, createUnsafeOriginGuard, parseAllowedOrigins } from './lib/originPolicy.js';
+import { createStaticSite } from './lib/staticSite.js';
 import { createSseHub } from './lib/sseHub.js';
 import { createTimerSessionRegistry } from './lib/timerSessions.js';
 import { createDisplayRateLimiter, createGalleryRateLimiter } from './lib/rateLimits.js';
@@ -18,11 +19,14 @@ import { createMatchLogsRouter } from './routes/matchLogs.js';
 import { createGalleryRouter } from './routes/gallery.js';
 
 const PORT = Number(process.env.PORT) || 3001;
+// 127.0.0.1 keeps the API behind a reverse proxy (Baota nginx). All-stack
+// self-hosted / direct LAN deployments set HOST=0.0.0.0.
+const HOST = process.env.HOST || '127.0.0.1';
 const MONGODB_URI = buildMongoUri();
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+const ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS || 'http://localhost:3000');
+// Set to the frontend build output to serve the SPA from this process
+// (all-stack self-hosted mode; see deploy/selfhost/README.md). Empty = API-only.
+const STATIC_DIR = process.env.STATIC_DIR || '';
 
 function logMongoAuthHelp() {
     console.error('MongoDB authentication failed. Update server/.env with credentials.');
@@ -44,30 +48,10 @@ const timerSessions = createTimerSessionRegistry({ sse });
 
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
-app.use(cors({
-    origin(origin, callback) {
-        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-            callback(null, true);
-            return;
-        }
-        callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
-    credentials: true,
-}));
-
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-app.use((req, res, next) => {
-    if (SAFE_METHODS.has(req.method)) {
-        next();
-        return;
-    }
-    const origin = req.get('Origin');
-    if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
-        res.status(403).json({ success: false, message: 'Forbidden origin' });
-        return;
-    }
-    next();
-});
+// Same-origin requests (STATIC_DIR self-hosted, direct LAN access) bypass the
+// allowlist; cross-origin traffic keeps the strict list — see lib/originPolicy.js.
+app.use(createCorsMiddleware({ allowedOrigins: ALLOWED_ORIGINS }));
+app.use(createUnsafeOriginGuard({ allowedOrigins: ALLOWED_ORIGINS }));
 
 app.get('/health', (_req, res) => {
     res.json({ ok: true });
@@ -138,8 +122,17 @@ async function start() {
         requireAdmin,
     }));
 
-    app.listen(PORT, '127.0.0.1', () => {
-        console.log(`DebateTimer API listening on http://127.0.0.1:${PORT}`);
+    // All-stack self-hosted mode: after every API route, serve the frontend
+    // build with an SPA fallback. Unknown /api paths stay JSON 404s.
+    if (STATIC_DIR) {
+        app.use(createStaticSite({ dir: STATIC_DIR }));
+    }
+
+    app.listen(PORT, HOST, () => {
+        console.log(`DebateTimer API listening on http://${HOST}:${PORT}`);
+        if (STATIC_DIR) {
+            console.log(`Static site: ${STATIC_DIR} (all-stack mode)`);
+        }
         console.log(`CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
         console.log(`MongoDB database: ${db.databaseName}`);
     });

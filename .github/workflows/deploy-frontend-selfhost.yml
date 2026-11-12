@@ -1,0 +1,49 @@
+name: Deploy Frontend to Selfhost Server
+
+# 把前端构建产物下发到自托管服务器（如宝塔静态站点），作为 GitHub Pages
+# 之外的通道。默认关闭：需在 repo Variables 配 SELFHOST_FRONTEND_DEPLOY=true，
+# 以及 SELFHOST_FRONTEND_DIR（目标目录）和 SELFHOST_API_BASE_URL（该实例的后端
+# 地址；留空 = 与前端同源的一体化部署）。SSH secrets 复用 BAOTA_SSH_*。
+on:
+  workflow_dispatch:
+  push:
+    branches: [ deploy/production ]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vite.config.js'
+      - 'package.json'
+      - 'bun.lock'
+      - '.github/workflows/deploy-frontend-selfhost.yml'
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    if: ${{ vars.SELFHOST_FRONTEND_DEPLOY == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        env:
+          # 留空 = 前后端同源（一体化部署，STATIC_DIR 托管）
+          VITE_API_BASE_URL: ${{ vars.SELFHOST_API_BASE_URL }}
+
+      - name: Upload build to selfhost dir
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.BAOTA_SSH_HOST }}
+          username: ${{ secrets.BAOTA_SSH_USER }}
+          key: ${{ secrets.BAOTA_SSH_KEY }}
+          port: ${{ secrets.BAOTA_SSH_PORT || '22' }}
+          source: 'build/*'
+          target: ${{ vars.SELFHOST_FRONTEND_DIR }}
+          rm: true

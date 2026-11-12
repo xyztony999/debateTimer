@@ -1,9 +1,17 @@
 name: Deploy React App to GitHub Pages
 
-# 同一推送还会触发 Deploy API to Baota（仅 API，见 deploy-baota.yml）
+# 同一推送还会触发 Deploy API to Baota（仅 API，见 deploy-baota.yml）。
+# paths-ignore 实现"前后端独立发版"：只改 server/ 或部署脚本时不重发前端；
+# 也可用 workflow_dispatch 手动单发前端。
 on:
+  workflow_dispatch:
   push:
     branches: [ deploy/production ]
+    paths-ignore:
+      - 'server/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-baota.yml'
+      - '.github/workflows/deploy-frontend-selfhost.yml'
 
 permissions:
   contents: read

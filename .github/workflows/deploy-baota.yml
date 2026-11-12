@@ -1,9 +1,14 @@
 name: Deploy API to Baota
 
+# paths 实现"前后端独立发版"：只改前端时不重发后端；workflow_dispatch 可手动单发。
 on:
   workflow_dispatch:
   push:
     branches: [deploy/production]
+    paths:
+      - 'server/**'
+      - 'deploy/baota/**'
+      - '.github/workflows/deploy-baota.yml'
 
 jobs:
   deploy-api:

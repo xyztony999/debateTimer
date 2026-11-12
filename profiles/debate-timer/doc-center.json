@@ -1,0 +1,124 @@
+{
+  "_generated": {
+    "version": 2,
+    "note": "本文件由 engine-gui 文档中心根据项目架构自动生成，可手工编辑（编辑后原样生效）；删除本文件后下次访问将按最新架构重新生成。",
+    "generatedAt": "2026-11-11T11:47:33.345Z",
+    "generator": "engine-gui doc-center 生成器（/dc/api/domains · /api/projects/:id/funcview）"
+  },
+  "names-map": {},
+  "module-docs": {
+    "domains": {
+      "赛前准备": {
+        "name": "赛前准备",
+        "layer": "支撑域",
+        "related": "",
+        "fishbone": {
+          "spine": [
+            {
+              "code": "S1",
+              "name": "赛前准备",
+              "desc": ""
+            }
+          ],
+          "upperRibs": [
+            {
+              "code": "U1-1",
+              "name": "流程模板管理",
+              "desc": "",
+              "col": 0
+            },
+            {
+              "code": "U1-2",
+              "name": "分享设置管理",
+              "desc": "",
+              "col": 0
+            },
+            {
+              "code": "U1-3",
+              "name": "模板广场管理",
+              "desc": "",
+              "col": 0
+            }
+          ],
+          "lowerRibs": []
+        }
+      },
+      "比赛执行": {
+        "name": "比赛执行",
+        "layer": "核心域",
+        "related": "",
+        "fishbone": {
+          "spine": [
+            {
+              "code": "S2",
+              "name": "比赛执行",
+              "desc": ""
+            }
+          ],
+          "upperRibs": [
+            {
+              "code": "U2-1",
+              "name": "阶段计时控制",
+              "desc": "",
+              "col": 0
+            },
+            {
+              "code": "U2-2",
+              "name": "实时协同展示",
+              "desc": "",
+              "col": 0
+            }
+          ],
+          "lowerRibs": []
+        }
+      },
+      "系统支撑": {
+        "name": "系统支撑",
+        "layer": "基础数据域",
+        "related": "",
+        "fishbone": {
+          "spine": [
+            {
+              "code": "S3",
+              "name": "系统支撑",
+              "desc": ""
+            }
+          ],
+          "upperRibs": [
+            {
+              "code": "U3-1",
+              "name": "账号与访问管理",
+              "desc": "",
+              "col": 0
+            }
+          ],
+          "lowerRibs": []
+        }
+      },
+      "赛后复盘": {
+        "name": "赛后复盘",
+        "layer": "支撑域",
+        "related": "",
+        "fishbone": {
+          "spine": [
+            {
+              "code": "S4",
+              "name": "赛后复盘",
+              "desc": ""
+            }
+          ],
+          "upperRibs": [
+            {
+              "code": "U4-1",
+              "name": "比赛记录管理",
+              "desc": "",
+              "col": 0
+            }
+          ],
+          "lowerRibs": []
+        }
+      }
+    },
+    "domainDetails": {}
+  }
+}

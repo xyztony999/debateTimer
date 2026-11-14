@@ -20,6 +20,8 @@ import {
     isStageFullyEnded,
 } from './engine.js';
 import { buildSnapshot, adoptSnapshot, compensateInFlight } from './snapshotCodec.js';
+import { isIntentAction } from './intentCodec.js';
+import useRafReadout from './useRafReadout.js';
 import {
     beginStageCapture, bumpOverrun, buildMatchPayload,
     persistCapture, restoreCapture, clearPersistedCapture,
@@ -95,6 +97,13 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         }
     };
 
+    // D40 (v1.1): intent mirroring slot — the session-sync hook arms this
+    // ref while THIS page hosts the live session; every whitelisted engine
+    // action (operator buttons, shortcuts, remote-executed commands, auto
+    // advance) is then mirrored to the server the moment it dispatches.
+    // Followers/displays keep it null: their replayed actions never echo.
+    const intentReportRef = useRef(null);
+
     const dispatch = useCallback((action) => {
         // Maintain precise anchors at the exact moments of user intent,
         // before the engine applies its whole-second view.
@@ -125,6 +134,9 @@ export default function useDebateTimer({ shareToken = null } = {}) {
                 default:
                     break;
             }
+        }
+        if (isIntentAction(action)) {
+            intentReportRef.current?.(action); // fire-and-forget; anchors above are already precise
         }
         rawDispatch(action);
     }, []);
@@ -308,57 +320,6 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         }
     }, []);
 
-    // Engine events: play bells, speak announcements, count overruns. Voice
-    // events in one batch merge into a single utterance ("time up, negative
-    // has the floor"); cancel-then-speak inside speech.js keeps the newest
-    // cue winning.
-    useEffect(() => {
-        if (state.events.length === 0) {
-            return;
-        }
-        const ttsPrefs = loadSoundPrefs().tts;
-        const sideLabel = (side) => {
-            if (side !== 'aff' && side !== 'neg') {
-                return '';
-            }
-            const cfg = stateRef.current?.config;
-            return cfg?.teamNames?.[side] || t(side === 'aff' ? 'timer.affirmative' : 'timer.negative');
-        };
-        const voiceText = (event) => {
-            const label = sideLabel(event.side);
-            if (event.node === 'timeUp') {
-                return label ? t('timer.tts.timeUpSide', { team: label }) : t('timer.tts.timeUp');
-            }
-            if (event.node === 'mustStop') {
-                return label
-                    ? t('timer.tts.mustStopSide', { team: label })
-                    : t('timer.tts.mustStop');
-            }
-            if (event.node === 'handover') {
-                return t('timer.tts.handover', { team: label });
-            }
-            return t('timer.tts.warn30');
-        };
-        const spoken = [];
-        for (const event of state.events) {
-            if (event.type === 'sound') {
-                playAlert(event.node);
-            } else if (event.type === 'overrun') {
-                captureRef.current = bumpOverrun(captureRef.current, event.side, state.stageId);
-                persistCapture(captureRef.current, stateRef.current?.config?.name);
-            } else if (event.type === 'voice') {
-                if (ttsPrefs?.enabled && ttsPrefs[event.node]) {
-                    spoken.push(voiceText(event));
-                }
-            }
-        }
-        if (spoken.length > 0) {
-            const joiner = i18n.language?.startsWith('zh') ? '，' : ', ';
-            speakAnnouncement(spoken.join(joiner), i18n.language);
-        }
-        dispatch({ type: 'CONSUME_EVENTS' });
-    }, [state.events, state.stageId, t, i18n]);
-
     // ------------------------------------------------------------------
 
     useEffect(() => {
@@ -422,7 +383,7 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         setRunningAnchor, setFrozenAnchor, dispatch,
         saveMatchRecord, lastTickAtRef,
         hostCommandListenerRef, hostSignalListenerRef,
-        applyStage, transitionKey,
+        applyStage, transitionKey, intentReportRef,
     });
     const {
         following, displayBanner, sessionState, sessionNotice, setSessionNotice,
@@ -431,6 +392,66 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         startRemoteMode, sendRemoteCommand, pairWithCode,
         probeForPairingDialog, handleCopyDisplayUrl,
     } = sync;
+
+    // Engine events: play bells, speak announcements, count overruns. Voice
+    // events in one batch merge into a single utterance ("time up, negative
+    // has the floor"); cancel-then-speak inside speech.js keeps the newest
+    // cue winning.
+    // BR-C01-14 (v1.1): role-split consumption — sound/voice/overrun belong
+    // to the device that OWNS the runtime. A following page (display,
+    // console-follow, remote mirror) consumes none of them: events born
+    // from intent replay or snapshot adoption must neither sound nor feed
+    // the match capture there (visual blinking derives from the remaining
+    // digits, not from events). A display in standalone fallback mode owns
+    // its runtime again and consumes the full feed.
+    useEffect(() => {
+        if (state.events.length === 0) {
+            return;
+        }
+        if (!following) {
+            const ttsPrefs = loadSoundPrefs().tts;
+            const sideLabel = (side) => {
+                if (side !== 'aff' && side !== 'neg') {
+                    return '';
+                }
+                const cfg = stateRef.current?.config;
+                return cfg?.teamNames?.[side] || t(side === 'aff' ? 'timer.affirmative' : 'timer.negative');
+            };
+            const voiceText = (event) => {
+                const label = sideLabel(event.side);
+                if (event.node === 'timeUp') {
+                    return label ? t('timer.tts.timeUpSide', { team: label }) : t('timer.tts.timeUp');
+                }
+                if (event.node === 'mustStop') {
+                    return label
+                        ? t('timer.tts.mustStopSide', { team: label })
+                        : t('timer.tts.mustStop');
+                }
+                if (event.node === 'handover') {
+                    return t('timer.tts.handover', { team: label });
+                }
+                return t('timer.tts.warn30');
+            };
+            const spoken = [];
+            for (const event of state.events) {
+                if (event.type === 'sound') {
+                    playAlert(event.node);
+                } else if (event.type === 'overrun') {
+                    captureRef.current = bumpOverrun(captureRef.current, event.side, state.stageId);
+                    persistCapture(captureRef.current, stateRef.current?.config?.name);
+                } else if (event.type === 'voice') {
+                    if (ttsPrefs?.enabled && ttsPrefs[event.node]) {
+                        spoken.push(voiceText(event));
+                    }
+                }
+            }
+            if (spoken.length > 0) {
+                const joiner = i18n.language?.startsWith('zh') ? '，' : ', ';
+                speakAnnouncement(spoken.join(joiner), i18n.language);
+            }
+        }
+        dispatch({ type: 'CONSUME_EVENTS' });
+    }, [state.events, state.stageId, t, i18n, following]);
 
     // Config (re)load: reset the runtime to the first stage and start a
     // fresh capture — unless a buffered capture for the SAME template is
@@ -501,18 +522,13 @@ export default function useDebateTimer({ shareToken = null } = {}) {
         applyStage,
     }), [goToAdjacentStage, applyStage]);
 
-    // D38: rendering sides — remaining comes from the truth anchors so host
-    // and displays flip in the same instant; everything else stays engine.
-    const liveSides = useMemo(() => {
-        const map = {};
-        ['single', 'aff', 'neg'].forEach((side) => {
-            const ms = anchorMsOf(anchors, side);
-            map[side] = ms == null
-                ? state.sides[side]
-                : { ...state.sides[side], remaining: Math.floor(ms / 1000) };
-        });
-        return map;
-    }, [state, anchors]);
+    // D38/D42 (v1.1): rendering sides — remaining comes from the truth
+    // anchors so host and displays flip in the same instant. Since D42 the
+    // digits are read on every animation frame (frame-aligned second flips,
+    // ~16ms) and the published map keeps stable references across unchanged
+    // frames, so memoized clocks re-render only when a visible digit or
+    // phase actually moves. Engine ints remain the fallback per side.
+    const liveSides = useRafReadout(anchors, state.sides);
 
     const derived = useMemo(() => ({
         mode: state.stageMode,

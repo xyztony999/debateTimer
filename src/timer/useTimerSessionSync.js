@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import TimerSessionService from '../services/TimerSessionService';
 import { initiateDirectChannel, answerDirectChannel } from './rtcChannel.js';
-import { buildSnapshot, adoptSnapshot, compensateInFlight } from './snapshotCodec.js';
+import {
+    buildSnapshot, adoptSnapshot, compensateInFlight, isSmoothAdoptable,
+} from './snapshotCodec.js';
+import { buildIntentPayload, planIntentReplay } from './intentCodec.js';
 import { createSnapshotQueue, snapshotFailureAction } from './snapshotReporting.js';
 
 // R4 role memories: tokens this device opened (host) or attached to
@@ -35,7 +38,7 @@ export default function useTimerSessionSync(ctx) {
         setRunningAnchor, setFrozenAnchor, dispatch,
         saveMatchRecord, lastTickAtRef,
         hostCommandListenerRef, hostSignalListenerRef,
-        applyStage, transitionKey,
+        applyStage, transitionKey, intentReportRef,
     } = ctx;
 
 
@@ -81,6 +84,10 @@ export default function useTimerSessionSync(ctx) {
     const remoteModeRef = useRef(false);
     const remoteTargetRef = useRef(null); // paired host { name, shareToken } override
     const lastCommandSeqRef = useRef(0);
+    // D40 (v1.1): follower-side intent-frame cursor. Deliberately separate
+    // from lastCommandSeqRef (host-side remote-command dedup) — R-1: remote
+    // command frames never move this cursor, only accepted intent frames do.
+    const lastIntentSeqRef = useRef(0);
     // --- C-02-08 P2P direct link (remote ↔ host on the same LAN) ---
     const [rtcState, setRtcState] = useState('off'); // off | connecting | open
     const rtcChannelRef = useRef(null);   // remote-side initiator controller
@@ -157,26 +164,13 @@ export default function useTimerSessionSync(ctx) {
             }
         }
         const candidate = adoptSnapshot(comp);
-        if (cur && candidate && cur.stageId === candidate.stageId
-            && cur.stageMode === candidate.stageMode) {
-            const wireClose = (wireRunning, wirePhase, wireMs, local) => {
-                if (wireRunning !== local.running || wirePhase !== local.phase) {
-                    return false;
-                }
-                if (wirePhase === 'grace' && Math.abs(wireMs - (local.graceLeft ?? 0) * 1000) >= 1000) {
-                    return false; // grace counts whole seconds — allow 1s slack
-                }
-                return Math.abs(wireMs - local.remaining * 1000) < 200;
-            };
-            const single = cur.stageMode === 'single';
-            const closeEnough = single
-                ? wireClose(comp.runningAff, comp.phaseAff, comp.remainingAffMs, cur.sides.aff)
-                : wireClose(comp.runningAff, comp.phaseAff, comp.remainingAffMs, cur.sides.aff)
-                    && wireClose(comp.runningNeg, comp.phaseNeg, comp.remainingNegMs, cur.sides.neg);
-            if (closeEnough && candidate.seq > 0) {
-                seqRef.current = Math.max(seqRef.current, candidate.seq);
-                return; // shows the same thing — keep ticking locally
-            }
+        // D35→v1.1 (FR-C02-02-04): reconciliation-only smooth adopt — same
+        // structure and every active side within 200ms means the local
+        // extrapolation stands; the pull happens at most once per real
+        // divergence (see isSmoothAdoptable in snapshotCodec).
+        if (cur && isSmoothAdoptable(comp, cur) && candidate.seq > 0) {
+            seqRef.current = Math.max(seqRef.current, candidate.seq);
+            return; // shows the same thing — keep ticking locally
         }
         const adopted = candidate;
         if (!adopted) {
@@ -200,6 +194,107 @@ export default function useTimerSessionSync(ctx) {
             },
         });
     }, []);
+
+    // D40/FR-C02-02-12 (v1.1): follower-side intent replay. The display
+    // stream carries remote-command frames AND host intent frames on the
+    // same `command` event; planIntentReplay decides (pure, unit-tested),
+    // this executes. Accepted frames write the wall-clock anchors from the
+    // frame's absolute server-domain anchors FIRST (converted via the
+    // consumer skew EMA), then replay the translated action through the
+    // same wrapped dispatch operators use — anchor bookkeeping stays
+    // identical and the replayed engine events are swallowed by the
+    // BR-C01-14 follower filter (never sound, never capture).
+    const replayIntentFrame = useCallback((frame) => {
+        const engineState = stateRef.current?.state;
+        const verdict = planIntentReplay(frame, {
+            lastSeq: lastIntentSeqRef.current,
+            knownSessionId: sessionIdRef.current,
+            skewMs: Number.isFinite(consumerClockSkewRef.current) ? consumerClockSkewRef.current : 0,
+            engineState,
+        });
+        if (!verdict.accept) {
+            return; // R-1: remote command / stale / malformed — cursor untouched
+        }
+        if (verdict.generationReset) {
+            lastIntentSeqRef.current = 0; // D23: new session generation, fresh dedup
+        }
+        lastIntentSeqRef.current = Math.max(lastIntentSeqRef.current, verdict.seq);
+        if (verdict.sessionId) {
+            sessionIdRef.current = verdict.sessionId;
+        }
+        // FR-C02-02-07: an arriving frame is liveness — refresh the weak
+        // window and restore the banner from 'weak'.
+        lastStateAtRef.current = Date.now();
+        setFollowing(true);
+        setDisplayBanner('following');
+        // Anchor first (the frame's absolute anchors are the precise
+        // truth), then replay — the dispatch wrapper re-derives running
+        // anchors from the just-written book, keeping sub-second phase.
+        // Single mode mirrors the aff wire anchor onto the engine's single
+        // side, exactly like snapshot adoption does.
+        const single = engineState?.stageMode === 'single';
+        const writeAnchor = (side, anchor) => {
+            if (!anchor) {
+                return;
+            }
+            if (anchor.running) {
+                setRunningAnchor(side, anchor.remainMs);
+            } else {
+                setFrozenAnchor(side, anchor.frozenMs);
+            }
+        };
+        writeAnchor('aff', verdict.anchors.aff);
+        if (single) {
+            writeAnchor('single', verdict.anchors.aff);
+        } else {
+            writeAnchor('neg', verdict.anchors.neg);
+        }
+        if (verdict.action.type === 'APPLY_STAGE') {
+            // Follower replay never feeds the match capture — capture
+            // belongs to the host (BR-C01-14).
+            applyStage(verdict.action.stageId, { skipCapture: true });
+            return;
+        }
+        dispatch(verdict.action);
+    // applyStage/dispatch/anchor writers are stable by construction.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // D40/FR-C02-01-17 (v1.1): while THIS page hosts the live session, arm
+    // the dispatch-level intent mirror — every whitelisted engine action
+    // (operator buttons, shortcuts, remote-executed commands, auto advance)
+    // is POSTed as an intent frame the moment it dispatches, carrying
+    // server-domain anchors built from the precise anchor book (D33 offset
+    // included). Fire-and-forget by contract: a lost frame heals at the
+    // next 5s reconciliation snapshot (reportIntent swallows failures).
+    // A 409 session_taken on an intent is likewise silent here: the very
+    // next reconciliation heartbeat hits the same arbitration and runs the
+    // established yield path — sovereignty stays single-sourced (API-2).
+    // Followers, displays, console-follow and remote mirrors keep the slot
+    // unarmed — their replayed actions never echo back.
+    useEffect(() => {
+        const hosting = !isDisplay && !following && !remoteMode
+            && (sessionState === 'active' || sessionState === 'weak');
+        intentReportRef.current = hosting
+            ? (action) => {
+                const session = sessionRef.current;
+                const { state: eng, config: cfg } = stateRef.current ?? {};
+                if (!session?.sessionId || !eng || !cfg?.name) {
+                    return; // no sovereignty id → pure-snapshot mode (R-3 semantics)
+                }
+                const offset = Number.isFinite(hostClockOffsetRef.current)
+                    ? hostClockOffsetRef.current
+                    : 0;
+                const payload = buildIntentPayload(action, eng, anchorsRef.current, session.sessionId, offset);
+                if (payload) {
+                    TimerSessionService.reportIntent(cfg.name, payload);
+                }
+            }
+            : null;
+        return () => {
+            intentReportRef.current = null;
+        };
+    }, [sessionState, isDisplay, following, remoteMode, intentReportRef]);
 
     const reportSnapshot = useCallback(() => {
         const session = sessionRef.current;
@@ -750,14 +845,19 @@ export default function useTimerSessionSync(ctx) {
     // reportSnapshot is stable (stateRef-based); key on the transition only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [transitionKey]);
-    // Heartbeat: keeps the session alive server-side and re-syncs times.
+    // Heartbeat/reconciliation: keeps the session alive server-side
+    // (30s expiry) and re-syncs times. D41 (v1.1): the 1s state-sync cadence
+    // is retired — operation propagation now rides intent frames (≤1 RTT),
+    // so this loop only reconciles: a display diverging beyond the smooth
+    // window gets pulled back at most once per 5s beat. Structural
+    // transitions still report immediately via the transitionKey effect.
     useEffect(() => {
         if (isDisplay || (sessionState !== 'active' && sessionState !== 'weak')) {
             return undefined;
         }
         const id = window.setInterval(() => {
             reportSnapshot();
-        }, 1000); // D22: 1s cadence halves the adopt pull-back amplitude
+        }, 5000);
         return () => window.clearInterval(id);
     }, [sessionState, reportSnapshot, isDisplay]);
 
@@ -821,6 +921,10 @@ export default function useTimerSessionSync(ctx) {
                     setDisplayBanner('following');
                     adoptFromSnapshot(snapshot);
                 },
+                // D40 (v1.1): host intent frames ride this event — replay
+                // locally for ≤500ms propagation; remote-command frames
+                // (no anchors) fall through inside (R-1).
+                onCommand: replayIntentFrame,
                 onSignal: (frame) => signalListenerRef.current?.(frame),
                 onSession: (event) => {
                     if (event.type === 'started') {
@@ -884,7 +988,7 @@ export default function useTimerSessionSync(ctx) {
                 stateUnsubscribe();
             }
         };
-    }, [activeFollowToken, status, adoptFromSnapshot, isDisplay, t]);
+    }, [activeFollowToken, status, adoptFromSnapshot, replayIntentFrame, isDisplay, t]);
 
     // ------------------------------------------------------------------
     // Per-side actions for buttons and shortcuts.

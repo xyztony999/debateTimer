@@ -101,6 +101,79 @@ export default function TimerDisplayPage() {
         return () => window.removeEventListener('keydown', onKey);
     }, [toggleFullscreen]);
 
+    const affLabel = config.teamNames?.aff || t('timer.affirmative');
+    const negLabel = config.teamNames?.neg || t('timer.negative');
+
+    // D42 (v1.1): prebuilt clock elements — the RAF readout publishes
+    // stable side-view references, so this memo re-mints only the element
+    // whose digits moved; unchanged clocks reconcile as identical element
+    // references and skip their subtrees. (Hooks above the early returns.)
+    const clockEls = React.useMemo(() => ({
+        aff: (
+            <TimerBox
+                variant="display"
+                sideState={liveSides.aff}
+                blinking={derived.blinking.aff}
+                active={derived.isFree && derived.activeSide === 'aff'}
+                title={affLabel}
+                badge={t('timer.affBadge')}
+                graceText={t('timer.graceHint')}
+                readonly={following}
+                readonlyText={following ? t('timer.display.following') : null}
+                startTitle={t('timer.shortcutAffToggle')}
+                stopTitle={t('timer.shortcutAffToggle')}
+                resetTitle={t('timer.shortcutAffReset')}
+                onStart={actions.startAff}
+                onStop={actions.stopAff}
+                onReset={actions.resetAff}
+            />
+        ),
+        neg: (
+            <TimerBox
+                variant="display"
+                sideState={liveSides.neg}
+                blinking={derived.blinking.neg}
+                active={derived.isFree && derived.activeSide === 'neg'}
+                title={negLabel}
+                badge={t('timer.negBadge')}
+                graceText={t('timer.graceHint')}
+                readonly={following}
+                readonlyText={following ? t('timer.display.following') : null}
+                startTitle={t('timer.shortcutNegToggle')}
+                stopTitle={t('timer.shortcutNegToggle')}
+                resetTitle={t('timer.shortcutNegReset')}
+                onStart={actions.startNeg}
+                onStop={actions.stopNeg}
+                onReset={actions.resetNeg}
+            />
+        ),
+        single: (
+            <TimerBox
+                variant="display"
+                sideState={liveSides.single}
+                blinking={derived.blinking.single}
+                graceText={t('timer.graceHint')}
+                readonly={following}
+                readonlyText={following ? t('timer.display.following') : null}
+                hint={t('timer.hintSingle')}
+                startTitle={t('timer.shortcutSingleToggle')}
+                stopTitle={t('timer.shortcutSingleToggle')}
+                resetTitle={t('timer.shortcutSingleReset')}
+                onStart={actions.toggleSingle}
+                onStop={actions.toggleSingle}
+                onReset={actions.resetSingle}
+            />
+        ),
+    }), [
+        liveSides.aff, liveSides.neg, liveSides.single,
+        derived.blinking.aff, derived.blinking.neg, derived.blinking.single,
+        derived.isFree, derived.activeSide,
+        following, affLabel, negLabel, t,
+        actions.startAff, actions.stopAff, actions.resetAff,
+        actions.startNeg, actions.stopNeg, actions.resetNeg,
+        actions.toggleSingle, actions.resetSingle,
+    ]);
+
     if (status === 'loading') {
         return null;
     }
@@ -108,8 +181,6 @@ export default function TimerDisplayPage() {
         return <StatusPage variant="display" />;
     }
 
-    const affLabel = config.teamNames.aff || t('timer.affirmative');
-    const negLabel = config.teamNames.neg || t('timer.negative');
     const stageName = stageDisplayName(t, state.stageId, config.stageLabels, i18n.language);
     const bannerClass = displayBanner ? `dt-banner dt-banner--${displayBanner}` : 'dt-banner';
     const bannerText = displayBanner === 'following' ? t('timer.display.following')
@@ -123,14 +194,21 @@ export default function TimerDisplayPage() {
                 <span className={bannerClass} role="status">{bannerText}</span>
                 <div className="dt-actions">
                     <LanguageSwitcher className="dt-lang" />
-                    <button
-                        type="button"
-                        className="dt-icon-btn"
-                        onClick={() => setSoundPanelOpen((open) => !open)}
-                        title={t('settings.soundTitle')}
-                    >
-                        🔊
-                    </button>
+                    {/* FR-C01-04-12 (v1.1): sound settings belong to the
+                        device that owns the runtime. While following, this
+                        screen is silent (BR-C01-14) — the entry stays hidden
+                        so it can never advertise a no-op; standalone
+                        fallback mode plays locally and shows it. */}
+                    {!following ? (
+                        <button
+                            type="button"
+                            className="dt-icon-btn"
+                            onClick={() => setSoundPanelOpen((open) => !open)}
+                            title={t('settings.soundTitle')}
+                        >
+                            🔊
+                        </button>
+                    ) : null}
                     <button
                         type="button"
                         className="dt-icon-btn"
@@ -142,7 +220,7 @@ export default function TimerDisplayPage() {
                 </div>
             </header>
 
-            {soundPanelOpen ? (
+            {soundPanelOpen && !following ? (
                 <div className="dt-sound-panel">
                     <SoundSettingsPanel />
                 </div>
@@ -153,57 +231,11 @@ export default function TimerDisplayPage() {
                 <div className="dt-clocks">
                     {derived.isDual ? (
                         <React.Fragment>
-                            <TimerBox
-                                variant="display"
-                                sideState={liveSides.aff}
-                                blinking={derived.blinking.aff}
-                                active={derived.isFree && derived.activeSide === 'aff'}
-                                title={affLabel}
-                                badge={t('timer.affBadge')}
-                                graceText={t('timer.graceHint')}
-                                readonly={following}
-                                readonlyText={following ? t('timer.display.following') : null}
-                                startTitle={t('timer.shortcutAffToggle')}
-                                stopTitle={t('timer.shortcutAffToggle')}
-                                resetTitle={t('timer.shortcutAffReset')}
-                                onStart={actions.startAff}
-                                onStop={actions.stopAff}
-                                onReset={actions.resetAff}
-                            />
-                            <TimerBox
-                                variant="display"
-                                sideState={liveSides.neg}
-                                blinking={derived.blinking.neg}
-                                active={derived.isFree && derived.activeSide === 'neg'}
-                                title={negLabel}
-                                badge={t('timer.negBadge')}
-                                graceText={t('timer.graceHint')}
-                                readonly={following}
-                                readonlyText={following ? t('timer.display.following') : null}
-                                startTitle={t('timer.shortcutNegToggle')}
-                                stopTitle={t('timer.shortcutNegToggle')}
-                                resetTitle={t('timer.shortcutNegReset')}
-                                onStart={actions.startNeg}
-                                onStop={actions.stopNeg}
-                                onReset={actions.resetNeg}
-                            />
+                            {clockEls.aff}
+                            {clockEls.neg}
                         </React.Fragment>
                     ) : (
-                        <TimerBox
-                            variant="display"
-                            sideState={liveSides.single}
-                            blinking={derived.blinking.single}
-                            graceText={t('timer.graceHint')}
-                            readonly={following}
-                            readonlyText={following ? t('timer.display.following') : null}
-                            hint={t('timer.hintSingle')}
-                            startTitle={t('timer.shortcutSingleToggle')}
-                            stopTitle={t('timer.shortcutSingleToggle')}
-                            resetTitle={t('timer.shortcutSingleReset')}
-                            onStart={actions.toggleSingle}
-                            onStop={actions.toggleSingle}
-                            onReset={actions.resetSingle}
-                        />
+                        clockEls.single
                     )}
                 </div>
 

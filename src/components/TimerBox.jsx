@@ -7,8 +7,13 @@ import './timer-box.css';
  * value, blink classes, and grace hint all derive from the engine side
  * state — no DOM reach-ins. Used by both the MUI control page (variant
  * "control") and the lightweight display page (variant "display").
+ *
+ * D42 (v1.1): memoized — the RAF readout publishes stable side-view
+ * references, so a flipping second re-renders only the clock whose digits
+ * moved; the sibling clocks (and the pages' prebuilt element maps) skip
+ * reconciliation entirely.
  */
-export default function TimerBox({
+function TimerBox({
     sideState,
     blinking = false,
     active = false,
@@ -89,3 +94,5 @@ export default function TimerBox({
         </div>
     );
 }
+
+export default React.memo(TimerBox);

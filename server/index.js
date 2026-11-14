@@ -13,6 +13,7 @@ import { createDisplayRateLimiter, createGalleryRateLimiter } from './lib/rateLi
 import { createAdminRouter } from './routes/admin.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createConfigurationsRouter } from './routes/configurations.js';
+import { createIntentRouter } from './routes/intent.js';
 import { createPairingRouter } from './routes/pairing.js';
 import { createDisplayRouter } from './routes/display.js';
 import { createMatchLogsRouter } from './routes/matchLogs.js';
@@ -111,6 +112,9 @@ async function start() {
     app.use('/api/gallery', createGalleryRateLimiter(), createGalleryRouter({ configurations, requireAuth, requireAdmin }));
     app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }));
     app.use('/api/session', createPairingRouter({ timerSessions, requireAuth }));
+    // D40 (v1.1): host operation intent (three-segment path, owner-only) —
+    // rides the same /api/session prefix as pairing.
+    app.use('/api/session', createIntentRouter({ configurations, timerSessions, requireAuth }));
     app.use('/api/match-logs', createMatchLogsRouter({ matchLogs, requireAuth }));
     app.use('/api/admin', createAdminRouter({
         users,

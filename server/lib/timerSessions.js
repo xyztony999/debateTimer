@@ -269,6 +269,102 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         return command;
     }
 
+    // D40 (v1.1): host operation intent — validated, stamped with absolute
+    // anchors, and broadcast to displays on the token stream immediately.
+    // Never queued (unlike remote commands): a missed intent heals via the
+    // next reconciliation snapshot. Does not clear pendingCommands — only a
+    // host snapshot report confirms command consumption (INV-C02-8).
+    function reportIntent(shareToken, body) {
+        const session = get(shareToken);
+        if (!session) {
+            throw invalid('No active session');
+        }
+        // Sovereignty (same arbitration as report): intents must claim the
+        // live generation — a superseded host must not steer displays.
+        const claimedId = typeof body?.sessionId === 'string' ? body.sessionId : null;
+        if (!claimedId) {
+            throw invalid('Intent requires sessionId');
+        }
+        if (claimedId !== session.sessionId) {
+            const error = new Error('Session is held by another controller');
+            error.status = 409;
+            error.code = 'session_taken';
+            throw error;
+        }
+        const type = body?.type;
+        if (!COMMAND_TYPES.has(type)) {
+            throw invalid(`Invalid command type: ${type}`);
+        }
+        const intent = { type };
+        if (type === 'applyStage') {
+            const stageId = String(body.stageId || '');
+            if (!session.stageIds.has(stageId)) {
+                throw invalid('Invalid command: unknown stageId');
+            }
+            intent.stageId = stageId;
+        } else if (type === 'soundCheck') {
+            if (!SOUND_CHECK_KINDS.has(body.kind)) {
+                throw invalid('Invalid command: soundCheck kind required');
+            }
+            intent.kind = body.kind;
+        } else {
+            const side = body.side;
+            if (!COMMAND_SIDES.has(side)) {
+                throw invalid('Invalid command: side required');
+            }
+            intent.side = side;
+        }
+        // Anchors are clamped, never rejected: a bogus stamp must not fail
+        // intent delivery loudly — the reconciliation snapshot heals it.
+        // Running anchors: endAtServerAt ∈ [anchorServerAt − 300s,
+        // anchorServerAt + 24h]; frozen: [0, 24h].
+        const anchorServerAt = Number(body?.anchorServerAt);
+        if (!Number.isFinite(anchorServerAt) || anchorServerAt <= 0) {
+            throw invalid('Intent requires anchorServerAt');
+        }
+        const ANCHOR_SLACK_MS = 300 * 1000;
+        const clampSide = (raw) => {
+            if (raw == null || typeof raw !== 'object') {
+                return undefined;
+            }
+            if (raw.running === true) {
+                const endAt = Number(raw.endAtServerMs);
+                if (!Number.isFinite(endAt)) {
+                    return undefined;
+                }
+                const clamped = Math.min(
+                    Math.max(endAt, anchorServerAt - ANCHOR_SLACK_MS),
+                    anchorServerAt + MAX_REMAINING_MS,
+                );
+                return { running: true, endAtServerMs: clamped };
+            }
+            const frozenMs = Number(raw.frozenMs);
+            if (!Number.isFinite(frozenMs)) {
+                return undefined;
+            }
+            return { running: false, frozenMs: Math.min(Math.max(frozenMs, 0), MAX_REMAINING_MS) };
+        };
+        const anchorAff = clampSide(body.anchorAff);
+        const anchorNeg = clampSide(body.anchorNeg);
+        if (anchorAff) {
+            intent.anchorAff = anchorAff;
+        }
+        if (anchorNeg) {
+            intent.anchorNeg = anchorNeg;
+        }
+        // Shared monotonic commandSeq space with remote commands; no queue.
+        session.lastCommandSeq += 1;
+        intent.commandSeq = session.lastCommandSeq;
+        intent.at = Date.now();
+        intent.anchorServerAt = anchorServerAt;
+        intent.sessionId = session.sessionId;
+        session.lastSeenAt = Date.now();
+        // Token stream only: the host issued this intent — echoing it to the
+        // owner stream would make the host replay its own operation.
+        sse.sendToToken(session.shareToken, 'command', intent);
+        return intent;
+    }
+
     // C-02-08: transparently relay a one-shot WebRTC signaling frame to the
     // other end over the existing display stream. Payload is not interpreted.
     function relaySignal(shareToken, body) {
@@ -319,7 +415,7 @@ export function createTimerSessionRegistry({ sse, capacity = 100, heartbeatTimeo
         return session ? toSnapshot(session) : null;
     }
 
-    return { create, get, report, end, pushCommand, relaySignal, pairByCode, snapshotOf };
+    return { create, get, report, reportIntent, end, pushCommand, relaySignal, pairByCode, snapshotOf };
 }
 
 export function validateSnapshot(body, session) {

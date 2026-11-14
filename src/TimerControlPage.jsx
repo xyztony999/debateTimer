@@ -307,6 +307,74 @@ export default function TimerControlPage() {
     const remoteAffBlink = derived.isDual ? derived.blinking.aff : derived.blinking.single;
     const remoteAffLive = derived.isDual && derived.activeSide === 'aff';
 
+    // D42 (v1.1): prebuilt desktop clock elements — the RAF readout
+    // publishes stable side-view references, so this memo re-mints only
+    // the element whose digits moved; unchanged clocks reconcile as
+    // identical references and skip their subtrees (TimerBox is memoized).
+    const clockEls = React.useMemo(() => ({
+        aff: (
+            <TimerBox
+                sideState={liveSides.aff}
+                blinking={derived.blinking.aff}
+                active={derived.isFree && derived.activeSide === 'aff'}
+                readonly={readOnly}
+                readonlyText={t('timer.session.following')}
+                title={affLabel}
+                badge={t('timer.affBadge')}
+                graceText={t('timer.graceHint')}
+                hint={t('timer.hintAff')}
+                startTitle={t('timer.shortcutAffToggle')}
+                stopTitle={t('timer.shortcutAffToggle')}
+                resetTitle={t('timer.shortcutAffReset')}
+                onStart={fire.toggleAff}
+                onStop={fire.toggleAff}
+                onReset={actions.resetAff}
+            />
+        ),
+        neg: (
+            <TimerBox
+                sideState={liveSides.neg}
+                blinking={derived.blinking.neg}
+                active={derived.isFree && derived.activeSide === 'neg'}
+                readonly={readOnly}
+                readonlyText={t('timer.session.following')}
+                title={negLabel}
+                badge={t('timer.negBadge')}
+                graceText={t('timer.graceHint')}
+                hint={t('timer.hintNeg')}
+                startTitle={t('timer.shortcutNegToggle')}
+                stopTitle={t('timer.shortcutNegToggle')}
+                resetTitle={t('timer.shortcutNegReset')}
+                onStart={fire.toggleNeg}
+                onStop={fire.toggleNeg}
+                onReset={actions.resetNeg}
+            />
+        ),
+        single: (
+            <TimerBox
+                sideState={liveSides.single}
+                blinking={derived.blinking.single}
+                graceText={t('timer.graceHint')}
+                hint={t('timer.hintSingle')}
+                readonly={readOnly}
+                readonlyText={t('timer.session.following')}
+                startTitle={t('timer.shortcutSingleToggle')}
+                stopTitle={t('timer.shortcutSingleToggle')}
+                resetTitle={t('timer.shortcutSingleReset')}
+                onStart={fire.toggleSingle}
+                onStop={fire.toggleSingle}
+                onReset={actions.resetSingle}
+            />
+        ),
+    }), [
+        liveSides.aff, liveSides.neg, liveSides.single,
+        derived.blinking.aff, derived.blinking.neg, derived.blinking.single,
+        derived.isFree, derived.activeSide,
+        readOnly, t, affLabel, negLabel,
+        fire.toggleAff, fire.toggleNeg, fire.toggleSingle,
+        actions.resetAff, actions.resetNeg, actions.resetSingle,
+    ]);
+
     return (
         <Box
             sx={{
@@ -744,56 +812,11 @@ export default function TimerControlPage() {
                     <Box className="clock-area">
                         {derived.isDual ? (
                             <React.Fragment>
-                                <TimerBox
-                                    sideState={liveSides.aff}
-                                    blinking={derived.blinking.aff}
-                                    active={derived.isFree && derived.activeSide === 'aff'}
-                                    readonly={readOnly}
-                                    readonlyText={t('timer.session.following')}
-                                    title={affLabel}
-                                    badge={t('timer.affBadge')}
-                                    graceText={t('timer.graceHint')}
-                                    hint={t('timer.hintAff')}
-                                    startTitle={t('timer.shortcutAffToggle')}
-                                    stopTitle={t('timer.shortcutAffToggle')}
-                                    resetTitle={t('timer.shortcutAffReset')}
-                                    onStart={fire.toggleAff}
-                                    onStop={fire.toggleAff}
-                                    onReset={actions.resetAff}
-                                />
-                                <TimerBox
-                                    sideState={liveSides.neg}
-                                    blinking={derived.blinking.neg}
-                                    active={derived.isFree && derived.activeSide === 'neg'}
-                                    readonly={readOnly}
-                                    readonlyText={t('timer.session.following')}
-                                    title={negLabel}
-                                    badge={t('timer.negBadge')}
-                                    graceText={t('timer.graceHint')}
-                                    hint={t('timer.hintNeg')}
-                                    startTitle={t('timer.shortcutNegToggle')}
-                                    stopTitle={t('timer.shortcutNegToggle')}
-                                    resetTitle={t('timer.shortcutNegReset')}
-                                    onStart={fire.toggleNeg}
-                                    onStop={fire.toggleNeg}
-                                    onReset={actions.resetNeg}
-                                />
+                                {clockEls.aff}
+                                {clockEls.neg}
                             </React.Fragment>
                         ) : (
-                            <TimerBox
-                                sideState={liveSides.single}
-                                blinking={derived.blinking.single}
-                                graceText={t('timer.graceHint')}
-                                hint={t('timer.hintSingle')}
-                                readonly={readOnly}
-                                readonlyText={t('timer.session.following')}
-                                startTitle={t('timer.shortcutSingleToggle')}
-                                stopTitle={t('timer.shortcutSingleToggle')}
-                                resetTitle={t('timer.shortcutSingleReset')}
-                                onStart={fire.toggleSingle}
-                                onStop={fire.toggleSingle}
-                                onReset={actions.resetSingle}
-                            />
+                            clockEls.single
                         )}
                     </Box>
 

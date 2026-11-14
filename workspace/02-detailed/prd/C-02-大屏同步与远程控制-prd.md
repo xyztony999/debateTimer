@@ -2,9 +2,9 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
-| 状态 | 稳定(逆向归档) |
-| 最后更新 | 2026-11-11 |
+| 版本 | v1.1 |
+| 状态 | 稳定(逆向归档+增量重构) |
+| 最后更新 | 2026-11-14 |
 | 模块编码 | C-02(核心业务域) |
 | 子模块 | C-02-01 同步会话管理 / C-02-02 大屏跟随呈现 / C-02-03 设备配对 / C-02-04 远程遥控 |
 | 上游依据 | 《应用架构》2.1.2、《功能清单》2.1.1.2 与 2.5.1.1、《业务架构》2.2.2(v1.0) |
@@ -15,7 +15,9 @@
 
 ### 1.1 背景与目标
 
-系统已上线运行,本文档为**逆向归档**:按 D2 分册模板将 C-02 的现有实现归纳为 PRD。C-02 让现场大屏与远程设备实时跟随同一场比赛:操作员主机(计时台)开启**同步会话**并逐秒上报计时快照;大屏经 SSE 订阅**只读跟随**;手机经**配对码**或同网**P2P 直连**成为瘦遥控器向主机发计时指令。服务端持有一个**内存型会话注册表**(每 shareToken 至多一个活跃会话),会话即本模块聚合根。
+系统已上线运行,本文档为**逆向归档+增量重构**:按 D2 分册模板将 C-02 的现有实现归纳为 PRD。C-02 让现场大屏与远程设备实时跟随同一场比赛:操作员主机(计时台)开启**同步会话**;大屏经 SSE 订阅**只读跟随**;手机经**配对码**或同网**P2P 直连**成为瘦遥控器向主机发计时指令。服务端持有一个**内存型会话注册表**(每 shareToken 至多一个活跃会话),会话即本模块聚合根。
+
+> **v1.1 同步机制重构(D40/D41/D42)**:原「逐秒快照状态同步」重构为「**命令+绝对时间锚主导,快照对账兜底**」——主机操作即时以**意图帧**(command 帧,携带绝对锚)广播到 display 流,跟随端本地引擎**重放意图**并按帧内绝对锚对齐外推;快照心跳由 1s 降为 5s 对账节拍,仅在偏差超阈值或断流恢复时纠偏回拉。渲染层改 RAF 毫秒管线(D42,见 C-01 PRD)。动因:现网三症状——两端秒数不齐/回拉、操作传播滞后、弱网冻结后跳变,均源于秒级状态重采纳架构。
 
 > 依据核对:任务书引用路径 `src/hooks/useTimerSessionSync.js`,仓库实际路径为 `src/timer/useTimerSessionSync.js`(无 `src/hooks/` 目录,已按实际路径研读);`src/timer/rtcChannel.js`、`server/routes/display.js`、`server/routes/pairing.js` 与任务书一致。
 
@@ -40,7 +42,7 @@
 
 | # | 目标 | 说明 |
 |---|------|------|
-| G1-1 | 大屏与主机锁步 | 大屏倒计时与主机同秒翻转(毫秒真相同步+在途/时钟补偿),断线自动重连并重校准 |
+| G1-1 | 大屏与主机锁步 | 大屏倒计时与主机同秒翻转(意图帧绝对锚对齐+本地外推),断线自动重连并重校准;**(v1.1 验收)**操作传播 ≤500ms、稳态数字翻转相位差 ≤100ms、无肉眼可见回跳 |
 | G1-2 | 一场比赛一个权威 | 每 shareToken 至多一个活跃控制会话;冲突时仲裁让位,永不双主机 |
 | G1-3 | 手机即遥控器 | 配对码/同网直连让手机瘦遥控主机,指令不丢不重(单调序号去重) |
 | G1-4 | 弱网优雅降级 | 直连失败回退服务器中转;会话失效自愈重建;遥控失联回退本地计时;大屏回退独立计时 |
@@ -60,8 +62,8 @@
 
 | 子模块 | 功能点概要 |
 |--------|-----------|
-| C-02-01 同步会话管理 | 开启/停止同步会话;分享大屏链接;展示配对码;逐秒心跳上报+跃迁即时上报;会话失效自动重建;冲突仲裁让位;控制台跟随探测与接管;角色记忆静默恢复 |
-| C-02-02 大屏跟随呈现 | 只读镜像阶段与倒计时;SSE 订阅+连接即重放;断线重连重校准;弱信号横幅;会话结束冻结/回退;告警呈现侧(铃声/闪烁/语音,设备本地偏好) |
+| C-02-01 同步会话管理 | 开启/停止同步会话;分享大屏链接;展示配对码;**操作意图即时上报广播(D40)+5s 对账心跳(D41)**;会话失效自动重建;冲突仲裁让位;控制台跟随探测与接管;角色记忆静默恢复 |
+| C-02-02 大屏跟随呈现 | 只读实时跟随阶段与倒计时;SSE 订阅+连接即重放;**意图帧重放本地引擎+绝对锚外推(D40),快照仅对账纠偏(D41)**;断线重连重校准;弱信号横幅;会话结束冻结/回退;告警呈现侧仅视觉闪烁(声音归操作端,C-01 v1.1) |
 | C-02-03 设备配对 | 会话创建生成 4 位配对码;owner-scoped 配对;配对成功直入遥控模式;配对对话框发现活跃会话直接连接 |
 | C-02-04 远程遥控 | 六类指令(启停/重置/换边/换阶段/铃声测试);P2P 同网直连优先、失败回退服务器中转;指令单调序号去重;失联回退本地计时 |
 
@@ -86,7 +88,7 @@
 | FR-C02-01-02 | 同 token 重复开启 → 旧会话按 superseded 结束并广播 ended(新会话顶替) | `server/lib/timerSessions.js:122-125` |
 | FR-C02-01-03 | 会话容量上限 100,超限 409 | `server/lib/timerSessions.js:75,126-130` |
 | FR-C02-01-04 | 停止会话:显式停止清空会话与角色记忆,并触发比赛记录自动保存;分享关闭/轮换 token 时服务端按 share_disabled 杀活会话 | `src/timer/useTimerSessionSync.js:412-427`、`server/routes/configurations.js:216-220` |
-| FR-C02-01-05 | 心跳:活跃/弱信号态下 1s 节拍上报快照(D22);状态跃迁(阶段/运行/锁定/试听闪烁变化)即时补报 | `src/timer/useTimerSessionSync.js:745-762` |
+| FR-C02-01-05 | **(v1.1 修订,D41)**对账心跳:活跃/弱信号态下 **5s 节拍**上报快照(会话保活 30s 过期约束下安全;原 1s 状态同步节拍退役);跃迁即时补报保留,但仅作对账源,操作传播由 FR-C02-01-17 意图帧承担 | `src/timer/useTimerSessionSync.js:745-762`(重构目标) |
 | FR-C02-01-06 | 心跳超时 30s 惰性过期(读时判定,无定时器),广播 expired | `server/lib/timerSessions.js:75,97-110` |
 | FR-C02-01-07 | 快照上报校验:seq 单调递增;stageId 须在会话模板内;模式/时长/宽限/相位合法;单计时折叠双侧;phase⇔graceMs 严格一致 | `server/lib/timerSessions.js:325-406` |
 | FR-C02-01-08 | 主权仲裁(D29):上报携带的 sessionId 与在席会话不符 → 409+code=session_taken,客户端让位——清会话、提示「另一设备正在控制」,不自愈不抢存记录 | `server/lib/timerSessions.js:166-178`、`src/timer/snapshotReporting.js:28-30`、`src/timer/useTimerSessionSync.js:269-279` |
@@ -98,6 +100,8 @@
 | FR-C02-01-14 | 分享大屏链接:复制 `/display/{shareToken}` 到剪贴板,失败降级为展示原文 | `src/timer/useTimerSessionSync.js:730-743` |
 | FR-C02-01-15 | 控制台跟随/接管:配对对话框探测本模板活跃会话(direct connect);跟随页可一键接管——采纳当前快照、停止跟随订阅、以在席 sessionId 恢复上报,原控制端在下次心跳后被判让位 | `src/timer/useTimerSessionSync.js:623-649,704-718`、`src/TimerControlPage.jsx:373-385` |
 | FR-C02-01-16 | 角色记忆静默恢复(R4):本机开过的会话→静默恢复上报;本机遥控过的会话→静默恢复遥控;均失效则清记忆不弹窗 | `src/timer/useTimerSessionSync.js:10-19,668-700` |
+| FR-C02-01-17 | **(v1.1 新增,D40)**操作意图上报:主机 dispatch 用户操作(START/STOP/TOGGLE/RESET/APPLY_STAGE/SOUND_CHECK)时,同步向服务器发送意图帧(command 帧结构+每侧绝对锚:服务器时钟域 endAt/冻结毫秒+seq);服务器校验后**立即**向 display 流广播(复用指令广播基建),并刷新 lastSeenAt;意图帧丢失不补发(对账快照兜底纠偏) | 重构目标(本轮 B/F 落地;端点契约见 C-02 API v1.1) |
+| FR-C02-01-18 | **(v1.1 新增)**旧客户端兼容:意图帧为增量字段,旧版大屏收 command 帧仍忽略(现状行为);旧版主机不发意图帧,新版大屏在无意图流(仅快照)时自动退回快照采纳路径——双路径并存,非破坏性升级 | 重构目标(wire v1.1 增量字段) |
 
 ### 4.2 C-02-02 大屏跟随呈现
 
@@ -106,14 +110,15 @@
 | FR-C02-02-01 | 只读镜像:大屏跟随态下时钟与阶段只读(readonly=following),主机为唯一驱动方;跟随由控制台页发起时同样适用(BR-5 快捷键禁用) | `src/TimerDisplayPage.jsx:164-166`、`src/timer/useTimerSessionSync.js:429-439` |
 | FR-C02-02-02 | 订阅通道:display SSE 流(state/session/signal 事件),连接建立即重放当前快照(打新 serverTime 戳),迟到订阅者立即追平 | `server/routes/display.js:19-44`、`src/services/TimerSessionService.js:159-222` |
 | FR-C02-02-03 | 初始校准:订阅前先 GET state 采纳活跃会话快照;SSE 每次重连(onOpen)后重新拉取校准 | `src/timer/useTimerSessionSync.js:799-878`、`src/services/TimerSessionService.js:211-216` |
-| FR-C02-02-04 | 平滑采纳(D35):结构未变且每个活跃侧偏差 <200ms(宽限 1s 容差)→ 保留本地节拍不回拨;采纳换算四舍五入防系统性 -1s | `src/timer/useTimerSessionSync.js:160-179`、`src/timer/snapshotCodec.js:90-95` |
-| FR-C02-02-05 | 在途补偿(D21):按 serverTime+本地时钟偏差估计把运行钟推进在途耗时(≤3s 钳制)再采纳 | `src/timer/snapshotCodec.js:14-44`、`src/timer/useTimerSessionSync.js:130-158` |
-| FR-C02-02-06 | 时钟偏差估计(D34):消费端按每帧 (local−server) 样本 EMA(0.9/0.1),离群 >1500ms 丢弃 | `src/timer/useTimerSessionSync.js:115-122` |
-| FR-C02-02-07 | 弱信号:跟随中 5s 无快照 → weak 横幅;恢复帧回 following | `src/timer/useTimerSessionSync.js:774-785,818-823` |
+| FR-C02-02-04 | **(v1.1 修订,D41)**对账纠偏(原平滑采纳 D35 降级为对账路径):仅对账快照(5s 节拍/断流恢复)触发结构比对;结构未变且每个活跃侧偏差 <200ms(宽限 1s 容差)→ 保留本地外推不回拨;超阈值才单次回拉纠偏;意图帧触发的重放不走此路径 | `src/timer/useTimerSessionSync.js:160-179`(重构目标)、`src/timer/snapshotCodec.js:90-95` |
+| FR-C02-02-05 | 在途补偿(D21):按 serverTime+本地时钟偏差估计把运行钟推进在途耗时(≤3s 钳制)再采纳(对账路径与初始校准保留;意图帧锚点补偿同源) | `src/timer/snapshotCodec.js:14-44`、`src/timer/useTimerSessionSync.js:130-158` |
+| FR-C02-02-06 | 时钟偏差估计(D34):消费端按每帧 (local−server) 样本 EMA(0.9/0.1),离群 >1500ms 丢弃;**(v1.1)**意图帧绝对锚同样经该偏差估计换算到本地钟域 | `src/timer/useTimerSessionSync.js:115-122` |
+| FR-C02-02-07 | 弱信号:跟随中 5s 无帧(意图帧或快照)→ weak 横幅;恢复帧回 following;**(v1.1)**断流期间本地引擎持续外推(不冻结不跳变),恢复后由对账快照单次纠偏 | `src/timer/useTimerSessionSync.js:774-785,818-823`(重构目标) |
 | FR-C02-02-08 | 会话结束/过期:跟随端冻结镜像时钟(STOP_ALL),ended 横幅展示 8s 后消退;会话页回退为可独立操作的计时页 | `src/timer/useTimerSessionSync.js:832-860`、`src/TimerDisplayPage.jsx:13-17` |
-| FR-C02-02-09 | 采纳即锚定:快照毫秒直接写入墙钟锚点,保留主机子秒相位(D38) | `src/timer/useTimerSessionSync.js:130-158` |
-| FR-C02-02-10 | 告警呈现侧(C-01-04):大屏以本地偏好播放铃声/闪烁/TTS,与主机互不覆盖 | `src/TimerDisplayPage.jsx:125-149`、`src/services/soundPrefs.js:115-126` |
+| FR-C02-02-09 | 采纳即锚定:快照毫秒直接写入墙钟锚点,保留主机子秒相位(D38);**(v1.1,D40)**意图帧重放优先以帧内绝对锚对齐(服务器时钟域→本地钟域换算),快照采纳锚定仅作对账回退 | `src/timer/useTimerSessionSync.js:130-158` |
+| FR-C02-02-10 | **(v1.1 修订)**告警呈现侧(C-01-04):跟随态大屏**不发声**——意图重放与本地外推产生的 sound/voice/overrun 事件在装配层被过滤(BR-C01-14),仅视觉闪烁(秒值派生)随同步呈现;独立计时模式大屏按本机偏好发声 | `src/TimerDisplayPage.jsx`(重构目标)、C-01 PRD v1.1 FR-C01-04-12 |
 | FR-C02-02-11 | display 匿名面限流:60 次/分钟(默认,env 可调),SSE 连接计数一次 | `server/lib/rateLimits.js:33-38`、`server/index.js:126` |
+| FR-C02-02-12 | **(v1.1 新增,D40)**意图重放:跟随端消费 display 流 command 事件——按 commandSeq 单调去重后重放到本地引擎(与主机 applyHostCommand 同构的翻译规则),并以帧内绝对锚写墙钟锚点;重放产生的引擎事件按 BR-C01-14 过滤;无意图流的旧主机会话自动退回快照采纳(FR-C02-01-18) | 重构目标(本轮 B/F 落地) |
 
 ### 4.3 C-02-03 设备配对
 
@@ -192,7 +197,7 @@
 | serverTime | int | 出站打点(每次投递刷新,D20) |
 | sessionId | string | 会话代际(D23);直连帧可不带 |
 
-**值对象:遥控指令(RemoteCommand)**(`server/lib/timerSessions.js:236-269`)——`{type: start|stop|reset|toggle|applyStage|soundCheck, side?|stageId?|kind?, commandSeq, at}`;不可变帧。
+**值对象:遥控指令(RemoteCommand)**(`server/lib/timerSessions.js:236-269`)——`{type: start|stop|reset|toggle|applyStage|soundCheck, side?|stageId?|kind?, commandSeq, at}`;不可变帧。**(v1.1,D40)**主机意图帧复用该结构并增量扩展锚点字段:`{anchorServerAt?: int(服务器时钟域锚定时刻), anchorAff?: {running, endAtServerMs|frozenMs}, anchorNeg?: {...}}`——display 端绝对锚对齐用;旧字段语义不变,不带锚点字段的帧按遥控指令原语义处理(向后兼容)。
 
 **域内实体:待执行指令缓冲(pendingCommands)**——会话内的指令排队,离线时缓冲、上报即清空;上限 32。
 
@@ -296,12 +301,15 @@ off ──(进入遥控模式)── connecting ──(DataChannel open ≤3s)�
 | BR-C02-15 | 跟随者不能在自己的跟随态上再开会话(followToken 拦截);接管前必须先解除跟随订阅,防旧流覆盖接管态 | `src/timer/useTimerSessionSync.js:370-372,623-640` |
 | BR-C02-16 | 控制台跟随/遥控不驱动本地引擎(readonly),按钮转译为远程指令;退出遥控恢复本地驱动 | `src/TimerControlPage.jsx:136-154` |
 | BR-C02-17 | display 匿名面限流 60/min(默认),429+Retry-After 由 P-02 统一返回 | `server/lib/rateLimits.js:33-38` |
+| BR-C02-18 | **(v1.1 新增,D40/D41)**意图即时、快照对账:操作传播只经意图帧(≤1 RTT);对账快照不承担操作传播,仅在偏差 >200ms(宽限 1s)或断流恢复/代际切换时纠偏;两源冲突时以**较新的 seq/时间戳**为准,纠偏单次完成不得反复回拉 |
+| BR-C02-19 | **(v1.1 新增)**跟随端事件静默:意图重放与本地外推产生的引擎事件(sound/voice/overrun)在跟随端装配层过滤(BR-C01-14),跟随端不得发声、不得采集;主机为唯一采集与发声点 |
+| BR-C02-20 | **(v1.1 新增)**意图帧通道语义:主机意图经服务器校验(同指令白名单+域校验)后即时广播 display 流并刷新 lastSeenAt;意图帧**不排队不缓冲**(与遥控 pendingCommands 语义不同——错过即由对账兜底);每操作一帧,seq 与遥控指令共用 commandSeq 单调空间 |
 
 ## 第八部分:非功能性要求(N1)
 
 | # | 要求 | 现状依据 |
 |---|------|---------|
-| NFR-C02-01 | 同步时延:心跳 1s(D22);P2P 同网直连毫秒级(设计目标 ~5ms);采纳偏差 <200ms 不回拨 | `src/timer/useTimerSessionSync.js:754-762,500-514,160-179` |
+| NFR-C02-01 | **(v1.1 量化验收)**操作传播(主机操作→大屏呈现)≤500ms(公网 SSE 单 RTT 内);稳态两端数字翻转相位差 ≤100ms(绝对锚+EMA 偏差估计);无肉眼可见回跳/回拉;对账心跳 5s(D41);P2P 同网直连毫秒级(遥控,设计目标 ~5ms) | 重构目标(验收写入本轮 Gate 2) |
 | NFR-C02-02 | 容量:会话注册表 100、待执行指令 32、信令帧 32KB;全部内存态 | `server/lib/timerSessions.js:17-20,126-130,257-261,288-290` |
 | NFR-C02-03 | 断线韧性:EventSource 原生重连+onOpen 重校准;上报自愈退避 ≤30s;直连断开自动回中转 | `src/services/TimerSessionService.js:211-216`、`src/timer/useTimerSessionSync.js:296-357` |
 | NFR-C02-04 | 时序一致性:上行/在途/时钟偏差三段补偿+四舍五入换算,端到端不引入系统性秒差 | `server/lib/timerSessions.js:183-207`、`src/timer/snapshotCodec.js:14-44,90-95` |
@@ -314,7 +322,7 @@ off ──(进入遥控模式)── connecting ──(DataChannel open ≤3s)�
 | EX-C02-01 | 服务器重启(会话全失) | 上报 400 无会话 → 自愈重建;消费端 sessionId 代际检测重置 seq | `src/timer/useTimerSessionSync.js:296-357,100-111` |
 | EX-C02-02 | 双控制台争席 | 新建顶替旧会话;旧控制台收 ended 回退;持旧 id 上报被 409 让位 | `server/lib/timerSessions.js:122-178` |
 | EX-C02-03 | 心跳断网 | failures≥2 置 weak;退避自愈;期间会话可能被服务端过期,恢复后重建 | `src/timer/useTimerSessionSync.js:262-268,346-354` |
-| EX-C02-04 | SSE 断流 | EventSource 原生重连;重连 onOpen 拉 state 校准;大屏 5s 无帧置 weak 横幅 | `src/services/TimerSessionService.js:211-216`、`src/timer/useTimerSessionSync.js:774-785` |
+| EX-C02-04 | SSE 断流 | EventSource 原生重连;重连 onOpen 拉 state 校准;大屏 5s 无帧置 weak 横幅;**(v1.1)**断流期间跟随端本地引擎持续外推(锚点驱动,不冻结),恢复后对账快照单次纠偏——消除「冻结后跳变」 | `src/services/TimerSessionService.js:211-216`、`src/timer/useTimerSessionSync.js:774-785`(重构目标) |
 | EX-C02-05 | 直连不可达(跨网/防火墙) | 3s 握手超时静默回退服务器中转,UI 链路指示切「经服务器」 | `src/timer/rtcChannel.js:40-44`、`src/TimerControlPage.jsx:375-381` |
 | EX-C02-06 | 遥控中会话消失 | 清记忆/关直连/退遥控/回本地计时+提示;会话 ended 事件同路径兜底 | `src/timer/useTimerSessionSync.js:515-529,832-847` |
 | EX-C02-07 | share 被关闭/轮换 token | 服务端杀活会话(displays 回退独立计时);主机下次上报 404 → 结束+自动保存 | `server/routes/configurations.js:216-220`、`src/timer/useTimerSessionSync.js:283-292` |
@@ -446,6 +454,7 @@ PRD 标注模块名 C-02 → **范围明确**,跳过 Step 1~3,直接战术设计
 | C-02-07 | 双模遥控(瘦遥控器+服务器中转) | `src/timer/useTimerSessionSync.js:53-54`、`server/lib/timerSessions.js:9-13` |
 | C-02-08 | P2P 同网直连(WebRTC DataChannel) | `src/timer/rtcChannel.js:1-9` |
 | D20~D35 | 快照打点/代际/主权/补偿/平滑等硬ening 编号(PageSpec §15-§19) | `src/timer/useTimerSessionSync.js`、`src/timer/snapshotCodec.js`、`server/lib/timerSessions.js` 内注释 |
+| D40/D41/D42 | 意图帧命令+锚同步 / 快照降级对账 / RAF 毫秒渲染(本轮重构) | 本轮 B/F 落地;设计见本 PRD v1.1 与 C-01 PRD v1.1 |
 
 ## 附录 B:术语表
 
@@ -463,6 +472,7 @@ PRD 标注模块名 C-02 → **范围明确**,跳过 Step 1~3,直接战术设计
 
 | 版本 | 日期 | 更新说明 |
 |------|------|---------|
+| v1.1 | 2026-11-14 | 增量重构(计时延迟轮,D40/D41/D42):同步机制由秒级快照状态同步改为命令+绝对锚主导/快照对账兜底——新增 FR-C02-01-17/18(意图上报广播+旧客户端兼容)、FR-C02-02-12(跟随端意图重放);修订 FR-C02-01-05(心跳 1s→5s 对账)、FR-C02-02-04/07/09/10(对账降级/断流外推/锚定优先级/告警不发声);新增 BR-C02-18/19/20;NFR-C02-01 量化验收(≤500ms/≤100ms/无回跳);RemoteCommand 增量锚点字段。聚合根与会话状态机零变更 |
 | v1.0 | 2026-11-11 | 逆向归档初始版:按现有实现归纳四子模块 FR、会话状态机、协议规则与 DDD 战术建模(聚合根=同步会话),完备性检查通过 |
 
 ---
@@ -492,3 +502,5 @@ PRD 标注模块名 C-02 → **范围明确**,跳过 Step 1~3,直接战术设计
 | N1~N4 | ✓ §8~§10 | |
 
 本次变更影响范围:初始归档,无历史版本,不影响既有领域模型/接口/状态流转。可进入 API 设计阶段(D3)。
+
+> **v1.1 增量变更影响范围**(2026-11-14):①领域模型:聚合根(TimerSession)与对象清单零变更,RemoteCommand 值对象增量字段(锚点),不触发领域视图再生成;②既有接口影响——新增意图上报端点(D3 定契约,三段式路径)、report 节奏语义变化(客户端侧,端点不变)、SSE command 事件载荷增量字段(非破坏);③状态流转:会话生命周期/控制端态/横幅/直连/仲裁五组不变;④影响 C-01 侧事件消费语义(BR-C01-14)与渲染管线(D42);⑤P-01 不受影响(command 事件基建复用,事件面无增删)。完备性维持 15/15 通过。

@@ -150,6 +150,33 @@ class TimerSessionService {
     }
 
     /**
+     * D40 (v1.1): host operation intent — the console mirrors each engine
+     * operation the moment it dispatches it, carrying server-domain anchors.
+     * Fire-and-forget by contract: a lost intent heals via the next
+     * reconciliation snapshot (the caller ignores failures silently).
+     */
+    async reportIntent(name, intent) {
+        try {
+            const { data, status } = await apiClient.post(
+                `/api/session/${encodeURIComponent(name)}/intent`,
+                intent,
+                { timeout: 5000 },
+            );
+            if (!data.success) {
+                return {
+                    success: false,
+                    status,
+                    message: data.message || `Request failed (${status})`,
+                    code: data.code ?? null,
+                };
+            }
+            return { success: true, data: data.data };
+        } catch (error) {
+            return toServiceError(error, 'Error reporting intent');
+        }
+    }
+
+    /**
      * Display-side live subscription. One EventSource on the shared display
      * stream; native auto-reconnect, with onOpen fired after every (re)connect
      * so the caller can re-sync via loadDisplayState. C-02-07: hosts listen

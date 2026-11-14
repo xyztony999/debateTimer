@@ -72,8 +72,10 @@ test('display follows a live session read-only', async ({ page }) => {
 
     // Read-only while following: no start buttons anywhere on the screen.
     await expect(page.getByRole('button', { name: /▶/ })).toHaveCount(0);
-    // Sound panel entry stays available for the venue's local bell prefs.
-    await expect(page.getByRole('button', { name: /🔊|提示音|Alert sounds/i }).first()).toBeVisible();
+    // v1.1 (FR-C01-04-12): sound alerts belong to the operator's device —
+    // the sound entry is HIDDEN while following (a silent screen must not
+    // advertise sound settings), and reappears in standalone fallback.
+    await expect(page.getByRole('button', { name: /🔊/ })).toHaveCount(0);
 });
 
 test('display keeps the adopted runtime when identical config is re-delivered mid-follow', async ({ page }) => {
@@ -101,10 +103,29 @@ test('display falls back to standalone after the session ends', async ({ page })
         const body = `event: session\ndata: ${JSON.stringify({ type: 'ended', reason: 'closed_by_operator', sessionId: 'e2esession' })}\n\n`;
         return route.fulfill({ status: 200, contentType: 'text/event-stream', body: `: connected\n\n${body}` });
     });
+    // After the session ends the server reports the token as inactive — the
+    // reload's initial probe AND every onOpen re-sync must both see that,
+    // or the display would snap back into following (mock-fidelity fix).
+    // Before the end it serves the live snapshot as usual.
+    await page.unroute('**/api/display/e2etoken/state');
+    await page.route('**/api/display/e2etoken/state', async (route) => {
+        await route.fulfill({
+            json: {
+                success: true,
+                data: ended
+                    ? { active: false }
+                    : { active: true, startedAt: Date.now() - 60_000, snapshot: snapshotBody() },
+            },
+        });
+    });
 
     await page.goto('/display/e2etoken');
     await expect(page.getByText(/正在大屏跟随|Live from controller|Diffusion/i).first()).toBeVisible();
     ended = true;
     await page.reload();
     await expect(page.getByText(/已切换为独立计时|standalone|mode autonome/i).first()).toBeVisible();
+    // v1.1: standalone fallback owns its runtime again — the local sound
+    // entry comes back with it and the clocks become operable.
+    await expect(page.getByRole('button', { name: /🔊/ })).toHaveCount(1);
+    await expect(page.getByText(/Live from controller|正在大屏跟随|Diffusion/i)).toHaveCount(0);
 });

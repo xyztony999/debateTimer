@@ -79,6 +79,44 @@ export function buildSnapshot(state, seq, liveMs = null) {
 }
 
 /**
+ * D35 → v1.1 (FR-C02-02-04, BR-C02-18): reconciliation-only smooth adopt.
+ * Compares the compensated wire snapshot against the follower's engine
+ * state on the millisecond wire (adoptSnapshot floors to seconds, which
+ * would make any tolerance meaningless): when structure is unchanged
+ * (stage/mode/running/phase) and every active side is within 200ms (grace
+ * counts whole seconds — 1s slack), the follower keeps its local
+ * extrapolation. Only a divergence beyond the threshold adopts — the pull
+ * happens once, never repeatedly (intent-frame anchoring usually makes
+ * even that unnecessary).
+ */
+export function isSmoothAdoptable(comp, engineState) {
+    if (!comp || !engineState || !comp.stageId
+        || engineState.stageId !== comp.stageId
+        || engineState.stageMode !== comp.stageMode) {
+        return false;
+    }
+    const wireClose = (wireRunning, wirePhase, wireMs, local) => {
+        if (wireRunning !== local.running || wirePhase !== local.phase) {
+            return false;
+        }
+        if (wirePhase === PHASE_GRACE) {
+            // Grace counts whole seconds on its own clock — 1s slack.
+            return Math.abs(wireMs - (local.graceLeft ?? 0) * 1000) < 1000;
+        }
+        return Math.abs(wireMs - local.remaining * 1000) < 200;
+    };
+    // Grace phases compare on the grace milliseconds, running/frozen on the
+    // remaining milliseconds (the grace clock is the one ticking there).
+    const affMs = comp.phaseAff === PHASE_GRACE ? comp.graceAffMs : comp.remainingAffMs;
+    const negMs = comp.phaseNeg === PHASE_GRACE ? comp.graceNegMs : comp.remainingNegMs;
+    const single = engineState.stageMode === 'single';
+    return single
+        ? wireClose(comp.runningAff, comp.phaseAff, affMs, engineState.sides.aff)
+        : wireClose(comp.runningAff, comp.phaseAff, affMs, engineState.sides.aff)
+            && wireClose(comp.runningNeg, comp.phaseNeg, negMs, engineState.sides.neg);
+}
+
+/**
  * Display side: wire snapshot → engine side states + the carried seq.
  * Pre-v2 snapshots without phases fall back to deriving `locked` from a
  * zero remaining time. Returns null for unusable payloads.

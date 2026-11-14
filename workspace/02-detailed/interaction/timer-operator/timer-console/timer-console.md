@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
-| 状态 | 稳定(逆向归档:按现有实现如实归档) |
-| 最后更新 | 2026-11-11 |
+| 版本 | v1.1 |
+| 状态 | 稳定(逆向归档+增量重构) |
+| 最后更新 | 2026-11-14 |
 | 模块编码 | C-01 比赛计时(C-01-01/02/03/05 计时控制·模式·宽限·自动推进)+ 内嵌入口:C-02-01 会话控制、C-01-04 告警设置入口、S-04-02 保存记录 |
-| 上游依据 | 《C-01 比赛计时 API 设计》v1.0(进程内动作/事件契约)、《C-02 大屏同步与远程控制 API 设计》v1.0(会话端点)、《S-04 比赛记录与复盘 API 设计》v1.0(ML-SAVE)、FL v1.0 §2.1(菜单:计时台/告警与语音设置/开启远程控制/保存比赛记录) |
+| 上游依据 | 《C-01 比赛计时 API 设计》v1.1(进程内动作/事件契约/事件分流/RAF 渲染)、《C-02 大屏同步与远程控制 API 设计》v1.1(会话端点+API-10 意图上报)、《S-04 比赛记录与复盘 API 设计》v1.0(ML-SAVE)、FL v1.1 §2.1(菜单:计时台/告警与语音设置/开启远程控制/保存比赛记录) |
 | 用户类型 | 计时操作员 |
 | 页面类型 | `code`(实时交互型:墙钟锚点+毫秒渲染+Worker 心跳,无列表/表单/详情页) |
 | 实现锚点 | `src/TimerControlPage.jsx`(890 行)、`src/components/TimerBox.jsx`、`src/timer/useDebateTimer.js`、`src/timer/useTimerKeyboardShortcuts.js`、`src/timer/timer-control.css`、`src/components/SoundSettingsPanel.jsx`、`src/DebateSetting.jsx:1109-1121`(告警面板宿主) |
@@ -164,7 +164,7 @@
 
 ### 3.7 告警与语音设置面板(C-01-04,设备本地)
 
-**宿主位置(如实归档)**:计时控制台本体**不内嵌**告警面板——FL 菜单「告警与语音设置」经更多菜单 → `t('timer.settings')` 跳 `/settings`,面板为该页「告警音效」Card(`src/DebateSetting.jsx:1109-1121`);同一面板组件 `SoundSettingsPanel` 亦被大屏页 🔊 弹出复用(见 [../../screen-audience/display-follow/display-follow.md](../../screen-audience/display-follow/display-follow.md) §2.2)。
+**宿主位置(如实归档)**:计时控制台本体**不内嵌**告警面板——FL 菜单「告警与语音设置」经更多菜单 → `t('timer.settings')` 跳 `/settings`,面板为该页「告警音效」Card(`src/DebateSetting.jsx:1109-1121`);同一面板组件 `SoundSettingsPanel` 亦被大屏页 🔊 弹出复用(**v1.1:仅大屏独立计时模式**,跟随态大屏无此入口,见 [../../screen-audience/display-follow/display-follow.md](../../screen-audience/display-follow/display-follow.md) §2.2)。
 
 | 字段 | 组件 | 取值/默认 | 行为 |
 |------|------|----------|------|
@@ -252,8 +252,9 @@
 | 数据/动作 | 来源 | 契约归属 |
 |----------|------|---------|
 | 模板投影(config) | S-02 `GET /api/configurations/:name` + SSE change 重载(断流 5s 轮询兜底) | S-02 API CFG-GET/CFG-STREAM |
-| 引擎动作/事件/毫秒读数 | 进程内 `useDebateTimer`(纯 reducer+锚点+Worker 心跳) | C-01 API §3.1/§4.4.2 |
-| 开启/停止会话、上报快照 | `POST/DELETE /api/configurations/:name/session`、`PUT …/state`(主机恒 1 条认证自流接收 command/signal/change) | C-02 API-1/2/5、P-01 PC-1 |
+| 引擎动作/事件/毫秒读数 | 进程内 `useDebateTimer`(纯 reducer+锚点+Worker 心跳;v1.1 渲染 RAF 直读锚点、事件消费主机全量) | C-01 API §3.1/§4.4.2(v1.1 §3.1.2/3.1.3) |
+| 开启/停止会话、对账快照上报 | `POST/DELETE /api/configurations/:name/session`、`PUT …/state`(**v1.1:5s 对账节拍**;主机恒 1 条认证自流接收 command/signal/change) | C-02 API-1/2/5、P-01 PC-1 |
+| **操作意图上报(v1.1 新增)** | dispatch 用户/遥控指令操作时 `POST /api/session/:name/intent`(command 帧+锚点,服务器即时广播 display 流;失败静默由对账兜底) | C-02 API-10 |
 | 遥控指令执行(遥控模式) | `POST …/session/command` 或 P2P DataChannel(commandSeq 单调去重,直连序号自 1e9 并轨) | C-02 API-3 |
 | 配对 | `POST /api/session/pair`(4 位码,owner-scoped) | C-02 API-9 |
 | 保存记录 | `POST /api/match-logs` | S-04 ML-SAVE |
@@ -279,12 +280,12 @@
 
 ## 9. 全局一致性
 
-- **共享组件**:TimerBox 同时服务控制台与 `display` 变体(Props 差异仅 variant/readonly);SoundSettingsPanel 同时服务设置页 Card 与大屏弹层。
-- **同一运行时**:控制台/遥控器/大屏三面均由 `useDebateTimer` 装配,大屏经 `shareToken` 进入跟随分支;快照编解码单一实现(`src/timer/snapshotCodec.js`,C-02 API §4.4.9)。
+- **共享组件**:TimerBox 同时服务控制台与 `display` 变体(Props 差异仅 variant/readonly);SoundSettingsPanel 同时服务设置页 Card 与大屏弹层(v1.1:大屏弹层仅独立计时模式)。
+- **同一运行时**:控制台/遥控器/大屏三面均由 `useDebateTimer` 装配,大屏经 `shareToken` 进入跟随分支;快照编解码单一实现(`src/timer/snapshotCodec.js`,C-02 API §4.4.10);**(v1.1)**意图帧重放翻译与本页 applyHostCommand 同构、渲染管线同构(RAF 直读锚点)。
 - **主题**:深浅色经 ColorModeContext 全局切换(更多菜单);MUI 主题 `src/theme.js`。
 - **国际化**:全键三语;阶段名三语快照在模板(S-02 stageLabels),显示经 `stageDisplayName` 回落链(模板名 → 当前语言通用名)。
 - **响应式/安全区**:`100dvh`+`env(safe-area-inset-*)`(刘海屏);竖屏断点 600px 切遥控布局(§1.1)。
-- **告警呈现同步性**:闪烁由引擎 derived 派生(随快照同步到跟随端);铃声/TTS 由各设备本地偏好播放——主机与 大屏铃声独立(C-01-04「偏好本设备配置」)。
+- **告警呈现同步性(v1.1)**:闪烁由引擎 derived 派生(随意图/对账同步到跟随端);**铃声/TTS 仅在本机(操作端)播放**——跟随态大屏不发声(BR-C01-14 事件分流),独立模式大屏本机播放(C-01-04「偏好本设备配置」v1.1 语义)。
 - **无 operList/权限 key**:本页动作无服务端权限矩阵;服务端校验仅作用于其所调 C-02/S-04 端点(requireAuth+owner)。
 
 ## 10. 裁剪说明
@@ -316,4 +317,5 @@
 
 | 版本 | 日期 | 变更类型 | 更新说明 |
 |------|------|---------|---------|
+| v1.1 | 2026-11-14 | rule_changed / flow_changed | 增量重构(计时延迟轮,D40/D41/D42):§6 数据源新增意图上报(API-10)、快照上报改 5s 对账节拍;§3.7 告警面板归属语义(声音类告警在操作端播放,大屏弹层仅独立模式);§9 告警呈现同步性修订(跟随端不发声)、渲染管线 RAF 同构注记。控制台 UI 结构/交互零变更 |
 | v1.0 | 2026-11-11 | initial | 逆向归档初始版:按现有实现归档计时控制台(顶栏会话三态/到站播报/时间线 PID/时钟面/底部操作栏/快捷键/告警设置面板宿主/保存记录/配对 Dialog);分册 7 项确认以实现为准;记录时钟面重置不经历指令中转的实现差异注记(§2.4) |

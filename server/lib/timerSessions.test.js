@@ -313,6 +313,130 @@ test('soundCheck command validates kind', () => {
 });
 
 // ---------------------------------------------------------------------------
+// D40 (v1.1) host operation intent
+// ---------------------------------------------------------------------------
+
+function intentBody(session, overrides = {}) {
+    return {
+        type: 'stop',
+        side: 'aff',
+        sessionId: session.sessionId,
+        anchorServerAt: 1700000000000,
+        anchorAff: { running: false, frozenMs: 9500 },
+        anchorNeg: { running: true, endAtServerMs: 1700000000000 + 61000 },
+        ...overrides,
+    };
+}
+
+test('reportIntent broadcasts an anchor frame on the token stream only', () => {
+    const { sse, reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+    sse.sent.length = 0;
+
+    const intent = reg.reportIntent('tok1', intentBody(session));
+    expect(intent).toMatchObject({
+        type: 'stop',
+        side: 'aff',
+        commandSeq: 1,
+        anchorServerAt: 1700000000000,
+        anchorAff: { running: false, frozenMs: 9500 },
+        anchorNeg: { running: true, endAtServerMs: 1700000061000 },
+        sessionId: session.sessionId,
+    });
+    expect(intent.at).toBeGreaterThan(0);
+
+    // Token stream only — the host must not replay its own operation.
+    const frames = sse.sent.filter((s) => s.event === 'command');
+    expect(frames).toHaveLength(1);
+    expect(frames[0].token).toBe('tok1');
+    expect(frames[0].payload).toMatchObject(intent);
+    expect(sse.sent.some((s) => s.event === 'command' && s.token === 'owner:owner1')).toBe(false);
+});
+
+test('reportIntent shares the commandSeq space and never queues', () => {
+    const { sse, reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+
+    const command = reg.pushCommand('tok1', { type: 'toggle', side: 'single' });
+    expect(command.commandSeq).toBe(1);
+    const intent = reg.reportIntent('tok1', intentBody(session));
+    expect(intent.commandSeq).toBe(2);
+
+    // Intents are never buffered: pendingCommands only holds the command.
+    expect(session.pendingCommands).toHaveLength(1);
+    expect(session.pendingCommands[0].commandSeq).toBe(1);
+});
+
+test('reportIntent refreshes lastSeenAt without consuming pending commands', () => {
+    const { reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+    reg.pushCommand('tok1', { type: 'toggle', side: 'single' });
+    const before = session.lastSeenAt;
+
+    reg.reportIntent('tok1', intentBody(session));
+    expect(session.pendingCommands).toHaveLength(1); // NOT cleared
+    expect(session.lastSeenAt).toBeGreaterThanOrEqual(before);
+});
+
+test('reportIntent arbitrates sovereignty like report', () => {
+    const { reg } = registry();
+    reg.create({ doc: configDoc() });
+
+    let thrown = null;
+    try {
+        reg.reportIntent('tok1', intentBody({ sessionId: 'not-the-live-one' }));
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).not.toBeNull();
+    expect(thrown.status).toBe(409);
+    expect(thrown.code).toBe('session_taken');
+});
+
+test('reportIntent rejects missing sessionId with 400', () => {
+    const { reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+    const { sessionId, ...withoutId } = intentBody(session);
+    expect(sessionId).toBeTruthy();
+
+    expect(() => reg.reportIntent('tok1', withoutId)).toThrow(/sessionId/);
+});
+
+test('reportIntent validates type/side/stageId/kind like commands', () => {
+    const { reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+
+    expect(() => reg.reportIntent('tok1', intentBody(session, { type: 'warp' }))).toThrow(/Invalid command type/);
+    expect(() => reg.reportIntent('tok1', intentBody(session, { type: 'start', side: 'blue' }))).toThrow(/side required/);
+    expect(() => reg.reportIntent('tok1', intentBody(session, { type: 'applyStage', stageId: 'nope' }))).toThrow(/unknown stageId/);
+    expect(() => reg.reportIntent('tok1', intentBody(session, { type: 'soundCheck', kind: 'loud' }))).toThrow(/kind required/);
+    expect(() => reg.reportIntent('tok1', intentBody(session, { anchorServerAt: 'soon' }))).toThrow(/anchorServerAt/);
+});
+
+test('reportIntent clamps anchors instead of rejecting them', () => {
+    const { reg } = registry();
+    const session = reg.create({ doc: configDoc() });
+    const at = 1700000000000;
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    const intent = reg.reportIntent('tok1', intentBody(session, {
+        anchorAff: { running: true, endAtServerMs: at + 10 * dayMs },
+        anchorNeg: { running: false, frozenMs: -5000 },
+    }));
+    expect(intent.anchorAff.endAtServerMs).toBe(at + dayMs);
+    expect(intent.anchorNeg.frozenMs).toBe(0);
+
+    // Malformed anchors drop out silently (reconciliation heals).
+    const partial = reg.reportIntent('tok1', intentBody(session, { anchorAff: { running: true } }));
+    expect(partial.anchorAff).toBeUndefined();
+});
+
+test('reportIntent requires a live session', () => {
+    const { reg } = registry();
+    expect(() => reg.reportIntent('ghost', intentBody({ sessionId: 'x' }))).toThrow(/No active session/);
+});
+
+// ---------------------------------------------------------------------------
 // C-02-08 signaling relay
 // ---------------------------------------------------------------------------
 

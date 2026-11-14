@@ -2,12 +2,12 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
-| 状态 | 稳定(逆向归档) |
-| 最后更新 | 2026-11-11 |
+| 版本 | v1.1 |
+| 状态 | 稳定(逆向归档+增量重构) |
+| 最后更新 | 2026-11-14 |
 | 模块编码 | C-02(核心业务域) |
 | 子模块 | C-02-01 同步会话管理 / C-02-02 大屏跟随呈现 / C-02-03 设备配对 / C-02-04 远程遥控 |
-| 上游依据 | 《C-02 大屏同步与远程控制 PRD》v1.0(DDD 建模:聚合根=同步会话 TimerSession)、应用架构 2.1.2 |
+| 上游依据 | 《C-02 大屏同步与远程控制 PRD》v1.1(DDD 建模:聚合根=同步会话 TimerSession)、应用架构 2.1.2 |
 | 功能类型 | 业务流程类 + 集成对接(会话状态机 + 三端一服快照/指令/信令协议) |
 | 主要实现 | `server/lib/timerSessions.js`(聚合根注册表)、`server/routes/configurations.js:234-342`(会话端点)、`server/routes/display.js`(大屏端点)、`server/routes/pairing.js`(配对)、`server/lib/sseHub.js`(SSE 基建,属 P-01) |
 
@@ -17,7 +17,9 @@
 
 ### 1.1 业务背景及目标
 
-让现场大屏与远程设备实时跟随同一场比赛:计时主机(计时台)开启**同步会话**并逐秒上报计时快照;大屏经 SSE 订阅**只读跟随**;手机经**配对码**接入或同网 **P2P 直连**成为瘦遥控器。服务端持有一个**内存型会话注册表**(每 shareToken 至多一个活跃会话,进程重启即失),会话即本模块聚合根。业务目标(PRD G1):大屏与主机锁步同秒翻转;一场比赛一个权威(永不双主机);手机即遥控器(指令不丢不重);弱网优雅降级。
+让现场大屏与远程设备实时跟随同一场比赛:计时主机(计时台)开启**同步会话**;大屏经 SSE 订阅**只读跟随**;手机经**配对码**接入或同网 **P2P 直连**成为瘦遥控器。服务端持有一个**内存型会话注册表**(每 shareToken 至多一个活跃会话,进程重启即失),会话即本模块聚合根。业务目标(PRD G1):大屏与主机锁步同秒翻转;一场比赛一个权威(永不双主机);手机即遥控器(指令不丢不重);弱网优雅降级。
+
+> **v1.1 同步机制重构(PRD D40/D41/D42)**:操作传播新增**主机意图帧**通道——主机引擎操作即时上报(API-10),服务器校验后立即以带锚点字段的 command 帧广播 display 流,跟随端本地重放外推(操作传播 ≤500ms);快照上报(API-2)降级为 **5s 对账兜底**(仅纠偏回拉,不再承担操作传播)。既有 9 接口语义除心跳节奏外不变;wire 增量字段向后兼容。
 
 ### 1.2 边界说明
 
@@ -40,6 +42,8 @@
 | D5 | 三段时钟补偿(上行 ≤2s / 在途 ≤3s / EMA 时钟偏差) | 端到端不引入系统性秒差,大屏与主机同秒翻转 | `server/lib/timerSessions.js:183-207`、`src/timer/snapshotCodec.js:14-44` |
 | D6 | 信令透传不解释、不排队、不存储(≤32KB) | WebRTC 握手帧一次性;服务端零 WebRTC 语义 | `server/lib/timerSessions.js:272-296` |
 | D7 | 配对 owner-scoped | 配对码只可能命中提交者本人的活跃会话,防跨用户劫持 | `server/routes/pairing.js:3-7`、`server/lib/timerSessions.js:298-313` |
+| D8 | **(v1.1)**操作传播走主机意图帧(command 帧+绝对锚增量字段),不排队不缓冲,仅推 token 流;错过由对账快照兜底 | 意图帧 ≤1 RTT 到达 display,本地重放外推消除秒级状态重采纳的回拉;锚点用服务器时钟域,消费端经 EMA 偏差估计换算 | PRD v1.1 FR-C02-01-17/BR-C02-20(本轮 B/F 落地) |
+| D9 | **(v1.1)**快照上报降级为对账(客户端 5s 节拍;服务端 API-2 契约不变),纠偏仅单次回拉 | 稳态外推不回拨,相位差收敛于时钟偏差估计误差(≤100ms 验收);心跳保活 30s 过期约束下 5s 安全 | PRD v1.1 FR-C02-01-05/FR-C02-02-04(本轮 B/F 落地) |
 
 ### 1.4 领域对象总览
 
@@ -47,7 +51,7 @@
 |------|------|------|
 | 同步会话 TimerSession | **聚合根** | 内存注册表 Map<shareToken, session>,每 token 至多一个(`server/lib/timerSessions.js:75-77`) |
 | 会话快照 TimerSnapshot | 值对象(发布语言) | 聚合根只保留最新一份 lastSnapshot,按 seq 整体替换(§4.4.8 wire schema) |
-| 遥控指令 RemoteCommand | 值对象 | `{type, side?\|stageId?\|kind?, commandSeq, at}`,不可变帧(§4.4.6) |
+| 遥控指令 RemoteCommand | 值对象 | `{type, side?\|stageId?\|kind?, commandSeq, at}`,不可变帧(§4.4.6);**(v1.1)**主机意图帧=同结构+锚点增量字段(§4.4.10a),display 端据锚点字段判别并重放 |
 | 待执行指令缓冲 pendingCommands | 域内实体(集合) | 离线缓冲 ≤32,主机上报即清(`server/lib/timerSessions.js:17,211-213`) |
 | 配对码 PairingCode | 值对象 | 4 位数字,随会话生灭,同会话现存码去重(`server/lib/timerSessions.js:114-116,131-137`) |
 | 子流程:会话自愈 recoverSession | 子流程(客户端) | 400 无活跃会话 → 退避重建(PRD §12) |
@@ -93,6 +97,7 @@
 | 接口组 | 守卫 | 用户类型 | 规则 |
 |--------|------|---------|------|
 | 会话端点 `/api/configurations/:name/session…` | `requireAuth`(router 级)+ owner 校验 | 计时操作员(仅模板 owner) | 404 配置不存在;403 非 owner——**管理员不代控他人模板**(`server/routes/configurations.js:234-256`) |
+| 意图上报 `POST /api/session/:name/intent`(v1.1 新增,三段式) | `requireAuth`(路由级)+ owner 校验 | 计时操作员(仅模板 owner) | 同会话端点规则;主权 sessionId 校验同 API-2 |
 | 配对 `POST /api/session/pair` | `requireAuth`(路由级) | 注册用户 | owner-scoped:只匹配提交者本人的活跃会话(`server/routes/pairing.js:3-7`) |
 | display 三端点 `/api/display/:token…` | 匿名 + 每 IP 限流 | 大屏观众(无需登录) | 仅当 `shareEnabled && shareToken` 可见,否则 404(`server/lib/configDocs.js:284-286`) |
 | 主机命令/信令接收 | 经 owner SSE 流(`/api/configurations/stream`) | 计时操作员 | 认证客户端只收自己的流,admin 收全部 change(`server/lib/sseHub.js:17-34`) |
@@ -171,6 +176,7 @@
 | INV-C02-5 | 指令 commandSeq 全会话单调递增;缓冲上限 32 | `server/lib/timerSessions.js:257-265` |
 | INV-C02-6 | 主机上报 ⇒ pendingCommands 清空(快照回流即指令 ack) | `server/lib/timerSessions.js:211-213` |
 | INV-C02-7 | 出站快照必带投递时刷新的 serverTime 与 sessionId(D20/D23) | `server/lib/timerSessions.js:28-40` |
+| INV-C02-8 | **(v1.1)**意图帧 commandSeq 与遥控指令共用全会话单调空间;意图帧不进 pendingCommands(不排队不缓冲);意图帧仅推 token 流(不推 owner 流,防主机重放自身操作);意图上报刷新 lastSeenAt 但不清空 pendingCommands(主机上报快照仍是指令消费确认的唯一途径) | PRD v1.1 BR-C02-20(本轮 B/F 落地) |
 
 **领域服务**:无独立服务对象——`create/report/end/pushCommand/relaySignal/pairByCode/snapshotOf` 均为注册表闭包方法(`server/lib/timerSessions.js:322`)。
 
@@ -220,6 +226,7 @@ create(前置 shareEnabled;同 token 旧会话广播 ended/superseded)
 | API-7 | `GET /api/display/:token/state` | 大屏会话状态查询 | 匿名(限流) | C-02-02 |
 | API-8 | `GET /api/display/:token/stream` | **SSE 快照流**(state/session/command/signal/change) | 匿名(限流) | C-02-02 |
 | API-9 | `POST /api/session/pair` | 配对码接入 | 注册用户(认证) | C-02-03 |
+| API-10 | `POST /api/session/:name/intent` | **主机操作意图上报**(v1.1 新增,D40) | owner(认证) | C-02-01 |
 
 #### 4.4.2 API-1 开启会话
 
@@ -327,13 +334,39 @@ create(前置 shareEnabled;同 token 旧会话广播 ended/superseded)
 - **业务规则(owner-scoped 仲裁)**:遍历注册表,跳过心跳超时会话;仅当 `pairingCode` 匹配**且**会话 `ownerId` === 提交者时命中;无匹配 → **404「未找到匹配的远程控制会话」**(跨用户码必不命中,单测 `server/lib/timerSessions.test.js:350-375`)。码随会话生灭,不由客户端持久化。
 - **响应 200**:`data: { configName, shareToken }`——客户端据此绑定主机模板直入遥控模式(`src/timer/useTimerSessionSync.js:653-662`)。
 
-#### 4.4.9 跨接口复用规则 / 枚举定义
+#### 4.4.9 API-10 主机操作意图上报(v1.1 新增,D40)
+
+`POST /api/session/:name/intent`(新增接口遵循三段式路径规范;本轮 B/F 落地)
+
+- **请求 body**(command 结构 + 锚点增量字段):
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| type | enum | ✓ | start / stop / reset / toggle / applyStage / soundCheck(同指令白名单) |
+| side \| stageId \| kind | — | 按类型 | 同 API-3 的按类型附加字段与域校验 |
+| sessionId | string | ✓ | **主权声明**:≠ 在席会话 → 409 session_taken(同 API-2 仲裁) |
+| anchorServerAt | epoch ms | ✓ | 主机估计的「锚定时刻的服务器时钟」(同 captureServerAt 语义:本地锚定时刻+hostClockOffset) |
+| anchorAff | object | — | 正方锚点 `{running: bool, endAtServerMs?: int(运行中,服务器时钟域绝对到期时刻), frozenMs?: int(冻结毫秒)}`;运行中必带 endAtServerMs,冻结必带 frozenMs |
+| anchorNeg | object | — | 反方锚点(结构同 anchorAff);single 模式可省(服务端镜像) |
+
+- **业务规则与校验**(本轮 B/F 落地,单测同步):
+  1. 无活跃会话 → 400「No active session」(客户端 recover 路径同 API-2)。
+  2. sessionId 仲裁同 API-2:不符 → 409+code=session_taken(客户端 yield)。
+  3. type/side/stageId/kind 白名单与域校验同 API-3(stageId 须 ∈ stageIds)。
+  4. 锚点域校验:endAtServerMs−anchorServerAt ∈ [−300s, +24h](允许小的在途余量),frozenMs ∈ [0, 24h];非法 → 钳制(同快照校验容错策略,不 400——意图帧容错优先,对账兜底)。
+  5. **不排队不缓冲**(INV-C02-8):校验通过即分配全会话单调 commandSeq、打 at,组装**意图帧**(command 帧+锚点字段)立即推 **token 流**(display 消费;不推 owner 流);刷新 lastSeenAt;**不清空 pendingCommands**。
+  6. 意图帧丢失不补发——错过由对账快照(API-2, 5s 节拍)纠偏兜底。
+- **响应 200**:`data: { commandSeq, serverTime: <Date.now()> }`(serverTime 供锚点时钟域换算采样,同 API-2 NTP-lite)。
+- **消费端契约(display/跟随页)**:收到 command 帧**带锚点字段**即意图帧——按 commandSeq 单调去重后重放到本地引擎(翻译规则同主机 applyHostCommand:toggle 按 running 态译 START/STOP),并以 `(anchorServerAt, endAtServerMs/frozenMs)` + consumerClockSkew EMA 换算本地钟域写墙钟锚点;重放产生的引擎事件按 BR-C01-14 过滤(不发声不采集)。**不带锚点字段**的 command 帧(遥控指令)继续忽略(现状行为)——遥控操作经主机执行后的意图帧间接到达 display。
+- **旧客户端兼容**:旧主机不调用本端点(无意图流),新版 display 自动退回快照采纳路径;旧 display 忽略锚点字段(多字段无害)。非破坏性升级。
+
+#### 4.4.10 跨接口复用规则 / 枚举定义
 
 - 快照 wire schema 为 API-1(初始快照)/API-2(上报)/API-7(查询)/API-8(state 帧)共用,出站统一经 `toSnapshot` 打戳(`server/lib/timerSessions.js:28-40`);客户端编解码单一实现 `src/timer/snapshotCodec.js`。
-- 指令帧为 API-3 响应、token 流 `command` 帧、owner 流 `command` 帧共用。
+- 指令帧为 API-3 响应、token 流 `command` 帧、owner 流 `command` 帧共用;**(v1.1)**意图帧(API-10 产物)= command 帧+锚点增量字段,仅 token 流,display 据锚点字段判别(§4.4.11a)。
 - 所有枚举见 §3.4 枚举池;错误码见 §3.4 错误码表。
 
-#### 4.4.10 wire schema:会话快照 TimerSnapshot(发布语言)
+#### 4.4.11 wire schema:会话快照 TimerSnapshot(发布语言)
 
 ```
 Snapshot ::= {
@@ -351,6 +384,24 @@ Snapshot ::= {
 
 出处:`server/lib/timerSessions.js:391-405`(校验归一产物)、`28-40`(出站打戳)、`src/timer/snapshotCodec.js:54-79`(客户端编码)。
 
+#### 4.4.11a wire schema:主机意图帧 IntentFrame(v1.1 新增,D40)
+
+```
+IntentFrame ::= {                                    // = command 帧 + 锚点增量字段,仅 token 流
+  type: 'start'|'stop'|'reset'|'toggle'|'applyStage'|'soundCheck',
+  side?: 'single'|'aff'|'neg', stageId?: string, kind?: 'warn30'|'end',
+  commandSeq: int,          // 与遥控指令共用全会话单调空间
+  at: epoch ms,
+  anchorServerAt: epoch ms, // 锚定时刻(服务器时钟域)
+  anchorAff?: { running: bool, endAtServerMs?: int, frozenMs?: int },
+  anchorNeg?: { running: bool, endAtServerMs?: int, frozenMs?: int },
+  sessionId: string         // 会话代际(display 端代际检测同 D23)
+}
+```
+
+- 消费端换算:`localEndAt = endAtServerMs + consumerClockSkew`(consumerClockSkew = local − server 的 EMA 估计,D34;采样源扩展至本帧 serverTime/anchorServerAt;与 compensateInFlight 的 skew 符号约定一致)。
+- 判别规则:command 帧含 `anchorServerAt` 字段 ⇒ 意图帧;否则为遥控指令帧(旧语义,display 忽略)。
+
 ### 4.5 领域事件与集成
 
 **事件通道(进程内 SSE,非 MQ)**:
@@ -359,7 +410,7 @@ Snapshot ::= {
 |----------|------|---------|--------|
 | `state` | Snapshot(打戳) | token 流 | create、report、连接重放(快照广播) |
 | `session` | `{ type: started\|ended\|expired, reason: superseded\|closed_by_operator\|share_disabled\|heartbeat_timeout\|null, sessionId }` | token 流 | 会话生命周期跃迁(`server/lib/timerSessions.js:79-85,155,217-223`) |
-| `command` | `{ type, side?\|stageId?\|kind?, commandSeq, at }` | token 流 + owner 流 | API-3 |
+| `command` | `{ type, side?\|stageId?\|kind?, commandSeq, at }`;**(v1.1)**意图帧增量字段 `anchorServerAt/anchorAff/anchorNeg/sessionId`(§4.4.11a) | token 流 + owner 流(遥控指令);**意图帧仅 token 流**(API-10) | API-3;API-10(v1.1) |
 | `signal` | `{ from, to, payload }` | token 流 + owner 流 | API-4 |
 | `change`(S-02 配置事件,借道同流) | `{ ownerId?, name?, shareToken? }` | owner 流(本人/admin 全量)与 shareToken 匹配的 display 流 | 配置 CRUD/share/visibility 广播(`server/routes/configurations.js:117-121,203-214,362-365`) |
 
@@ -393,7 +444,8 @@ Snapshot ::= {
 | 会话状态查询 | GET /api/display/:token/state | 匿名 | §4.4.7 |
 | SSE 快照流 | GET /api/display/:token/stream | 匿名 | §4.4.7 |
 | 配对 | POST /api/session/pair | 认证 | §4.4.8 |
-| SSE 事件协议 | state/session/command/signal/change | 按流 | §4.5 |
+| 主机意图上报 | POST /api/session/:name/intent | owner | §4.4.9(v1.1) |
+| SSE 事件协议 | state/session/command/signal/change(含意图帧增量字段) | 按流 | §4.5 |
 
 ### 5.2 SQL 清单
 
@@ -407,6 +459,7 @@ Snapshot ::= {
 
 | 版本 | 日期 | 变更类型 | 更新说明 |
 |------|------|---------|---------|
+| v1.1 | 2026-11-14 | interface_added / rule_changed / event_changed | 增量重构(计时延迟轮,D40/D41/D42):§4.4.9 新增 API-10 `POST /api/session/:name/intent`(主机意图上报,三段式路径,主权仲裁+白名单校验+不排队+仅 token 流);§4.4.11a 新增意图帧 wire schema(command 帧+锚点增量字段 anchorServerAt/anchorAff/anchorNeg/sessionId,消费端 EMA 换算);§4.5 command 事件载荷增量字段;设计决策 D8/D9、不变量 INV-C02-8;API-2 契约不变(客户端节奏 1s→5s 对账,非服务端契约);display 消费端契约(意图重放+事件过滤)随本版确立。实现待本轮 B/F 落地,§4.4.9/11a 出处行以「本轮 B/F 落地」标注 |
 | v1.0 | 2026-11-11 | initial | 逆向归档初始版:按现有实现归档 9 个接口(含 PUT reportSnapshot 的 sessionId 主权仲裁与 captureServerAt 上行补偿语义、SSE 快照流事件协议、owner-scoped 配对仲裁)、聚合根内存模型、错误码表与限流/容量配置 |
 
 **变更类型词汇表**与**版本号规则**:同 D3 分册;快照 wire schema / SSE 帧结构变更视同 `interface_changed`。

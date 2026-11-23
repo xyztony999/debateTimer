@@ -213,9 +213,11 @@
     },
     "auth": {
         "loginTitle": "登录",
-        "registerTitle": "创建管理员账号",
+        "registerTitle": "创建账号",
         "loginSubtitle": "登录后可使用你自己的辩论模板。",
-        "registerSubtitle": "第一个注册的账号会成为管理员。",
+        "registerSubtitle": "注册后即可使用你自己的辩论模板。",
+        "firstUserTitle": "创建管理员账号",
+        "firstUserSubtitle": "第一个注册的账号会成为管理员。",
         "username": "用户名",
         "password": "密码",
         "usernameHint": "3–32 个字符：小写字母、数字、下划线",

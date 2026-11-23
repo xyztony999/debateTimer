@@ -8,6 +8,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import AuthShell from './components/AuthShell';
 import { useAuth } from './context/AuthContext';
+import { registerCopyKeys } from './utils/authCopy';
 
 function safeNextPath(raw) {
     if (!raw || !raw.startsWith('/') || raw.startsWith('//')) {
@@ -48,15 +49,17 @@ export default function LoginPage() {
         }
     };
 
+    const registerCopy = registerCopyKeys(status.hasUsers);
+
     return (
         <AuthShell maxWidth={420}>
             <Stack spacing={2.5} component="form" onSubmit={submit}>
                 <Stack spacing={0.75}>
                     <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
-                        {mode === 'register' ? t('auth.registerTitle') : t('auth.loginTitle')}
+                        {mode === 'register' ? t(registerCopy.titleKey) : t('auth.loginTitle')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                        {mode === 'register' ? t('auth.registerSubtitle') : t('auth.loginSubtitle')}
+                        {mode === 'register' ? t(registerCopy.subtitleKey) : t('auth.loginSubtitle')}
                     </Typography>
                 </Stack>
                 {error ? <Alert severity="error">{error}</Alert> : null}

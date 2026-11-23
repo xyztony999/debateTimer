@@ -213,9 +213,11 @@
     },
     "auth": {
         "loginTitle": "Sign in",
-        "registerTitle": "Create admin account",
+        "registerTitle": "Create account",
         "loginSubtitle": "Sign in to use your debate templates.",
-        "registerSubtitle": "The first account becomes the administrator.",
+        "registerSubtitle": "Sign up to use your own debate templates.",
+        "firstUserTitle": "Create admin account",
+        "firstUserSubtitle": "The first account becomes the administrator.",
         "username": "Username",
         "password": "Password",
         "usernameHint": "3–32 characters: lowercase letters, numbers, underscore",

@@ -213,9 +213,11 @@
     },
     "auth": {
         "loginTitle": "Connexion",
-        "registerTitle": "Créer le compte administrateur",
+        "registerTitle": "Créer un compte",
         "loginSubtitle": "Connectez-vous pour utiliser vos modèles de débat.",
-        "registerSubtitle": "Le premier compte devient administrateur.",
+        "registerSubtitle": "Inscrivez-vous pour utiliser vos propres modèles de débat.",
+        "firstUserTitle": "Créer le compte administrateur",
+        "firstUserSubtitle": "Le premier compte devient administrateur.",
         "username": "Nom d’utilisateur",
         "password": "Mot de passe",
         "usernameHint": "3–32 caractères : minuscules, chiffres, trait de soulignement",

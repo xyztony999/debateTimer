@@ -8,7 +8,10 @@
 
 本项目根据渥太华大学华语辩论社（UOMDC）的比赛规则制定并执行
 
-访问地址：[https://debatetimer.tonyxyz.com](https://debatetimer.tonyxyz.com)
+- 项目官网（功能介绍 / 快速上手 / 自部署指引）：[https://debatetimer.tonyxyz.com](https://debatetimer.tonyxyz.com)
+- 计时器应用：[https://debatetimer.tonyxyz.com/app/](https://debatetimer.tonyxyz.com/app/)
+
+> 路径拓扑：官网静态页位于仓库 `site/`，占域名根路径；应用构建注入 `VITE_BASE=/app/`（见 `.github/workflows/deploy.yml` 与 `vite.config.js`），整体运行在 `/app/` 子路径。旧版根路径深链（`/gallery`、`/display/:token` 等）经产物根 `404.html` 跳转自动进入应用。本地 `bun start`、`vite preview` 与 selfhost 构建不受影响（默认 `base=/`）。
 
 ## 开发命令
 

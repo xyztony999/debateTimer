@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>辩论赛计时器</title>
+    <script type="text/javascript">
+      // GitHub Pages 站点唯一的 404 页（产物根）。官网占根路径后，未知路径在此
+      // 分流到应用：/gallery 与 /app/gallery 都弹到 /app/?/gallery（rafgraph
+      // spa-github-pages 编码约定），由应用 index.html 内嵌的同款解码脚本在
+      // 渲染前还原为规范路由。非 Pages 部署（dev/preview/selfhost SPA 回退）
+      // 不会走到本文件。
+      (function () {
+        var l = window.location;
+        var p = l.pathname;
+        if (p === '/app' || p.indexOf('/app/') === 0) {
+          p = p.slice(4); // 已带 /app 前缀的深层路由，剥掉后统一重投
+        } else {
+          p = p.slice(1); // 旧版根路径深链（/gallery、/display/:token…）
+        }
+        if (p.charAt(0) === '/') {
+          p = p.slice(1);
+        }
+        // rafgraph 编码约定：/app/?/<路由>（search 必须以 '/' 开头，
+        // 应用 index.html 内嵌解码器靠 search[1]==='/' 识别）
+        l.replace(
+          '/app/?/' + p.replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash
+        );
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

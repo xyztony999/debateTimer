@@ -40,14 +40,24 @@ jobs:
       run: bun run build
       env:
         VITE_API_BASE_URL: https://api.debatetimer.tonyxyz.com
+        # 官网（site/）占域名根路径，应用整体在 /app/ 子路径；见 vite.config.js
+        VITE_BASE: /app/
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
 
+    # 合并产物：site/ → 产物根（官网 + 404 跳转 + 旧 SW kill-switch），
+    # 应用构建 → /app/ 子路径
+    - name: Merge site + app artifact
+      run: |
+        mkdir -p deploy-root
+        cp -r build deploy-root/app
+        cp -r site/. deploy-root/
+
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: ./build
+        path: ./deploy-root
 
   deploy:
     environment:

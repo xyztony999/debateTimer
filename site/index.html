@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>辩论赛计时器 DebateTimer — 大屏同步 · 手机遥控 · 赛制模板</title>
+  <meta name="description" content="为华语辩论而生的开源计时系统：大屏毫秒级同步、手机遥控、赛制模板广场、比赛记录复盘。免费开源（MIT），可一键自部署。" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===== 导航 ===== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#top">
+        <img src="assets/favicon.svg" alt="DebateTimer logo" class="brand-logo" />
+        <span class="brand-name" data-i18n="brand">辩论赛计时器</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features" data-i18n="nav.features">功能特性</a>
+        <a href="#guide" data-i18n="nav.guide">快速上手</a>
+        <a href="#selfhost" data-i18n="nav.selfhost">自部署</a>
+        <a href="https://github.com/xyztony999/debateTimer" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="/app/" target="_blank" rel="noopener" data-i18n="nav.app">打开应用</a>
+        <button id="langToggle" class="lang-toggle" type="button" aria-label="Switch language">EN</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== Hero ===== -->
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <p class="hero-badge" data-i18n="hero.badge">遵循渥太华大学华语辩论社（UOMDC）赛制</p>
+        <h1 class="hero-title">
+          <span class="pro" data-i18n="hero.titlePro">辩论赛</span>
+          <span class="con" data-i18n="hero.titleCon">计时器</span>
+        </h1>
+        <p class="hero-tagline" data-i18n="hero.tagline">大屏毫秒级同步 · 手机遥控 · 赛制模板广场——比赛计时这一件事，做到极致。</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="/app/" target="_blank" rel="noopener" data-i18n="hero.cta1">立即使用</a>
+          <a class="btn btn-ghost" href="https://github.com/xyztony999/debateTimer" target="_blank" rel="noopener" data-i18n="hero.cta2">GitHub 源码</a>
+        </div>
+        <p class="hero-note" data-i18n="hero.note">免费开源（MIT） · 无需安装 · 支持中 / 英 / 法三语</p>
+      </div>
+
+      <!-- 现场演示记分牌 -->
+      <div class="board" aria-hidden="true">
+        <div class="board-stage">
+          <span class="stage-dot"></span>
+          <span id="demoStageName">一辩立论</span>
+          <span id="demoStageMode" class="stage-mode">单计时</span>
+        </div>
+        <div class="clock-wrap">
+          <svg class="clock-ring" viewBox="0 0 200 200">
+            <circle class="ring-track" cx="100" cy="100" r="88" />
+            <circle class="ring-fill" id="demoRing" cx="100" cy="100" r="88" />
+          </svg>
+          <div class="clock-digits" id="demoDigits">1:00</div>
+        </div>
+        <div class="sides" id="demoSides">
+          <span class="side pill-pro" id="demoSidePro">正方</span>
+          <span class="side pill-con" id="demoSideCon">反方</span>
+        </div>
+        <p class="demo-hint" id="demoHint"></p>
+        <!-- 地铁线站点（阶段进度） -->
+        <div class="stations" id="demoStations"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== 功能特性 ===== -->
+  <section class="section" id="features">
+    <h2 class="section-title" data-i18n="features.title">功能特性</h2>
+    <p class="section-sub" data-i18n="features.sub">从赛前赛制编排到赛后复盘，覆盖一场比赛的完整生命周期。</p>
+    <div class="grid">
+      <article class="card">
+        <div class="card-icon">🖥️</div>
+        <h3 data-i18n="f1.t">大屏实时同步</h3>
+        <p data-i18n="f1.d">意图帧 + 绝对锚点同步：操作秒级直达大屏，断线自动重连并重新校准。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">📱</div>
+        <h3 data-i18n="f2.t">手机遥控与配对码</h3>
+        <p data-i18n="f2.d">四位配对码即连，把手机变成瘦遥控器；同一网络自动走 WebRTC 直连。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">🔁</div>
+        <h3 data-i18n="f3.t">自由辩论自动切换</h3>
+        <p data-i18n="f3.d">停止一方后另一方自动起表，时间耗尽自动交棒——不必再喊「换表」。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">⏳</div>
+        <h3 data-i18n="f4.t">超时宽限期</h3>
+        <p data-i18n="f4.d">可配置宽限秒数：短铃提醒 → 长鸣锁定，两级铃声语义分明，宽限相位同步大屏。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">🔔</div>
+        <h3 data-i18n="f5.t">分级铃声与语音播报</h3>
+        <p data-i18n="f5.d">30 秒提醒 / 时间到 / 必须停分级提示音，可选 TTS 语音播报当前阶段。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">🗂️</div>
+        <h3 data-i18n="f6.t">赛制模板与广场</h3>
+        <p data-i18n="f6.d">自由编排阶段与计时模式，可发布到公开模板广场一键复用；预置 UOMDC / BP / 奥瑞冈。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">📊</div>
+        <h3 data-i18n="f7.t">比赛记录与复盘</h3>
+        <p data-i18n="f7.d">自动统计各阶段计划 vs 实绩与超时次数，支持 CSV / JSON 导出。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">🌐</div>
+        <h3 data-i18n="f8.t">三语界面</h3>
+        <p data-i18n="f8.d">中文 / English / Français 自由切换，阶段名可分别配置多语言文案。</p>
+      </article>
+      <article class="card">
+        <div class="card-icon">📲</div>
+        <h3 data-i18n="f9.t">PWA 与离线可用</h3>
+        <p data-i18n="f9.d">可安装到桌面与主屏幕；断网时计时核心照常运行，恢复后自动重连云同步。</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===== 快速上手 ===== -->
+  <section class="section" id="guide">
+    <h2 class="section-title" data-i18n="guide.title">三步上手</h2>
+    <div class="steps">
+      <article class="step">
+        <span class="step-no">1</span>
+        <h3 data-i18n="g1.t">打开即用</h3>
+        <p data-i18n="g1.d">浏览器访问 debatetimer.tonyxyz.com/app/，选一套模板或自建赛制，无需注册即可计时。</p>
+      </article>
+      <article class="step">
+        <span class="step-no">2</span>
+        <h3 data-i18n="g2.t">大屏同步 + 手机遥控</h3>
+        <p data-i18n="g2.d">开启大屏同步，大屏扫码只读跟随；用配对码把手机连成遥控器，随时走位控场。</p>
+      </article>
+      <article class="step">
+        <span class="step-no">3</span>
+        <h3 data-i18n="g3.t">赛后复盘</h3>
+        <p data-i18n="g3.d">比赛记录自动留存：各环节计划 vs 实绩、超时次数一目了然，导出 CSV 深度复盘。</p>
+      </article>
+    </div>
+    <div class="guide-cta">
+      <a class="btn btn-primary" href="/app/" target="_blank" rel="noopener" data-i18n="guide.cta">现在就开一场 →</a>
+    </div>
+  </section>
+
+  <!-- ===== 自部署 ===== -->
+  <section class="section" id="selfhost">
+    <h2 class="section-title" data-i18n="sh.title">想自己部署？</h2>
+    <p class="section-sub" data-i18n="sh.sub">一条命令在你的服务器上跑起全栈（页面 + API + MongoDB），支持一体化与 Nginx 反代两种拓扑，适合内网与私有化部署。</p>
+    <div class="codebox">
+      <div class="codebar"><span></span><span></span><span></span><em>bash</em></div>
+      <pre><code>git clone https://github.com/xyztony999/debateTimer.git
+cd debateTimer
+bash deploy/selfhost/setup.sh</code></pre>
+    </div>
+    <p class="sh-link"><a href="https://github.com/xyztony999/debateTimer/blob/master/deploy/selfhost/README.md" target="_blank" rel="noopener" data-i18n="sh.docs">查看自部署手册 →</a></p>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer">
+    <img src="assets/favicon.svg" alt="" class="footer-logo" />
+    <p data-i18n="footer.rules">遵循渥太华大学华语辩论社（UOMDC）比赛规则设计</p>
+    <p class="footer-meta">
+      <span data-i18n="footer.stack">React + Vite + Bun · Express + MongoDB</span> ·
+      <a href="https://github.com/xyztony999/debateTimer" target="_blank" rel="noopener">GitHub</a> ·
+      <a href="/app/" target="_blank" rel="noopener" data-i18n="footer.app">打开应用</a> ·
+      MIT License © 2026
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

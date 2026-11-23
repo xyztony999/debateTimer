@@ -6,6 +6,7 @@ import {
 } from './snapshotCodec.js';
 import { buildIntentPayload, planIntentReplay } from './intentCodec.js';
 import { createSnapshotQueue, snapshotFailureAction } from './snapshotReporting.js';
+import { appPath } from '../utils/baseUrl.js';
 
 // R4 role memories: tokens this device opened (host) or attached to
 // (remote). Written on start/pair, cleared on end/loss — module-level
@@ -828,7 +829,7 @@ export default function useTimerSessionSync(ctx) {
         if (!path) {
             return;
         }
-        const url = `${window.location.origin}${path}`;
+        const url = `${window.location.origin}${appPath(path)}`;
         try {
             await navigator.clipboard.writeText(url);
             setSessionNotice(t('timer.session.copied'));

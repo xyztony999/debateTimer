@@ -83,3 +83,37 @@ test('closed registration shows the visitor hint and hides the register toggle',
         .toBeVisible();
     await expect(page.getByText(/need an account|需要账号|Besoin d’un compte/i)).toHaveCount(0);
 });
+
+test('open registration with existing users shows public sign-up copy, never first-admin wording', async ({ page }) => {
+    // Regression: the register form used to reuse the first-admin title, so
+    // every public registrant was told "the first account becomes the
+    // administrator". Admin status is decided server-side from the user
+    // count; the copy must follow the same fact.
+    await mockBaseApi(page);
+    await page.route('**/api/auth/status', (route) =>
+        route.fulfill({ json: { success: true, data: { hasUsers: true, registrationOpen: true } } }));
+    await page.route('**/api/auth/me', (route) =>
+        route.fulfill({ status: 401, json: { success: false, message: 'Authentication required' } }));
+
+    await page.goto('/login');
+    await page.getByText(/need an account|需要账号|Besoin d’un compte/i).click();
+
+    await expect(page.getByRole('heading', { level: 1 }))
+        .toHaveText(/create account|创建账号|Créer un compte/i);
+    await expect(page.getByText(/first account|第一个注册|premier compte/i)).toHaveCount(0);
+    await expect(page.getByText(/admin account|管理员账号|compte administrateur/i)).toHaveCount(0);
+});
+
+test('a deployment with no users lands on the first-admin setup copy', async ({ page }) => {
+    await mockBaseApi(page);
+    await page.route('**/api/auth/status', (route) =>
+        route.fulfill({ json: { success: true, data: { hasUsers: false, registrationOpen: true } } }));
+    await page.route('**/api/auth/me', (route) =>
+        route.fulfill({ status: 401, json: { success: false, message: 'Authentication required' } }));
+
+    await page.goto('/login');
+
+    await expect(page.getByRole('heading', { level: 1 }))
+        .toHaveText(/create admin account|创建管理员账号|Créer le compte administrateur/i);
+    await expect(page.getByText(/first account|第一个注册|premier compte/i)).toBeVisible();
+});

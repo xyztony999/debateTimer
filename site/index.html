@@ -9,7 +9,9 @@
   <!-- 与应用同一字体（应用 index.html 同款），保证演示板排版一致 -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <!-- 非阻塞加载：第三方字体请求卡住时首屏照常渲染，字体到位后自动生效 -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -117,8 +119,8 @@
     <div class="steps">
       <article class="step">
         <span class="step-no">1</span>
-        <h3 data-i18n="g1.t">打开即用</h3>
-        <p data-i18n="g1.d">浏览器访问 debatetimer.tonyxyz.com/app/，选一套模板或自建赛制，无需注册即可计时。</p>
+        <h3 data-i18n="g1.t">注册即用</h3>
+        <p data-i18n="g1.d">浏览器访问 debatetimer.tonyxyz.com/app/，注册后选一套模板或自建赛制即可计时。</p>
       </article>
       <article class="step">
         <span class="step-no">2</span>

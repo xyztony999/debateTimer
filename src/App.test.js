@@ -76,6 +76,24 @@ test('registration toggle strings are present in all three languages', async () 
     expect(i18n.t('admin.registrationOff')).toMatch(/fermée/i);
 });
 
+test('register copy separates first-admin setup from public registration in all three languages', async () => {
+    expect(i18n.t('auth.registerTitle')).toBe('Create account');
+    expect(i18n.t('auth.registerSubtitle')).not.toMatch(/first|administrator/i);
+    expect(i18n.t('auth.firstUserTitle')).toBe('Create admin account');
+    expect(i18n.t('auth.firstUserSubtitle')).toBe('The first account becomes the administrator.');
+
+    await i18n.changeLanguage('zh-Hans');
+    expect(i18n.t('auth.registerTitle')).toBe('创建账号');
+    expect(i18n.t('auth.registerSubtitle')).not.toMatch(/管理员/);
+    expect(i18n.t('auth.firstUserTitle')).toBe('创建管理员账号');
+    expect(i18n.t('auth.firstUserSubtitle')).toBe('第一个注册的账号会成为管理员。');
+
+    await i18n.changeLanguage('fr-CA');
+    expect(i18n.t('auth.registerTitle')).toBe('Créer un compte');
+    expect(i18n.t('auth.registerSubtitle')).not.toMatch(/administrateur/i);
+    expect(i18n.t('auth.firstUserTitle')).toBe('Créer le compte administrateur');
+});
+
 test('stage enhancement strings are present in all three languages', async () => {
     expect(i18n.t('settings.graceSeconds')).toMatch(/grace/i);
     expect(i18n.t('settings.autoAdvance')).toMatch(/auto/i);

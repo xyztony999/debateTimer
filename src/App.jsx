@@ -18,7 +18,7 @@ const StatusPage = lazy(() => import('./components/StatusPage'));
 function App() {
     return (
         <AuthProvider>
-            <Router>
+            <Router basename={import.meta.env.BASE_URL}>
                 <div className="App">
                     <OfflineBanner />
                     <Suspense fallback={null}>

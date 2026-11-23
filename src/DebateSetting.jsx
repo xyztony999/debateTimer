@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { appPath } from './utils/baseUrl';
 import { useTranslation } from 'react-i18next';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -399,7 +400,7 @@ const DebateSetting = () => {
     };
 
     const displayShareUrl = shareEnabled && shareToken
-        ? `${window.location.origin}/display/${encodeURIComponent(shareToken)}`
+        ? `${window.location.origin}${appPath(`/display/${encodeURIComponent(shareToken)}`)}`
         : '';
 
     const handleShareToggle = async (enabled) => {

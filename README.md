@@ -6,7 +6,7 @@
 
 ## 简介
 
-本项目根据渥太华大学华语辩论社（UOMDC）的比赛规则制定并执行
+本项目是一款开源的辩论赛计时工具：赛制可自由编排，支持大屏同步、远程控制、模板广场与比赛记录复盘。
 
 - 项目官网（功能介绍 / 快速上手 / 自部署指引）：[https://debatetimer.tonyxyz.com](https://debatetimer.tonyxyz.com)
 - 计时器应用：[https://debatetimer.tonyxyz.com/app/](https://debatetimer.tonyxyz.com/app/)

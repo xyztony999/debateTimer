@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: '辩论赛计时器 Debate Match Timer',
           short_name: 'Debate Timer',
-          description: '按 UOMDC 规则制定的辩论赛计时器（模板/多屏同步/比赛记录）',
+          description: '辩论赛计时器（赛制模板/多屏同步/比赛记录）',
           start_url: BASE,
           display: 'standalone',
           theme_color: '#1a237e',

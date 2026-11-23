@@ -6,6 +6,10 @@
   <title>辩论赛计时器 DebateTimer — 大屏同步 · 手机遥控 · 赛制模板</title>
   <meta name="description" content="为华语辩论而生的开源计时系统：大屏毫秒级同步、手机遥控、赛制模板广场、比赛记录复盘。免费开源（MIT），可一键自部署。" />
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <!-- 与应用同一字体（应用 index.html 同款），保证演示板排版一致 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -44,27 +48,12 @@
         <p class="hero-note" data-i18n="hero.note">免费开源（MIT） · 无需安装 · 支持中 / 英 / 法三语</p>
       </div>
 
-      <!-- 现场演示记分牌 -->
+      <!-- 现场演示记分牌：严格复刻大屏页（dt-/tb- dark 主题）与控制端地铁线（st-） -->
       <div class="board" aria-hidden="true">
-        <div class="board-stage">
-          <span class="stage-dot"></span>
-          <span id="demoStageName">一辩立论</span>
-          <span id="demoStageMode" class="stage-mode">单计时</span>
-        </div>
-        <div class="clock-wrap">
-          <svg class="clock-ring" viewBox="0 0 200 200">
-            <circle class="ring-track" cx="100" cy="100" r="88" />
-            <circle class="ring-fill" id="demoRing" cx="100" cy="100" r="88" />
-          </svg>
-          <div class="clock-digits" id="demoDigits">1:00</div>
-        </div>
-        <div class="sides" id="demoSides">
-          <span class="side pill-pro" id="demoSidePro">正方</span>
-          <span class="side pill-con" id="demoSideCon">反方</span>
-        </div>
-        <p class="demo-hint" id="demoHint"></p>
-        <!-- 地铁线站点（阶段进度） -->
-        <div class="stations" id="demoStations"></div>
+        <div class="board-bar"><span class="dt-banner-follow" id="demoBanner" data-i18n="demo.following">跟随中</span></div>
+        <div class="dt-stage-name" id="demoStageName">一辩立论</div>
+        <div class="dt-clocks" id="demoClocks"></div>
+        <div class="stage-timeline" id="demoStations"></div>
       </div>
     </div>
   </header>

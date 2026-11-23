@@ -1,4 +1,4 @@
-/* 辩论赛计时器 DebateTimer 官网 — 中英双语 + 记分牌演示 */
+/* 辩论赛计时器 DebateTimer 官网 — 中英双语 + 记分牌演示（严格复刻应用设计） */
 (function () {
   "use strict";
 
@@ -72,12 +72,11 @@
       "footer.stack": "React + Vite + Bun · Express + MongoDB",
       "footer.app": "打开应用",
       demo: {
-        modeSingle: "单计时",
-        modeFree: "自由辩论",
-        warn: "还有 30 秒",
-        zero: "时间到",
-        sidePro: "正方",
-        sideCon: "反方",
+        following: "跟随中",
+        badgeAff: "正",
+        badgeNeg: "反",
+        sideAff: "正方",
+        sideNeg: "反方",
       },
       stages: ["一辩立论", "一辩质询", "二辩驳论", "自由辩论", "总结陈词"],
       langBtn: "EN",
@@ -130,12 +129,11 @@
       "footer.stack": "React + Vite + Bun · Express + MongoDB",
       "footer.app": "Launch App",
       demo: {
-        modeSingle: "single",
-        modeFree: "free debate",
-        warn: "30 seconds left",
-        zero: "Time!",
-        sidePro: "Pro",
-        sideCon: "Con",
+        following: "Following",
+        badgeAff: "AFF",
+        badgeNeg: "NEG",
+        sideAff: "Affirmative",
+        sideNeg: "Negative",
       },
       stages: ["Opening", "Cross-ex", "Rebuttal", "Free Debate", "Closing"],
       langBtn: "中",
@@ -162,15 +160,16 @@
   }
 
   function applyLang() {
-    var dict = I18N[lang];
     var nodes = document.querySelectorAll("[data-i18n]");
     for (var i = 0; i < nodes.length; i++) {
       var key = nodes[i].getAttribute("data-i18n");
-      if (Object.prototype.hasOwnProperty.call(dict, key)) nodes[i].textContent = dict[key];
+      var val = t(key);
+      if (val !== key) nodes[i].textContent = val; // t() 支持嵌套键（demo.*）
     }
     document.documentElement.setAttribute("lang", lang === "zh" ? "zh-CN" : "en");
-    document.getElementById("langToggle").textContent = dict.langBtn;
+    document.getElementById("langToggle").textContent = I18N[lang].langBtn;
     buildStations();
+    buildClocks();
   }
 
   document.getElementById("langToggle").addEventListener("click", function () {
@@ -179,117 +178,145 @@
     applyLang();
   });
 
-  /* ===== 记分牌演示：每阶段 60s，30s 警告，到点红灯后切下一站 ===== */
-  var STAGE_DUR = 60;
+  /* ======================================================================
+     记分牌演示 —— 严格复刻应用行为：
+     · formatTime 零填充 MM:SS（engine.formatTime）
+     · 单计时 = 单卡；自由辩论 = 双卡 + 持方高亮（tb-active）
+     · 30 秒提醒 = 仅闪烁（warn 不变色）；耗尽 = 红色锁定闪烁
+     · 自由辩论时间耗尽自动交棒（auto handover）
+     · 控制端地铁线：互换胶囊（模式切换站）、当前站呼吸图标
+     ==================================================================== */
   var MODES = ["single", "single", "single", "free", "single"];
-  var ring = document.getElementById("demoRing");
-  var digits = document.getElementById("demoDigits");
-  var stageName = document.getElementById("demoStageName");
-  var stageMode = document.getElementById("demoStageMode");
-  var hint = document.getElementById("demoHint");
-  var sidesBox = document.getElementById("demoSides");
-  var sidePro = document.getElementById("demoSidePro");
-  var sideCon = document.getElementById("demoSideCon");
-  var stationsBox = document.getElementById("demoStations");
-  var RING_LEN = 2 * Math.PI * 88;
+  var SINGLE_DUR = 60;   // 单计时阶段演示时长（秒）
+  var FREE_DUR = 24;     // 自由辩论每方演示时长（压短便于看到自动交棒）
+  var LOCK_HOLD = 2;     // 锁定后停留秒数，随后切下一阶段
+
+  // 呼吸图标（StageIcon 的 mode 兜底：single→Timer、free→Forum，Material 同款路径）
+  var ICON_TIMER = '<svg viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm-2 13h-2V8h2v6zm6.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
+  var ICON_FORUM = '<svg viewBox="0 0 24 24"><path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/></svg>';
 
   var stageIdx = 0;
-  var elapsed = 0;
-  var overBy = 0;
-  var warned = false;
+  var remain = { single: SINGLE_DUR, aff: FREE_DUR, neg: FREE_DUR };
+  var activeSide = "aff";
+  var locked = { single: false, aff: false, neg: false };
+  var lockHold = 0;      // 全部锁定后已停留秒数
   var lastSecond = -1;
 
-  function buildStations() {
-    stationsBox.innerHTML = "";
-    for (var j = 0; j < I18N.zh.stages.length; j++) {
-      var el = document.createElement("div");
-      el.className = "station";
-      var dot = document.createElement("div");
-      dot.className = "station-dot";
-      var name = document.createElement("div");
-      name.className = "station-name";
-      name.textContent = I18N[lang].stages[j];
-      el.appendChild(dot);
-      el.appendChild(name);
-      stationsBox.appendChild(el);
-    }
-    renderStations();
-  }
+  var stageNameEl = document.getElementById("demoStageName");
+  var clocksEl = document.getElementById("demoClocks");
+  var stationsEl = document.getElementById("demoStations");
 
+  // 复刻 engine.formatTime：零填充 MM:SS
   function fmt(sec) {
     var m = Math.floor(sec / 60);
     var s = sec % 60;
-    return m + ":" + (s < 10 ? "0" : "") + s;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
   }
 
-  function renderStations() {
-    var nodes = stationsBox.children;
-    for (var i = 0; i < nodes.length; i++) {
-      nodes[i].className =
-        "station" + (i < stageIdx ? " done" : i === stageIdx ? " current" : "");
+  function boxHtml(sideKey) {
+    var isFree = MODES[stageIdx] === "free";
+    var head = isFree
+      ? '<h3 class="tb-head"><span class="tb-badge">' + t("demo." + (sideKey === "aff" ? "badgeAff" : "badgeNeg")) + '</span>' +
+        t("demo." + (sideKey === "aff" ? "sideAff" : "sideNeg")) + '</h3>'
+      : "";
+    return '<div class="tb-box tb-box--display" data-side="' + sideKey + '">' + head +
+      '<h1 class="tb-clock" data-clock="' + sideKey + '">' + fmt(remain[sideKey]) + "</h1></div>";
+  }
+
+  function buildClocks() {
+    if (MODES[stageIdx] === "free") {
+      clocksEl.innerHTML = boxHtml("aff") + boxHtml("neg");
+    } else {
+      clocksEl.innerHTML = boxHtml("single");
     }
-    stageName.textContent = t("stages")[stageIdx];
-    stageMode.textContent = MODES[stageIdx] === "free" ? t("demo.modeFree") : t("demo.modeSingle");
-    sidesBox.style.visibility = MODES[stageIdx] === "free" ? "visible" : "hidden";
+  }
+
+  function updateClock(sideKey) {
+    var el = clocksEl.querySelector('[data-clock="' + sideKey + '"]');
+    if (!el) return;
+    el.textContent = fmt(remain[sideKey]);
+    var box = el.parentNode;
+    // warn：≤10s 仅闪烁不变色；locked：红色闪烁（TimerBox 语义）
+    var isWarn = remain[sideKey] <= 10 && remain[sideKey] > 0;
+    el.className = "tb-clock" + (locked[sideKey] ? " tb-clock--locked" : isWarn ? " tb-clock--warn" : "");
+    if (MODES[stageIdx] === "free") {
+      // 持方高亮跟随当前起表方（tb-active）
+      box.className = "tb-box tb-box--display" + (activeSide === sideKey && !locked[sideKey] ? " tb-active" : "");
+    }
+  }
+
+  function interchangeAt(i) {
+    return i > 0 && MODES[i] !== MODES[i - 1];
+  }
+
+  function buildStations() {
+    var html = "";
+    for (var i = 0; i < MODES.length; i++) {
+      var cls = "st-step";
+      if (i < stageIdx) cls += " st-step--passed";
+      if (i === stageIdx) cls += " st-step--current";
+      if (interchangeAt(i)) cls += " st-step--interchange";
+      var marker = i === stageIdx
+        ? '<span class="st-marker">' + (MODES[i] === "free" ? ICON_FORUM : ICON_TIMER) + "</span>"
+        : "";
+      html += '<div class="' + cls + '">' + marker +
+        '<span class="st-dot">' + (i + 1) + '</span>' +
+        '<span class="st-name">' + t("stages")[i] + "</span></div>";
+    }
+    stationsEl.innerHTML = html;
+    stageNameEl.textContent = t("stages")[stageIdx];
+  }
+
+  function resetStage() {
+    remain.single = SINGLE_DUR;
+    remain.aff = FREE_DUR;
+    remain.neg = FREE_DUR;
+    activeSide = "aff";
+    locked.single = locked.aff = locked.neg = false;
+    lockHold = 0;
+    lastSecond = -1;
+  }
+
+  function advanceStage() {
+    stageIdx = (stageIdx + 1) % MODES.length;
+    resetStage();
+    buildClocks();
+    buildStations();
   }
 
   function tick() {
-    elapsed += 0.25;
-    if (elapsed >= STAGE_DUR) {
-      overBy += 0.25;
-      if (overBy >= 3) {
-        stageIdx = (stageIdx + 1) % MODES.length;
-        elapsed = 0;
-        overBy = 0;
-        warned = false;
-        lastSecond = -1;
-        hint.className = "demo-hint";
-        hint.textContent = "";
-        digits.className = "clock-digits";
-        ring.classList.remove("warn", "zero");
-        renderStations();
+    var mode = MODES[stageIdx];
+    var secondsPassed = lastSecond >= 0 && Math.floor(Date.now() / 1000) === lastSecond;
+    if (secondsPassed) return;
+    lastSecond = Math.floor(Date.now() / 1000);
+
+    if (mode === "single") {
+      if (locked.single) {
+        lockHold += 1;
+        if (lockHold >= LOCK_HOLD) advanceStage();
         return;
       }
-      digits.textContent = "0:00";
-      digits.className = "clock-digits zero";
-      ring.className = "ring-fill zero";
-      ring.style.strokeDashoffset = RING_LEN;
-      hint.className = "demo-hint zero";
-      hint.textContent = t("demo.zero");
-      return;
-    }
-    var remain = Math.ceil(STAGE_DUR - elapsed);
-    if (remain !== lastSecond) {
-      lastSecond = remain;
-      digits.textContent = fmt(remain);
-      digits.className = remain <= 30 ? "clock-digits warn" : "clock-digits";
-      ring.className = remain <= 30 ? "ring-fill warn" : "ring-fill";
-      if (remain <= 30 && !warned) {
-        warned = true;
-        hint.className = "demo-hint warn";
-        hint.textContent = t("demo.warn");
-      } else if (remain > 30 && warned === false) {
-        hint.textContent = "";
+      remain.single = Math.max(0, remain.single - 1);
+      if (remain.single === 0) locked.single = true;
+      updateClock("single");
+    } else {
+      var allLocked = locked.aff && locked.neg;
+      if (allLocked) {
+        lockHold += 1;
+        if (lockHold >= LOCK_HOLD) advanceStage();
+        return;
       }
-      var frac = remain / STAGE_DUR;
-      ring.style.strokeDashoffset = String(RING_LEN * (1 - frac));
-    }
-    if (MODES[stageIdx] === "free") {
-      var activePro = Math.floor(elapsed / 8) % 2 === 0;
-      sidePro.className = "side pill-pro" + (activePro ? " active" : "");
-      sideCon.className = "side pill-con" + (activePro ? "" : " active");
+      if (locked[activeSide]) {
+        // 自动交棒：耗尽方锁定，另一方立即起表
+        activeSide = activeSide === "aff" ? "neg" : "aff";
+      }
+      remain[activeSide] = Math.max(0, remain[activeSide] - 1);
+      if (remain[activeSide] === 0) locked[activeSide] = true;
+      updateClock("aff");
+      updateClock("neg");
     }
   }
 
-  /* 初始化 */
-  sidePro.textContent = I18N[lang].demo.sidePro;
-  sideCon.textContent = I18N[lang].demo.sideCon;
   applyLang();
-  renderStations();
-  setInterval(tick, 250);
-  // 语言切换时刷新正反方标签
-  document.getElementById("langToggle").addEventListener("click", function () {
-    sidePro.textContent = t("demo.sidePro");
-    sideCon.textContent = t("demo.sideCon");
-  });
+  setInterval(tick, 1000);
 })();

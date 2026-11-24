@@ -99,3 +99,21 @@ export async function deleteConfigurationById(id) {
         return toServiceError(error, 'Delete configuration');
     }
 }
+
+/**
+ * Administrator recovery for an account that lost its authenticator and used
+ * up its recovery codes (R20 D57). Not allowed on the administrator's own
+ * account, and only for accounts with two-step verification on. The account
+ * is signed out everywhere.
+ */
+export async function resetTotp(userId) {
+    try {
+        const { data, status } = await apiClient.post('/api/admin/totp/reset', { userId });
+        if (!data.success) {
+            return { success: false, message: data.message || `Request failed (${status})` };
+        }
+        return data;
+    } catch (error) {
+        return toServiceError(error, 'Reset two-step verification');
+    }
+}

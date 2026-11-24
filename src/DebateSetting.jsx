@@ -68,6 +68,10 @@ import { stageDisplayName } from './utils/stageDisplayName';
 import { normalizeOwnerScope, pickInitialTemplate } from './utils/settingsScope';
 import { useColorMode } from './context/ColorModeContext';
 import { useAuth } from './context/AuthContext';
+
+// "Account and security" sits at the foot of this page only; it is downloaded
+// when the page is opened, not with the timer or the sign-in page.
+const AccountSecuritySection = React.lazy(() => import('./components/account/AccountSecuritySection'));
 import { useFeedback } from './context/FeedbackContext';
 
 /** Generate a short unique ID for custom stages. */
@@ -1368,6 +1372,10 @@ const DebateSetting = () => {
                             {t('settings.save')}
                         </Button>
                     </Stack>
+
+                    <React.Suspense fallback={null}>
+                        <AccountSecuritySection />
+                    </React.Suspense>
                 </Stack>
             </Container>
         </Box>

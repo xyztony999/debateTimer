@@ -19,12 +19,20 @@
          vite-plugin-pwa at build time; see vite.config.js VitePWA(). -->
     <title>辩论赛计时器</title>
 
+    <!-- Non-blocking: a stalled third-party font request must never hold the first paint.
+         Until the font arrives the UI uses the fallback stack from src/theme.js.
+         Written as preload + switch because Vite rewrites <link rel="stylesheet"> tags and
+         drops extra attributes (media / onload), which turned the other non-blocking
+         spelling back into a blocking one in the build output. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
-      rel="stylesheet"
+      onload="this.rel='stylesheet'"
     />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
 
     <!-- Start Single Page Apps for GitHub Pages -->
     <script type="text/javascript">

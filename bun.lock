@@ -15,6 +15,7 @@
         "axios": "^1.17.0",
         "i18next": "^26.0.10",
         "i18next-browser-languagedetector": "^8.2.1",
+        "qrcode-generator": "^2.0.4",
         "react": "^19.2.6",
         "react-dom": "^19.2.6",
         "react-i18next": "^17.0.7",
@@ -963,6 +964,8 @@
     "proxy-from-env": ["proxy-from-env@2.1.0", "https://registry.npmmirror.com/proxy-from-env/-/proxy-from-env-2.1.0.tgz", {}, "sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA=="],
 
     "punycode": ["punycode@2.3.1", "https://registry.npmmirror.com/punycode/-/punycode-2.3.1.tgz", {}, "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg=="],
+
+    "qrcode-generator": ["qrcode-generator@2.0.4", "https://registry.npmmirror.com/qrcode-generator/-/qrcode-generator-2.0.4.tgz", {}, "sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g=="],
 
     "react": ["react@19.2.6", "https://registry.npmmirror.com/react/-/react-19.2.6.tgz", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 

@@ -2,10 +2,10 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
+| 版本 | v1.1 |
 | 状态 | 稳定 |
-| 最后更新 | 2026-11-11 |
-| 上游 | enum-pool.md v1.0（业务枚举）；本册只登记**下拉/选择器类可选项**（id + 三语标签 + 消费组件） |
+| 最后更新 | 2026-11-24 |
+| 上游 | enum-pool.md v1.2（业务枚举）；本册只登记**下拉/选择器类可选项**（id + 三语标签 + 消费组件） |
 
 ## 1. 文档定位
 
@@ -121,6 +121,26 @@
 | `bp-sample.json` | 英国议会制 BP（样例） | `server/scripts/presets/bp-sample.json:3` |
 | `oregon-sample.json` | 奥瑞冈制（样例） | `server/scripts/presets/oregon-sample.json:3` |
 
+### SP-12 审计事件类型筛选（【R20】管理员后台「审计日志」卡）
+
+| 维度 | 内容 |
+|------|------|
+| 选项 id | EP-AUDIT-01 的 20 个取值，外加「全部」（不传 `type`） |
+| 分组 id 与顺序 | `auth`（认证与两步验证）：`registered`、`login_succeeded`、`login_failed`、`totp_succeeded`、`totp_failed`、`recovery_code_used`、`totp_bound`、`totp_unbound`、`totp_reset`；`privacy`（隐私说明）：`privacy_consented`；`account`（账号治理）：`user_created`、`role_changed`、`status_changed`、`password_reset`、`user_deleted`；`content`（设置与内容）：`registration_setting_changed`、`gallery_published`、`gallery_unpublished`、`template_deleted_by_admin`；`audit`（审计）：`audit_scrubbed` |
+| 文案键 | `audit.event.<取值>`、`audit.eventGroup.<分组 id>`（三语，取值见 admin-page PageSpec v1.1 §4.6） |
+| 消费组件 | admin-page PageSpec v1.1 §4.6 审计日志卡的「事件类型」下拉（单选） |
+
+- 选项 id 即 wire 值，文案走 i18n；下拉选项在前端以 EP-AUDIT-01 的常量镜像生成，不在服务端下发字典（本栈无字典接口，见 §3）。
+
+### SP-13 审计结果筛选（【R20】管理员后台「审计日志」卡）
+
+| id | 语义 | 来源 |
+|----|------|------|
+| `success` | 只看成功事件 | EP-AUDIT-02 |
+| `failure` | 只看失败事件（即登录失败与二次验证失败） | 同上 |
+
+- 「全部」为不传 `result`。与 SP-12 一样不单独建字典接口。
+
 ## 3. 与枚举池的边界
 
 | 池 | 收录范围 | 例 |
@@ -133,4 +153,5 @@
 
 | 版本 | 日期 | 更新说明 |
 |------|------|---------|
+| v1.1 | 2026-11-24 | R20：新增 SP-12 审计事件类型筛选、SP-13 审计结果筛选（选项 id 即 EP-AUDIT-01、EP-AUDIT-02 的 wire 值）；前 11 组未变 |
 | v1.0 | 2026-11-11 | 初始生成：11 组选择池全部核对源文件（选项集/文案/消费组件/落点），三语标签逐一比对 locale 词条 |

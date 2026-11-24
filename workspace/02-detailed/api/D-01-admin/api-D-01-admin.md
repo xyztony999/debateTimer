@@ -2,28 +2,28 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
-| 日期 | 2026-11-11 |
+| 版本 | v1.1 |
+| 日期 | 2026-11-24 |
 | 模块编码 | D-01（基础数据域，无子模块；文件夹 `D-01-admin`） |
-| 状态 | 逆向归档（系统已上线，如实反映现有实现） |
-| 输入 | D-01-user-governance PRD v1.0 + AA/FL v1.0 + 现有代码 |
+| 状态 | v1.0 为逆向归档（系统已上线，如实反映现有实现）；v1.1 增量以【R20】标注，属前瞻设计，待代码阶段实现 |
+| 输入 | D-01-user-governance PRD v1.1 + AA v1.2 / FL v1.2 + 现有代码 + R20 安全与合规设计说明 |
 | 功能类型 | 台账（治理台账）+ 主数据治理（承 PRD §7） |
-| 实现索引 | server/routes/admin.js、server/lib/authMiddleware.js、server/lib/authPolicy.js、server/lib/session.js、server/lib/configDocs.js:254-266、server/index.js:119-139、src/services/adminService.js |
+| 实现索引 | server/routes/admin.js、server/lib/authMiddleware.js、server/lib/authPolicy.js、server/lib/session.js、server/lib/configDocs.js:254-266、server/index.js:119-139、src/services/adminService.js；【R20】规划落点 `server/lib/auditLog.js`（`recordAudit`、`scrubUserAuditLogs`）、`src/components/admin/AuditLogCard.jsx` |
 
-> 章节裁剪依据 d3-api 分册裁剪矩阵：第 2 章不适用（本域无聚合根、无跨聚合根编排，PRD §6.1）；第 3/4/5/6 章按主数据类保留。系统已上线，本文档为逆向归档而非新设计。
+> 章节裁剪依据 d3-api 分册裁剪矩阵：第 2 章不适用（本域无聚合根、无跨聚合根编排，PRD §6.1）；第 3/4/5/6 章按主数据类保留。系统已上线，v1.0 部分为逆向归档而非新设计；v1.1 的【R20】增量部分为前瞻设计。
 
 ## 1. 模块设计概述
 
 ### 1.1 业务背景及目标
 
-系统采用轻量 IAM：首个注册用户自动成为管理员，之后管理员在后台治理账号与全部用户的赛制模板（FL 2.3.2.1「用户治理 / 配置治理」）。本模块为治理操作提供 HTTP 接口面：**管理员鉴权链**（谁能调用）+ **用户台账与治理**（清单/创建/禁用/角色/改密/删除）+ **配置治理**（全部用户模板台账/强制删除）。
+系统采用轻量 IAM：首个注册用户自动成为管理员，之后管理员在后台治理账号与全部用户的赛制模板（FL 2.3.2.1「用户治理 / 配置治理」）。本模块为治理操作提供 HTTP 接口面：**管理员鉴权链**（谁能调用）+ **用户台账与治理**（清单/创建/禁用/角色/改密/删除）+ **配置治理**（全部用户模板台账/强制删除）。【R20】v1.1 起三件事进入本模块的接口面：治理动作写入审计日志；管理员重置他人两步验证；删除账号时同步清洗审计日志。管理后台另新增「审计日志」卡的查阅入口，其数据与查询接口属 P-04。
 
 ### 1.2 边界说明
 
 | 边界 | 说明 |
 |------|------|
-| 做什么 | `/api/admin/*` 六个治理端点；`/api/configurations` 的 admin `ownerId` 代管放行；治理动作后的会话销毁与 SSE 广播 |
-| 不做什么 | 注册/登录/登出端点（S-01）；注册开关的存储语义（D-02-settings，端点挂在同一 admin 路由）；模板的常规 CRUD 读写（S-02，本域只有台账与强制删除）；广场下架（S-03，管理页复用 `POST /api/gallery/:id/unpublish`）；审计日志（PRD N4 缺口，现无实现） |
+| 做什么 | `/api/admin/*` 六个既有治理端点【R20：加两步验证重置共七个】；`/api/configurations` 的 admin `ownerId` 代管放行；治理动作后的会话销毁与 SSE 广播；【R20】每个治理动作写一条审计事件；【R20】删除账号时先清洗审计日志 |
+| 不做什么 | 注册/登录/登出端点（S-01）；注册开关的存储语义（D-02-settings，端点挂在同一 admin 路由）；模板的常规 CRUD 读写（S-02，本域只有台账与强制删除）；广场下架（S-03，管理页复用 `POST /api/gallery/:id/unpublish`）；【R20 修订】审计日志的存储与查询接口（P-04；本域只调用写入器与清洗函数）；【R20】两步验证的绑定与登录校验（S-01）；管理员代管编辑他人模板的审计（S-02 保存路径，本轮不改） |
 | 用户类型 | 管理员（唯一调用方）；注册用户为被治理对象 |
 
 ### 1.3 设计决策
@@ -36,6 +36,10 @@
 | DA-4 | 管理员代管 = `ownerId` 查询参数放行（`resolveOwnerId`），模板不复制给管理员、不产生归属变更 | server/lib/authPolicy.js:25-30、server/routes/configurations.js:47-49,66-68,90-92,133-135,163-165 |
 | DA-5 | 删除用户级联物理删除其全部 configurations，并 `sse.broadcast({ownerId})` 通知各端台账刷新 | server/routes/admin.js:233-236 |
 | DA-6 | 错误响应统一 `{success:false, message}`，不含 `code` 字段（与 configurations 路由的错误体不同，后者可含 code） | server/routes/admin.js:13-19 |
+| 【R20】DA-7 | 治理动作在业务写入成功后调用 `recordAudit`；同值重写不产生事件；写入失败则请求 500 | R20 D64；P-04 API §4.4.2、§4.4.5 |
+| 【R20】DA-8 | 删除账号的执行顺序改为：写 `user_deleted` → 清洗审计日志 → 写 `audit_scrubbed` → 销毁会话 → 级联删除模板 → 删除账号 → 广播 | R20 D59；P-04 PRD §5.4 |
+| 【R20】DA-9 | 两步验证重置复用 S-01 导出的 `removeTotp`（移除 `totp` 子文档并销毁目标全部会话），不能对自己执行 | R20 D57；S-01 API v1.1 §5.1 |
+| 【R20】DA-10 | A1 响应追加布尔字段 `totpEnabled`，不暴露两步验证的其他字段 | 管理页据此显示状态列与「重置两步验证」按钮 |
 
 ### 1.4 领域对象总览
 
@@ -56,6 +60,8 @@
 | S-02 赛制模板管理 | 台账投影 + 按 id 强制删除；常规 CRUD 留在 S-02 上下文 | OHS（消费方） |
 | D-02 系统配置 | 同一 admin 路由挂载 settings 端点（见 api-D-02-settings.md），本文档不重复 | 遵奉者 |
 | C-02/P-01（SSE 通道） | 治理动作经 `sse.broadcast` 发 `change` 事件 | PL（发布方） |
+| 【R20】P-04 审计日志 | 本域各治理动作调用 `recordAudit`；删除账号时调用 `scrubUserAuditLogs`；管理页的审计日志卡调用 P-04 的查询接口 | 遵奉者 |
+| 【R20】S-01 账号与准入（两步验证） | 两步验证重置调用 S-01 导出的 `removeTotp` | 遵奉者 |
 
 ## 2. 跨聚合根设计
 
@@ -67,8 +73,8 @@
 
 | 项 | 规范 |
 |----|------|
-| 路径格式 | `/api/admin/<resource>`（两段式：挂载前缀 `/api/admin` + 资源段；id 类操作 `/api/admin/<resource>/:id`） |
-| HTTP 方法 | GET（台账）/ POST（创建）/ PATCH（部分更新，三组字段可选）/ DELETE（删除） |
+| 路径格式 | `/api/admin/<resource>`（两段式：挂载前缀 `/api/admin` + 资源段；id 类操作 `/api/admin/<resource>/:id`）。【R20】新增端点一律三段式 `/api/admin/<资源>/<操作>`（api-path-rules.md §2 第 2 条） |
+| HTTP 方法 | GET（台账）/ POST（创建）/ PATCH（部分更新，三组字段可选）/ DELETE（删除）；【R20】POST（两步验证重置） |
 | 响应包络 | 成功 `{success:true, data?, message?}`；失败 `{success:false, message}`（无 `code` 字段，DA-6） |
 | 时间戳 | epoch 毫秒（`Date.now()`），如 `createdAt`/`updatedAt` |
 | 认证 | 会话 cookie `dt_session`（env `SESSION_COOKIE_NAME`），sha256 哈希后在 sessions 集合匹配未过期会话并加载未禁用用户（server/lib/authMiddleware.js:5-25） |
@@ -84,12 +90,14 @@
 | 校验函数 | server/lib/password.js:6-22（用户名 `^[a-z0-9_]{3,32}$`、密码 8–200 字符），与 S-01 注册端点同一套 |
 | SSE Hub | `sse.broadcast`（P-01，server/lib/sseHub.js:17-34） |
 | 量级约束 | 社团规模（十至百级），全量清单无分页（PRD N1） |
+| 【R20】P-04 auditLog | `recordAudit`（写入事件）、`scrubUserAuditLogs`（删除账号时清洗）、`consentOf`（管理员的同意状态，决定事件是否记 IP） |
+| 【R20】S-01 `removeTotp` | 两步验证重置：移除 `totp` 子文档并销毁目标全部会话 |
 
 ### 3.3 权限模型
 
 | 角色 | 可调用端点 | 数据权限 |
 |------|-----------|---------|
-| admin | 本模块全部端点 | 全量（全部用户、全部用户模板） |
+| admin | 本模块全部端点（A1~A7） | 全量（全部用户、全部用户模板） |
 | 注册用户 | 无（403） | — |
 | 访客 | 无（401） | — |
 
@@ -98,11 +106,14 @@
 ### 3.4 公共规范
 
 - 错误消息为英文机器串（如 `Cannot disable the last admin`），前端直显或经 toServiceError 包装（src/services/adminService.js:32-40）。
-- `toAdminUser` 投影 = `publicUser`（{id, username, role}，authPolicy.js:42-51）+ `disabled` + `createdAt`（admin.js:21-27）。
+- `toAdminUser` 投影 = `publicUser`（{id, username, role}，authPolicy.js:42-51）+ `disabled` + `createdAt`（admin.js:21-27）。【R20】v1.1 追加布尔字段 `totpEnabled`（取 `Boolean(user.totp?.enabled)`）；不返回两步验证的其他字段。
 - `toAdminListItem` 投影 = {id, name, ownerId, ownerUsername, createdAt, updatedAt, shareEnabled, shareToken（仅 shareEnabled 时为真实 token，否则 null）, isPublic}（server/lib/configDocs.js:254-266）。
 - 枚举定义（已入池，引用 workspace/01-solution/common-spec/enum-pool.md，编号如下）：
   - `role`: EP-IDENT-01——`admin` / `user`（写入口仅接受 `admin`，其余值一律落 `user`，admin.js:125）
   - `disabled`: EP-IDENT-03——`true` / `false`（两态开关，无状态机）
+  - 【R20】审计事件类型: EP-AUDIT-01——本域产生 `user_created`、`role_changed`、`status_changed`、`password_reset`、`user_deleted`、`audit_scrubbed`、`template_deleted_by_admin`、`totp_reset`
+  - 【R20】两步验证渠道: EP-IDENT-06——A7 固定写 `admin`
+- 【R20】本域新增端点的失败包络沿用 `{success:false, message}`，不加 `code` 字段（DA-6）。
 
 ## 4. 聚合根详细设计（无聚合根模块的接口归档）
 
@@ -115,6 +126,8 @@
 | User（users） | `_id`（ObjectId）、`username`（唯一索引，S-01 建）、`passwordHash`（bcrypt 12 轮）、`role`（枚举 role）、`disabled`（布尔，缺省 false）、`createdAt`（epoch ms） | server/routes/admin.js:139-145、server/index.js:104 |
 | Configuration（configurations） | `_id`、`ownerId`、`name`、`shareEnabled`、`shareToken`、`isPublic`、`createdAt`/`updatedAt` | server/lib/configDocs.js:254-266 |
 | 不变量 | INV-1 任意时刻存在 ≥1 名可用管理员（`role:'admin' && disabled !== true`，由 countAdmins 守卫）；INV-2 不可禁用/删除操作者本人 | server/routes/admin.js:104-110,168-170,219-221 |
+| 【R20】User 上的 `totp` 子文档 | `enabled`（经 A1 以 `totpEnabled` 暴露） | 本域只做整体移除（A7），不读取也不修改其中的密文 |
+| 【R20】audit_logs（属 P-04） | 只经 `recordAudit` 写入；删除账号时经 `scrubUserAuditLogs` 删除与匿名化 | 本域不直接操作该集合 |
 
 ### 4.2 状态模型
 
@@ -122,7 +135,7 @@
 
 ### 4.3 子流程设计
 
-不适用——无审批、无多轮流程（PRD §6.3）。
+不适用——无审批、无多轮流程（PRD §6.3）。【R20】删除账号时对审计日志的清洗是 P-04 的子流程，本域只在 A4 中按固定顺序调用（见 A4）。
 
 ### 4.4 接口设计
 
@@ -130,21 +143,22 @@
 
 | # | 方法 | 路径 | 说明 | 代码 |
 |---|------|------|------|------|
-| A1 | GET | `/api/admin/users` | 用户台账（全量，createdAt 升序） | admin.js:112-119 |
-| A2 | POST | `/api/admin/users` | 管理员直接开账号（绕过注册开关） | admin.js:121-151 |
-| A3 | PATCH | `/api/admin/users/:id` | 禁用/启用、角色升降、重置密码 | admin.js:153-210 |
-| A4 | DELETE | `/api/admin/users/:id` | 删除用户（级联删模板 + SSE） | admin.js:212-241 |
+| A1 | GET | `/api/admin/users` | 用户台账（全量，createdAt 升序）【v1.1 响应加 `totpEnabled`】 | admin.js:112-119 |
+| A2 | POST | `/api/admin/users` | 管理员直接开账号（绕过注册开关）【v1.1 写审计事件】 | admin.js:121-151 |
+| A3 | PATCH | `/api/admin/users/:id` | 禁用/启用、角色升降、重置密码【v1.1 写审计事件】 | admin.js:153-210 |
+| A4 | DELETE | `/api/admin/users/:id` | 删除用户（清洗审计日志 + 级联删模板 + SSE）【v1.1 执行顺序调整】 | admin.js:212-241 |
 | A5 | GET | `/api/admin/configurations` | 全部用户模板台账 | admin.js:243-260 |
-| A6 | DELETE | `/api/admin/configurations/:id` | 强制删除任意模板 | admin.js:262-287 |
+| A6 | DELETE | `/api/admin/configurations/:id` | 强制删除任意模板【v1.1 写审计事件】 | admin.js:262-287 |
+| 【R20】A7 | POST | `/api/admin/totp/reset` | 重置他人账号的两步验证（三段式） | 规划：admin.js |
 
-挂载与鉴权：六端点整体位于 `router.use(requireAuth, requireAdmin)` 之后（admin.js:39）；匿名 401、非 admin 403。
+挂载与鉴权：七端点整体位于 `router.use(requireAuth, requireAdmin)` 之后（admin.js:39）；匿名 401、非 admin 403。【R20】管理员的会话若仍有待办步骤，A1~A7 同样被门控拒绝（S-01 API §3.5），管理员须先完成隐私确认与强制绑定。
 
 #### 4.4.2 接口详情
 
 **A1 `GET /api/admin/users`**
 
 - 请求：无参数（全量）。
-- 响应 200：`{success:true, data: AdminUser[]}`，按 `createdAt` 升序；`AdminUser = {id, username, role, disabled, createdAt}`。
+- 响应 200：`{success:true, data: AdminUser[]}`，按 `createdAt` 升序；`AdminUser = {id, username, role, disabled, createdAt, totpEnabled}`。【R20】`totpEnabled` 为 v1.1 新增的布尔字段（DA-10）。
 - 规则：无筛选/分页（量级约束，3.2）。
 
 **A2 `POST /api/admin/users`**
@@ -156,7 +170,8 @@
   3. `role` 仅接受字面量 `'admin'`，其余一律落 `'user'`（admin.js:125）；
   4. 用户名重复 → 409 `Username already taken`（admin.js:133-137）；
   5. 绕过注册开关——admin 开账号不查 app_settings（对比 S-01 `/register`）。
-- 响应 201：`{success:true, data: AdminUser}`（含 `disabled:false`）。
+  6. 【R20】建号成功后写审计事件 `user_created`（actor 为当前管理员，subject 为新账号，detail `{role}`，consent 取 `consentOf(管理员)`）。此账号没有经过注册页，没有隐私同意记录，其首次登录会进入 S-01 的确认流程。
+- 响应 201：`{success:true, data: AdminUser}`（含 `disabled:false`、`totpEnabled:false`）。
 
 **A3 `PATCH /api/admin/users/:id`**
 
@@ -169,8 +184,13 @@
   5. `password` 提供时走 `validatePassword`（不符 400），通过后写 `passwordHash`（admin.js:187-194）；
   6. 无任何更新字段 → 幂等返回当前用户 200（admin.js:196-199）；
   7. 更新含 `disabled` 或 `passwordHash` 时立即 `destroyUserSessions`（删除该用户全部会话文档，session.js:49-51）→ 被治用户全部端强制重新登录（admin.js:202-204）。
+  8. 【R20】审计（在 `users.updateOne` 成功之后，按实际发生的字段写，可同请求多条）：
+     - `role` 提供且与原值不同 → `role_changed`，detail `{from, to}`；
+     - `disabled` 提供且与原值不同 → `status_changed`，detail `{from, to}` 取 `enabled` 或 `disabled`；
+     - 提供 `password` → `password_reset`，detail `{}`（不含任何口令值）。
+     actor 为当前管理员，subject 为目标账号，consent 取 `consentOf(管理员)`。
 - 响应 200：`{success:true, data: AdminUser}`（更新后重读，admin.js:205-206）。
-- 副作用：会话销毁（仅 disabled/改密）；无 SSE 广播（模板台账不受影响）。
+- 副作用：会话销毁（仅 disabled/改密）；无 SSE 广播（模板台账不受影响）。【R20】审计事件（规则 8）。
 
 **A4 `DELETE /api/admin/users/:id`**
 
@@ -178,7 +198,22 @@
   1. `:id` 非法 → 400；目标是自己 → 400 `You cannot delete your own account`（admin.js:219-221）；
   2. 用户不存在 → 404；
   3. 目标为管理员且排除后可用管理员为 0 → 400 `Cannot delete the last admin`（admin.js:228-230）。
-- 执行序：`destroyUserSessions` → `configurations.deleteMany({ownerId})`（级联物理删除）→ `users.deleteOne` → `sse.broadcast({ownerId})`（admin.js:233-236）。
+- 执行序（v1.0）：`destroyUserSessions` → `configurations.deleteMany({ownerId})`（级联物理删除）→ `users.deleteOne` → `sse.broadcast({ownerId})`（admin.js:233-236）。
+- 【R20】执行序（v1.1，DA-8）：
+
+  ```
+  ① 写审计事件 user_deleted（actor 管理员，subject 目标账号）
+  ② scrubUserAuditLogs(auditLogs, 目标 id)   → { deleted, anonymized }
+       · 删除以该账号为所涉账号的其他全部事件
+       · 把仍以该账号为操作者的事件匿名化；user_deleted 自身的 subject 置空，管理员的 IP 保留
+  ③ 写审计事件 audit_scrubbed（actor 管理员，subject 为空，detail { deleted, anonymized }）
+  ④ destroyUserSessions
+  ⑤ configurations.deleteMany({ ownerId })
+  ⑥ users.deleteOne
+  ⑦ sse.broadcast({ ownerId: String(userId) })
+  ```
+
+  清洗（②）先于删除账号（⑥）：若清洗成功而后续步骤失败，管理员重试删除即可；反过来一旦清洗失败，带标识的日志会永久残留。重试是安全的——清洗幂等，第二次匹配 0 条。
 - 响应 200：`{success:true, message: 'User "<username>" deleted'}`。
 
 **A5 `GET /api/admin/configurations`**
@@ -191,7 +226,21 @@
 
 - 校验/规则：`:id` 非 ObjectId → 400 `Invalid configuration id`；不存在 → 404 `Configuration not found`（admin.js:264-273）。
 - 执行：`deleteOne` → `sse.broadcast({ownerId, name, shareToken: shareEnabled ? shareToken : undefined})`——携带 shareToken 使 display 端感知下线（admin.js:274-279）。
+- 【R20】审计：删除成功后写 `template_deleted_by_admin`（actor 管理员，subject 为模板属主，detail `{ templateId }`，不含模板名称）。
 - 响应 200：`{success:true, message: 'Configuration "<name>" deleted'}`。
+
+**【R20】A7 `POST /api/admin/totp/reset`**
+
+- 请求 body：`{ "userId": string }`。
+- 校验/规则（按顺序）：
+  1. `userId` 非法 ObjectId → 400 `Invalid user id`；
+  2. 目标是自己 → 400 `You cannot reset your own account; rebind instead`；
+  3. 用户不存在 → 404 `User not found`；
+  4. 目标未启用两步验证 → 400 `Two-factor authentication is not enabled for this user`。
+- 执行：调用 S-01 的 `removeTotp(targetId)`（`$unset: { totp: '' }` 并销毁目标全部会话）→ 写审计事件 `totp_reset`（actor 管理员，subject 目标账号，detail `{ channel: 'admin' }`）。
+- 使用场景：目标账号丢失验证器且恢复码用尽。重置后管理员账号下次登录重新进入强制绑定，普通账号回到仅口令登录。
+- 响应 200：`{success:true, message: 'Two-factor verification reset for "<username>"'}`。
+- 不受服务是否配置主密钥的影响：无论 `TOTP_SECRET_KEY` 是否就绪都可重置。
 
 #### 4.4.3 校验规则汇总（跨接口）
 
@@ -202,11 +251,14 @@
 | 不可操作自己（禁用/删除） | A3/A4 | 400 |
 | 用户名格式 `^[a-z0-9_]{3,32}$`、密码 8–200 字符 | A2（A3 改密复用密码规则） | 400 |
 | 用户名唯一（users.username 唯一索引） | A2 | 409 |
-| 治理动作即时踢会话 | A3（disabled/改密）、A4（前置销毁） | — |
+| 治理动作即时踢会话 | A3（disabled/改密）、A4（前置销毁）、【R20】A7（销毁目标全部会话） | — |
+| 【R20】每个治理动作写一条审计事件，同值重写不写 | A2、A3、A4、A6、A7 | — |
+| 【R20】删除账号时先清洗审计日志再删账号 | A4 | — |
+| 【R20】不能重置自己的两步验证 | A7 | 400 |
 
 #### 4.4.4 服务方法规格
 
-无独立 service 层——端点直写集合（薄适配，PRD §6.1「无业务状态机」）；可复用函数为 `countAdmins`（admin.js:104-110）、`toAdminUser`（admin.js:21-27）、`toRegistrationPayload`（归 D-02-settings 文档）。
+无独立 service 层——端点直写集合（薄适配，PRD §6.1「无业务状态机」）；可复用函数为 `countAdmins`（admin.js:104-110）、`toAdminUser`（admin.js:21-27）、`toRegistrationPayload`（归 D-02-settings 文档）。【R20】新增对两个外部函数的调用：`recordAudit`、`scrubUserAuditLogs`（均属 P-04，`server/lib/auditLog.js`）；A7 另调用 S-01 导出的 `removeTotp`。
 
 ### 4.5 领域事件与集成
 
@@ -217,6 +269,17 @@
 
 无 MQ、无仓储抽象（直写集合）；关联域调用仅 password.js 校验函数与 `destroyUserSessions`（S-01 上下文）。
 
+【R20】审计事件（写入 P-04，字段与 IP 策略见 P-04 API §4.4.5）：
+
+| 端点 | 事件 |
+|------|------|
+| A2 | `user_created` |
+| A3 | `role_changed`、`status_changed`、`password_reset`（按实际发生的字段） |
+| A4 | `user_deleted`（随清洗被匿名化）、`audit_scrubbed` |
+| A6 | `template_deleted_by_admin` |
+| A7 | `totp_reset` |
+| A5 | 无（只读） |
+
 ## 5. 模块清单汇总
 
 ### 5.1 对外服务清单
@@ -225,6 +288,7 @@
 |------|------|--------|
 | `/api/admin/users` ×4（A1~A4） | HTTP | 管理页 src/AdminPage.jsx（经 src/services/adminService.js:3-49） |
 | `/api/admin/configurations` ×2（A5~A6） | HTTP | 管理页（adminService.js:51-61,89-101） |
+| 【R20】`POST /api/admin/totp/reset`（A7） | HTTP | 管理页用户表「重置两步验证」（admin-page PageSpec v1.1 §4.4） |
 | `resolveOwnerId`/`canAccessConfig` | 进程内导出 | S-02 configurations 路由（代管放行） |
 | 管理页深链 `/settings?ownerId=<id>` | URL 约定 | 配置治理→代管编辑（AdminPage.jsx:312，本人模板无代管警告横幅） |
 | `POST /api/gallery/:id/unpublish`（S-03 端点） | 复用 | 管理页下架公开模板（AdminPage.jsx:348，gallery.js:140 requireAdmin） |
@@ -236,6 +300,8 @@
 | users | find/sort、findOne、insertOne、updateOne($set)、deleteOne、countDocuments | 归 S-01 上下文，本域不建集合不建索引 |
 | configurations | find({}).sort、deleteMany({ownerId})、deleteOne、find({$in}) | 归 S-02 上下文 |
 | sessions | deleteMany({userId}) | 平台托管数据（P6），随备份排除（server/scripts/backup.js:25 不含 sessions） |
+| 【R20】users | updateOne($unset `totp`) | A7 经 S-01 的 `removeTotp`，本域不直接写 |
+| 【R20】audit_logs（属 P-04） | insertOne；deleteMany 与 updateMany（仅 A4 的清洗） | 均经 P-04 的 `recordAudit`、`scrubUserAuditLogs`，本域不直接操作 |
 
 ### 5.3 DDL
 
@@ -245,4 +311,5 @@
 
 | 版本 | 日期 | 变更类型 | 更新说明 |
 |------|------|---------|---------|
+| v1.1 | 2026-11-24 | interface_added / interface_changed / rule_added | R20 增量设计：新增 A7 两步验证重置（三段式 `POST /api/admin/totp/reset`）；A1 响应新增 `totpEnabled`；A2、A3、A6、A7 写审计事件；A4 改为「写 user_deleted → 清洗审计日志 → 写 audit_scrubbed → 销毁会话 → 删模板 → 删账号 → 广播」；设计决策 DA-7~DA-10 |
 | v1.0 | 2026-11-11 | initial | 逆向归档初稿：按 d3 分册模板从现有实现（admin.js 六端点 + 鉴权链 + 代管放行）归纳；章节按主数据类裁剪（第 2 章不适用）。验证：`bun test server/` 85 pass / 0 fail（本归档会话执行） |

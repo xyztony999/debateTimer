@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
-| 日期 | 2026-11-11 |
+| 版本 | v1.1 |
+| 日期 | 2026-11-24 |
 | 模块编码 | P-02（平台支撑域，无子模块；文件夹 `P-02-api-protection`） |
-| 状态 | 逆向归档（系统已上线，如实反映现有实现） |
-| 输入 | P-02-api-protection PRD v1.0 + AA v1.0（平台支撑域）+ 现有代码 |
+| 状态 | v1.0 为逆向归档（系统已上线，如实反映现有实现）；v1.1 增量以【R20】标注，属前瞻设计，待代码阶段实现 |
+| 输入 | P-02-api-protection PRD v1.1 + AA v1.2（平台支撑域）+ 现有代码 + R20 安全与合规设计说明 |
 | 功能类型 | 工具类/平台技术机制（无聚合根、无状态机，承 PRD §7） |
 | 实现索引 | server/lib/rateLimit.js、server/lib/rateLimits.js、server/index.js:39-45,123-127、server/routes/auth.js:27-33,65,115、server/.env.example:28-38 |
 
@@ -36,6 +36,7 @@
 | PP-4 | register 在注册关闭期间同样计数（防开放状态探测） | server/routes/auth.js:29-30 注释 |
 | PP-5 | 被拒请求**不占桶**——只有被接受的请求记录时间戳（`times.push` 在放行分支） | server/lib/rateLimit.js:31-42 |
 | PP-6 | `trust proxy 1`：宝塔 nginx 反代后还原真实客户端 IP，否则全体共享代理 IP 一个桶 | server/index.js:39-41 |
+| 【R20】PP-7 | 限流取到的 `req.ip` 与 R20 审计日志记录的 IP 同源，二者依赖同一个前置条件：api 域名保持仅 DNS 解析，或 Nginx 配置 Cloudflare realip | R20 §9.3（事实、局限与确认方法）；主域已启用 Cloudflare 代理而 api 域名未启用（主会话 2026-11-24 核实） |
 
 ### 1.4 领域对象总览
 
@@ -81,10 +82,19 @@
 | L2 | `POST /api/auth/register` | `AUTH_REGISTER_RATE_*` | 10 次 / 1 小时（3_600_000ms） | 注册关闭期间同样计数（PP-4） | rateLimits.js:25-31、auth.js:33,65 |
 | L3 | `/api/display/*`（含 SSE stream） | `DISPLAY_RATE_*` | 60 次 / 分钟 | **SSE 长流仅建立时计一次**（PP-3） | rateLimits.js:33-39、index.js:126 |
 | L4 | `/api/gallery/*` | `GALLERY_RATE_*` | 120 次 / 分钟 | 匿名浏览与登录复制共享同一 IP 桶 | rateLimits.js:41-47、index.js:127 |
+| 【R20】L5 | `/api/privacy/*`（隐私说明读取，匿名） | `PRIVACY_RATE_*` | 60 次 / 分钟 | 匿名可达的静态内容面，沿用匿名路由从严的原则 | 规划：rateLimits.js、index.js；EP-PROTECT-01 |
+| 【R20】L6 | `POST /api/auth/totp/verify`、`/recover`、`/confirm`（按键，不是按 IP） | `TOTP_ATTEMPT_RATE_*` | 每账号 5 次失败 / 15 分钟 | 二次验证与绑定确认的尝试限流；只计失败；三者共用同一账号的计数 | 规划：rateLimit.js（`createAttemptLimiter`）、auth.js；EP-PROTECT-03 |
 
 - env 命名规则：`<前缀>_WINDOW_MS` / `<前缀>_MAX`；未配置或非法值（非正数）回落默认（`positiveNumber`，rateLimits.js:12-15）。
-- L1/L2 在 auth 路由工厂内实例化并挂端点前；L3/L4 在 server/index.js 挂载处包住**整组**路由（因此 SSE stream 的建立计入一次，长连接期不计——PP-3）。
-- 不设限端点：`/api/auth/status`、`/api/auth/logout`、`/api/auth/me`（auth.js:27-31 注释；由路由挂载结构保证，套件无专测——如实标注）。
+- L1/L2 在 auth 路由工厂内实例化并挂端点前；L3/L4/L5 在 server/index.js 挂载处包住**整组**路由（因此 SSE stream 的建立计入一次，长连接期不计——PP-3）。
+- 【R20】L6 的计数键由调用方给定（登录二次验证时是预登录凭据所属的账号 id，绑定确认时是当前账号 id），因此它不是 Express 中间件，而是 auth 路由处理器内部调用的一个对象。`createAttemptLimiter({windowMs, max})` 返回三个方法：
+  - `isBlocked(key)` → `{ blocked, retryAfterSec }`：窗口内已记录的失败数达到 `max` 时 `blocked` 为 true；
+  - `recordFailure(key)` → `{ failures, remaining, blocked, retryAfterSec }`：记一次失败，返回窗口内的失败总数、剩余次数与是否已达上限；
+  - `reset(key)`：二次验证或绑定确认成功后清零。
+
+  窗口与判定语义和 `rateLimit.js` 的滑动窗口相同（只存被记录的时间戳；`Retry-After` 取窗口内最早一次到窗口末尾的秒数，向上取整且不少于 1；惰性清理空桶）。
+- 【R20】跨域响应通过 `Access-Control-Expose-Headers: Retry-After` 暴露该头（`server/lib/originPolicy.js` 的 `createCorsMiddleware`）。浏览器对跨域脚本默认只放行少数几个响应头，不列出的话，部署在另一个域名上的前端读不到它，只能按默认窗口提示等待时间。同源部署（Nginx 反代 `/api`）不经过 CORS，本来就能读到。
+- 不设限端点：`/api/auth/status`、`/api/auth/logout`、`/api/auth/me`（auth.js:27-31 注释；由路由挂载结构保证，套件无专测——如实标注）。【R20】`/api/auth/totp/status`、`/setup`、`/disable` 与 `/api/privacy/consent/accept` 都要求会话，不设限（按 IP）；`/api/auth/totp/confirm` 不按 IP 限流，但按账号计失败次数（L6）。
 
 #### 4.4.2 判定与 429 语义（核心契约）
 
@@ -120,4 +130,5 @@
 
 | 版本 | 日期 | 变更类型 | 更新说明 |
 |------|------|---------|---------|
+| v1.1 | 2026-11-24 | rule_added | R20 增量设计：新增挂载点 L5（`/api/privacy` 按 IP 60 次/分钟）；新增按键尝试限流器 `createAttemptLimiter`（挂载点 L6，S-01 两步验证按账号 5 次失败/15 分钟）；补充 trust proxy 与审计 IP 的关联（PP-7） |
 | v1.0 | 2026-11-11 | initial | 逆向归档初稿（平台支撑域最简归档）：滑动窗口限流器契约、四组挂载点与默认阈值、429+Retry-After 语义、SSE 仅建立时计一次豁免。验证：`bun test server/` 85 pass / 0 fail（含 rateLimit.test.js、rateLimits.test.js，本归档会话执行） |

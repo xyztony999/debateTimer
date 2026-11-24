@@ -2,20 +2,20 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
+| 版本 | v1.2 |
 | 状态 | 稳定 |
-| 最后更新 | 2026-11-11 |
-| 生成方式 | 逆向归档：以现有代码常量为准逐一核对（系统已上线） |
+| 最后更新 | 2026-11-24 |
+| 生成方式 | v1.0 为逆向归档：以现有代码常量为准逐一核对（系统已上线）。v1.2 起新增前瞻设计的枚举，以【R20】标注，来源为设计文档与规划落点，代码阶段实现后回填代码行号 |
 
 ## 1. 文档定位
 
 | 定位 | 说明 |
 |------|------|
 | 本文档做什么 | 汇总系统全部业务枚举与常量池（取值、语义、来源文件），作为 D3 各 API 设计文档「3.4 公共规范 / 4.4 枚举定义」的唯一引用来源（design 分册 d3-api.md 机械自检项 M3：本章引用的枚举 code 均在枚举池中有定义且无重复） |
-| 本文档不做什么 | 不定义新枚举、不修改现有取值；只如实登记代码中已存在的枚举 |
-| 上游依据 | workspace/00-architecture/ 三文档 v1.0（模块编码 C/S/D/P 以 AA 为准）；取值以代码常量为唯一事实源 |
+| 本文档不做什么 | 不修改现有取值。v1.0 只登记代码中已存在的枚举；自 v1.2 起，按「先入池再引用」的扩展规则（§2 第 4 条）登记本轮前瞻设计的新枚举 |
+| 上游依据 | workspace/00-architecture/ 三文档（模块编码 C/S/D/P 以 AA 为准）；v1.0 取值以代码常量为唯一事实源；【R20】条目以对应 PRD/API 设计文档为事实源 |
 
-**核对方法**：每个枚举条目均由本阶段直接读取源文件核对（来源列给出 `文件:行号`）；未在代码中找到的取值一律不登记。
+**核对方法**：v1.0 的每个枚举条目均由归档阶段直接读取源文件核对（来源列给出 `文件:行号`），未在代码中找到的取值未登记。【R20】条目尚未实现，来源列给出设计文档的节号与规划的落点文件。
 
 ## 2. 编码规约
 
@@ -26,7 +26,7 @@
 
 ## 3. 枚举池清单
 
-> 编号规则 `EP-<域>-<序号>`。域：IDENT 身份准入 / TIMER 计时引擎 / SESSION 会话同步 / CONFIG 模板配置 / PROTECT 限流配额 / I18N 多语言。
+> 编号规则 `EP-<域>-<序号>`。域：IDENT 身份准入 / TIMER 计时引擎 / SESSION 会话同步 / CONFIG 模板配置 / PROTECT 限流配额 / I18N 多语言 / AUDIT 审计日志（【R20】新增域）。
 
 ### 3.1 身份与准入（EP-IDENT）
 
@@ -67,6 +67,51 @@
 | `admin` | 管理员已写入设置，DB 值胜出 | 写入 `server/routes/admin.js:71-86`；文档 `_id:'registration'`（`authPolicy.js:4`） |
 
 - 消费：D-02 GET /settings/registration 的 `source` 字段、S-01 管理台来源展示；纯派生视图（由文档存在性推导），不落库。
+
+#### EP-IDENT-05 二次验证方式 `totpMethod`【R20】
+
+| 取值 | 含义 | 来源 |
+|------|------|------|
+| `code` | 6 位动态口令（TOTP） | S-01 API v1.1 §4.4「TOTP-VERIFY」；规划落点 `server/lib/totp.js` |
+| `recovery_code` | 一次性恢复码 | S-01 API v1.1 §4.4「TOTP-RECOVER」 |
+
+- 消费：审计事件 `totp_failed` 的 `detail.method`，区分输错的是动态口令还是恢复码。登录时的这两种方式与绑定确认共用同一个按账号的尝试计数（EP-PROTECT-03）。
+
+#### EP-IDENT-06 两步验证操作渠道 `totpChannel`【R20】
+
+| 取值 | 含义 | 来源 |
+|------|------|------|
+| `self` | 用户本人在设置页发起 | S-01 API v1.1 §4.4「TOTP-SETUP」「TOTP-DISABLE」 |
+| `forced_enrollment` | 管理员的强制绑定引导 | S-01 API v1.1 §3.5 |
+| `admin` | 管理员重置他人账号 | D-01 API v1.1 A7 |
+| `cli` | 服务器脚本重置 | `server/scripts/reset-totp.js`（规划） |
+
+- 消费：审计事件 `totp_bound`（`self` 或 `forced_enrollment`）、`totp_unbound`（`self`）、`totp_reset`（`admin` 或 `cli`）的 `detail.channel`。
+
+#### EP-IDENT-07 登录后待办步骤 `authGate`【R20】
+
+| 取值 | 含义 | 来源 |
+|------|------|------|
+| `privacy_consent` | 尚未确认当前版本的隐私说明 | S-01 API v1.1 §3.5 |
+| `totp_enroll` | 管理员账号尚未绑定两步验证（且服务已配置主密钥） | 同上 |
+
+- 顺序固定：`privacy_consent` 先于 `totp_enroll`。登录响应与 `/me` 的 `pending` 数组、门控拒绝响应的 `gates` 数组都按这个顺序，每次请求按账号当前状态派生，不落库。
+
+#### EP-IDENT-08 登录结果状态 `loginStatus`【R20】
+
+| 取值 | 含义 | 来源 |
+|------|------|------|
+| `ok` | 会话已建立 | S-01 API v1.1 §4.4「LOGIN」 |
+| `totp_required` | 需要二次验证；返回预登录凭据，未建立会话 | 同上 |
+
+#### EP-IDENT-09 隐私说明同意渠道 `consentChannel`【R20】
+
+| 取值 | 含义 | 来源 |
+|------|------|------|
+| `register` | 注册页勾选同意 | S-01 API v1.1 §4.4「REGISTER」 |
+| `login_gate` | 登录后的确认页 | 同上「PRIVACY-CONSENT」 |
+
+- 消费：审计事件 `privacy_consented` 的 `detail.channel`。两种渠道写入账号的同意记录结构相同（版本、时间）。
 
 ### 3.2 计时引擎（EP-TIMER）
 
@@ -342,6 +387,7 @@
 | register | 3 600 000 ms（1 小时） | 10 次 | `AUTH_REGISTER_RATE_WINDOW_MS` / `AUTH_REGISTER_RATE_MAX` | `POST /api/auth/register` | `server/lib/rateLimits.js:26-31`；挂载 `server/routes/auth.js:33`、路由 `auth.js:65`；env 样例 `server/.env.example:32-33` |
 | display | 60 000 ms（1 分钟） | 60 次 | `DISPLAY_RATE_WINDOW_MS` / `DISPLAY_RATE_MAX` | `/api/display` 匿名共享面（SSE 长连接仅在建立时计 1 次） | `server/lib/rateLimits.js:34-39`；挂载 `server/index.js:126`（注释 `:123-125`）；env 样例 `server/.env.example:35-36` |
 | gallery | 60 000 ms（1 分钟） | 120 次 | `GALLERY_RATE_WINDOW_MS` / `GALLERY_RATE_MAX` | `/api/gallery`（匿名浏览与登录复制同桶） | `server/lib/rateLimits.js:42-47`；挂载 `server/index.js:127`；env 样例 `server/.env.example:37-38` |
+| privacy【R20】 | 60 000 ms（1 分钟） | 60 次 | `PRIVACY_RATE_WINDOW_MS` / `PRIVACY_RATE_MAX` | `/api/privacy`（隐私说明读取，匿名） | P-02 API v1.1 §4.4.1 L5；规划落点 `server/lib/rateLimits.js` |
 
 - **实现语义**：单进程内存滑动窗口，键 `req.ip`（信任代理 1 跳 `server/index.js:41`）；超限返回 **429 + `Retry-After`（秒，向上取整）**，消息 `Too many requests, please retry later`——`server/lib/rateLimit.js:6-44`（核心 `:30-39`）。
 - 各工厂调用一次即独立实例（桶互不共享）：`server/lib/rateLimits.js:4-8` 注释。
@@ -361,6 +407,36 @@
 | 单阶段计划用时 | 1–3600 s；宽限 0–300 s；实绩 0–86 400 s；超时次数 0–99 | 记录字段整型区间 | `server/lib/matchLogs.js:97-104` |
 | 队名长度 | ≤20 字符 | 配置与记录一致 | `server/lib/configDocs.js:32,95`、`server/lib/matchLogs.js:66` |
 
+#### EP-PROTECT-03 两步验证尝试限流（按账号）【R20】
+
+| 限流器 | 窗口（默认） | 阈值（默认） | 环境变量覆盖 | 作用点 | 来源 |
+|--------|-------------|-------------|-------------|--------|------|
+| totpAttempt | 900 000 ms（15 分钟） | 5 次失败 | `TOTP_ATTEMPT_RATE_WINDOW_MS` / `TOTP_ATTEMPT_RATE_MAX` | `POST /api/auth/totp/verify`、`/recover`（登录中的二次验证）、`/confirm`（绑定确认）——三者共用同一账号的计数 | S-01 PRD v1.1 §5.5；P-02 API v1.1 §4.4.1 L6 |
+
+- **与 EP-PROTECT-01 的区别**：EP-PROTECT-01 按 IP 计数、请求进入即计；本项按**账号**计数、只计失败。键是账号 id，因此换 IP 或重新走口令步骤都不会重置计数。
+- 动态口令、恢复码与绑定确认共用同一个计数，避免其中任何一个成为并行的猜测通道。
+- 绑定确认接口 `POST /api/auth/totp/confirm` 同样计入：口令不匹配时失败计数加一，未达上限返回 401（带 `data.attemptsRemaining`），达到上限返回 429（带 `Retry-After`，此时不论口令是否正确）；格式不符的 400 不计入；确认成功清零该账号的计数。
+- 登录二次验证命中后返回 429 并作废当前的预登录凭据；验证成功后计数清零。
+- 内存态：进程重启清零，不跨进程，与既有内存限流一致。
+- 不是账号锁定：只拦二次验证这一步，口令步骤不受影响，窗口滑过即恢复。
+
+#### EP-PROTECT-04 两步验证、隐私说明与审计留存的参数【R20】
+
+| 参数 | 值 | 语义 | 来源 |
+|------|-----|------|------|
+| TOTP 步长 | 30 秒 | RFC 6238 | S-01 PRD v1.1 §5.5 |
+| TOTP 位数与算法 | 6 位，SHA-1 | 兼容主流验证器应用 | 同上 |
+| 允许的时间偏差 | 前后各 1 步 | 已用过的时间步不再接受 | S-01 API v1.1 §4.1（领域服务表 `totp` 行） |
+| TOTP 密钥长度 | 20 字节，Base32 编码为 32 字符 | 绑定时生成 | 同上 |
+| 密钥加密 | AES-256-GCM，IV 12 字节，认证标签 16 字节 | 主密钥取自环境变量 `TOTP_SECRET_KEY` | S-01 API v1.1 §4.1（领域服务表 `totpCrypto` 行） |
+| 预登录凭据 | 32 字节随机数的 hex；有效期 300 秒；单次 | 口令通过后、二次验证完成前的临时凭据，不是会话 | S-01 API v1.1 §4.3 |
+| 待确认绑定的有效期 | 600 秒 | 开始绑定后须在此期间确认 | S-01 API v1.1 §4.4「TOTP-SETUP」 |
+| 近期密码证明窗口 | 600 秒 | 窗口内用过口令登录的会话，管理两步验证免输口令 | S-01 PRD v1.1 §5.5 |
+| 恢复码 | 10 个，每个 10 字符；字母表 32 字符（去掉 0、O、1、I） | 只在绑定时展示一次明文，服务端存 SHA-256 | S-01 PRD v1.1 §5.5 |
+| 审计留存天数 | 184 天（2026-11-24 用户裁决，由 180 天改定） | `expireAt = at + 184 天`，TTL 索引 P-04 PRD §5.3 |
+| 审计分页上限 | 管理员 100 条 / 页；本人 50 条 / 页 | 超出按上限处理 | P-04 PRD §5.5 |
+| 隐私说明版本 | `2026.11.1` | 当前版本常量；同意记录以此为准 | R20 §7 |
+
 ### 3.6 多语言（EP-I18N）
 
 #### EP-I18N-01 界面语言 `lng`
@@ -379,6 +455,54 @@
 | `family` | 语言族前缀命中（zh-*） | `src/services/speech.js:93-98` |
 | `fallback` | 系统缺省/首个语音 | `src/services/speech.js:99-103` |
 
+### 3.7 审计日志（EP-AUDIT）【R20】
+
+#### EP-AUDIT-01 审计事件类型 `auditEventType`
+
+落库字段 `audit_logs.type`。事件目录、必要性与 `detail` 白名单见 P-04 PRD §3.3；取值集合的权威定义在 `server/lib/auditLog.js`（规划）。审计写入器对不在此集合内的类型直接抛错。
+
+| 取值 | 含义 | 结果 |
+|------|------|------|
+| `registered` | 注册成功 | success |
+| `login_succeeded` | 登录成功 | success |
+| `login_failed` | 登录失败 | failure |
+| `totp_succeeded` | 二次验证成功（动态口令） | success |
+| `totp_failed` | 二次验证失败 | failure |
+| `recovery_code_used` | 恢复码使用成功 | success |
+| `totp_bound` | 两步验证绑定 | success |
+| `totp_unbound` | 两步验证解绑 | success |
+| `totp_reset` | 两步验证重置（管理员或服务器脚本） | success |
+| `privacy_consented` | 隐私说明同意 | success |
+| `user_created` | 管理员开号 | success |
+| `role_changed` | 角色变更 | success |
+| `status_changed` | 禁用或启用 | success |
+| `password_reset` | 管理员重置密码 | success |
+| `user_deleted` | 删除用户 | success |
+| `registration_setting_changed` | 注册开关变更 | success |
+| `gallery_published` | 模板发布到广场 | success |
+| `gallery_unpublished` | 模板下架 | success |
+| `template_deleted_by_admin` | 管理员强制删除模板 | success |
+| `audit_scrubbed` | 账号删除引发的日志清洗 | success |
+
+- 值全小写、下划线分隔，与既有的 `session_taken`、`heartbeat_timeout` 等取值同一风格。
+- 「本人登录记录」只返回其中五类：`login_succeeded`、`login_failed`、`totp_succeeded`、`totp_failed`、`recovery_code_used`（P-04 PRD §5.5）。
+
+#### EP-AUDIT-02 审计结果 `auditResult`
+
+| 取值 | 含义 | 来源 |
+|------|------|------|
+| `success` | 动作成功 | P-04 PRD §7 |
+| `failure` | 尝试失败（只有 `login_failed` 与 `totp_failed` 会取此值） | 同上 |
+
+#### EP-AUDIT-03 登录失败原因 `loginFailureReason`
+
+| 取值 | 含义 | 来源 |
+|------|------|------|
+| `invalid_credentials` | 用户名不存在或口令错误（对外统一为 401，不区分） | S-01 API v1.1 §4.4「LOGIN」 |
+| `account_disabled` | 口令正确但账号已被禁用 | 同上 |
+
+- 消费：`login_failed.detail.reason`。`invalid_credentials` 在审计日志里也不区分「账号不存在」与「口令错误」，因为服务端走的是同一条短路路径。
+
 ## 4. 附：客户端本地存储键（常量池）
 
 | 键 | 含义 | 来源 |
@@ -395,18 +519,21 @@
 |--------|---------|
 | C-01 比赛计时 | EP-TIMER-01~07 |
 | C-02 大屏同步与远程控制 | EP-SESSION-01~11 |
-| S-01 账号与准入 | EP-IDENT-01~03 |
+| S-01 账号与准入 | EP-IDENT-01~03；【R20】EP-IDENT-05~09、EP-PROTECT-03/04 |
 | S-02 赛制模板管理 | EP-CONFIG-01~05 |
-| S-03 模板广场 | EP-CONFIG-06~07、EP-IDENT-01（下架鉴权） |
+| S-03 模板广场 | EP-CONFIG-06~07、EP-IDENT-01（下架鉴权）；【R20】EP-AUDIT-01（发布与下架事件） |
 | S-04 比赛记录与复盘 | EP-TIMER-01/04/06（记录字段复用）、EP-PROTECT-02（载荷配额） |
-| D-01 权限与用户治理 | EP-IDENT-01/03 |
-| D-02 系统配置 | EP-IDENT-02（app_settings）、EP-CONFIG-05 |
+| D-01 权限与用户治理 | EP-IDENT-01/03；【R20】EP-AUDIT-01（治理事件）、EP-IDENT-06（两步验证重置渠道） |
+| D-02 系统配置 | EP-IDENT-02（app_settings）、EP-CONFIG-05；【R20】EP-AUDIT-01（开关变更事件） |
 | P-01 实时通道 | EP-SESSION-02（SSE 帧）、EP-PROTECT-01（display 窗口） |
-| P-02 接口防护 | EP-PROTECT-01/02 |
+| P-02 接口防护 | EP-PROTECT-01/02；【R20】EP-PROTECT-03 |
 | P-03 离线壳 | 无业务枚举（纯技术，不入池） |
+| P-04 审计日志【R20】 | EP-AUDIT-01~03、EP-PROTECT-04（留存天数与分页上限） |
 
 ## 更新记录
 
 | 版本 | 日期 | 更新说明 |
 |------|------|---------|
+| v1.2 | 2026-11-24 | R20 前瞻设计枚举入池（均标注【R20】）：新增 EP-IDENT-05~09（二次验证方式、两步验证渠道、登录后待办步骤、登录结果状态、同意渠道）、EP-AUDIT-01~03（审计事件类型 20 个取值、审计结果、登录失败原因）并新增 AUDIT 域、EP-PROTECT-03（两步验证按账号尝试限流）、EP-PROTECT-04（两步验证、隐私说明与审计留存参数）；EP-PROTECT-01 增 privacy 限流器一行；§5 覆盖对照同步 |
+| v1.1 | 2026-11-11 | （补记）全量补档轮 Gate 1 的 W-2 处置增补 4 个派生枚举：EP-IDENT-04 `source`、EP-CONFIG-08 `visibilityState`、EP-SESSION-12 `rtcState`、EP-SESSION-13 `reportFailure`。INDEX 当时已登记为 v1.1，但本文件的版本头与更新记录未同步，此处补齐 |
 | v1.0 | 2026-11-11 | 初始生成：逆向归档现有代码常量，6 域 32 组枚举/配额全部逐条核对源文件行号；未登记任何代码中不存在的取值 |

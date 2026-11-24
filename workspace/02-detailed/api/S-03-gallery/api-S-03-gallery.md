@@ -3,10 +3,10 @@
 | 属性 | 值 |
 |------|-----|
 | 模块编码 | S-03（应用域：支撑业务域） |
-| 文档性质 | 逆向归档：系统已上线，本文档如实反映现有实现（路径/状态码/错误文案均为现网事实，非理想化重设计） |
-| 版本 | v1.0 |
-| 状态 | 稳定 |
-| 最后更新 | 2026-11-11 |
+| 文档性质 | v1.0 部分为逆向归档：系统已上线，如实反映现有实现（路径/状态码/错误文案均为现网事实）。v1.1 增量以【R20】标注，属前瞻设计，待代码阶段实现 |
+| 版本 | v1.1 |
+| 状态 | 稳定（v1.0）+ 设计稿（v1.1 增量） |
+| 最后更新 | 2026-11-24 |
 | 功能类型 | 内容分发（无独立聚合根——S-02 模板聚合根之上的公开只读投影 + 发布标志写侧 + 复制计数行为；二元可见性流转） |
 | 管理模式 | MIXED（发布标志/署名/复制热度托管于 S-02 模板文档内嵌存储；本域投影自管为只读；权限管控替代模式字段：发布=属主、计数=登录、下架=admin） |
 | 上游依据 | S-03 PRD v1.0；BA v1.0 §2.1.3；AA v1.0 §2.2.3；FL v1.0 §2.2.1.3 / §2.3.1.2 / §2.4.1.2 |
@@ -22,7 +22,7 @@
 
 | 方向 | 内容 |
 |------|------|
-| 做什么 | 广场列表/详情（匿名）、复制热度计数、管理员下架；发布/撤回/署名写侧接口（路由在 configurations.js，业务语义属本域，本文档详设）；复制动作的客户端组合语义 |
+| 做什么 | 广场列表/详情（匿名）、复制热度计数、管理员下架；发布/撤回/署名写侧接口（路由在 configurations.js，业务语义属本域，本文档详设）；复制动作的客户端组合语义；【R20】发布、撤回、下架在可见性实际变化时写审计事件（事件只含 templateId） |
 | 不做什么 | 归属人展示（全链路排除）、点赞/收藏/评论、审核流/举报、下架通知/申诉、服务端复制端点、广场内编辑、跳页分页（PRD §3.2）；预置导入脚本参数与存储（D-02，本域只约定「可 `--public` 直发广场」语义） |
 | 边界注记 | 「复制」无服务端聚合端点：客户端组合「读广场详情 → 经 S-02 CFG-SAVE 落库 → fire-and-forget 计数上报」，本文档如实归档该分布式语义 |
 
@@ -220,6 +220,7 @@
 - 鉴权：requireAuth+requireAdmin（401/403）。
 - 请求体：无。
 - 处理：非法 id → 404；`updateOne({_id, isPublic:true}, {$set:{isPublic:false, updatedAt:Date.now()}})`；幂等——重复下架（已未公开）返回 `{unpublished:false}`，200 不报错。
+- 【R20】审计：返回 `unpublished:true` 时写 `gallery_unpublished`，actor 为当前管理员，subject 为模板属主，detail `{ templateId, by: 'admin' }`，consent 取 `consentOf(管理员)`。`unpublished:false` 不产生事件。现有实现只按 id 做条件更新、不读取属主，需在更新前读一次文档取 `ownerId`。
 - 响应 200：`{success:true, data:{unpublished: boolean}}`。
 - 附带语义：下架刷新 updatedAt（影响 S-02「最近更新」排序）；不删除模板、不通知属主；详情深链立即 404。
 - 锚点：`server/routes/gallery.js:140-155`。
@@ -229,6 +230,10 @@
 - 鉴权：requireAuth（configurations 路由级）+ findOwnConfig 严格属主复核（admin 带 `?ownerId=` 也只能操作**自己**的模板：resolveOwnerId 解析后仍要求 `existing.ownerId === req.user.id`，`server/routes/configurations.js:238-256`）。
 - 请求体：`{ "public": boolean, "creditName": string? }`。
 - 处理：`isPublic = req.body.public === true`（缺省/非 true 即撤回，**未提供「只改署名不翻标志」的语义**，public 缺省等效撤回——如实归档）；creditName 仅在字段为 string 时处理：trim + slice(0,20)，空串归 null（清为匿名），缺省保持不变；`$set` 落库 + SSE 广播 `{ownerId,name}`。
+- 【R20】审计：写入成功后，若 `isPublic` 相对 `existing.isPublic` 发生了变化，调用 P-04 的 `recordAudit`：
+  - false → true：`gallery_published`，detail `{ templateId }`；
+  - true → false：`gallery_unpublished`，detail `{ templateId, by: 'owner' }`。
+  actor 为当前登录账号（属主；管理员操作自己的模板时即该管理员），subject 为模板属主，consent 取 `consentOf(属主)`。未变化不产生事件。事件不含模板名称与署名。
 - 响应 200：`{success:true, data:{isPublic, creditName?}}`——creditName 仅在本次写入为非空时返回（清空/未改不返回）。
 - 错误：404（模板不存在）；403（非属主）；400（?ownerId 非法）；401。
 - 锚点：`server/routes/configurations.js:346-376`。
@@ -273,6 +278,7 @@
 
 | 版本 | 日期 | 变更类型 | 变更说明 | 目标节 |
 |------|------|---------|---------|--------|
+| v1.1 | 2026-11-24 | event_added | VISIBILITY 在 isPublic 实际变化时写 `gallery_published` 或 `gallery_unpublished`（by=owner）；GAL-UNPUBLISH 实际下架时写 `gallery_unpublished`（by=admin）。事件只含 templateId。接口的请求与响应契约不变；属主保存导致退出广场的路径仍不产生事件 | §4.4 |
 | v1.0 | 2026-11-11 | initial | 逆向归档首次生成：5 接口（匿名浏览×2/计数/下架/发布署名）；匿名全链路规则、复制客户端组合子流程、下架幂等语义成文；CFG-SAVE 抹除发布标志的实现行为注记（§1.3/§4.2） | — |
 
 ### 模板符合性自检记录（M1~M5，逆向归档如实记录）

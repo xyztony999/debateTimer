@@ -2,15 +2,15 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
-| 日期 | 2026-11-11 |
+| 版本 | v1.1 |
+| 日期 | 2026-11-24 |
 | 模块编码 | P-03（平台支撑域，无子模块；文件夹 `P-03-offline-shell`） |
-| 状态 | 逆向归档（系统已上线，如实反映现有实现） |
-| 输入 | P-03-offline-shell PRD v1.0 + AA v1.0（平台支撑域）+ 现有代码 |
+| 状态 | v1.0 为逆向归档（系统已上线，如实反映现有实现）；v1.1 增量以【R20】标注，属前瞻设计，待代码阶段实现 |
+| 输入 | P-03-offline-shell PRD v1.1 + AA v1.2（平台支撑域）+ 现有代码 + R20 安全与合规设计说明 |
 | 功能类型 | 工具类/平台技术机制（无聚合根、无状态机，承 PRD §7） |
-| 实现索引 | vite.config.js:33-56、src/index.jsx:11-23、src/components/PwaBits.jsx、src/App.jsx:23 |
+| 实现索引 | vite.config.js:33-56、src/index.jsx:11-23、src/components/PwaBits.jsx、src/App.jsx:23；【R20】index.html:22-27（网页字体）、src/theme.js:3-9（字体栈） |
 
-> 章节裁剪依据 d3-api 分册裁剪矩阵（工具类）：第 2 章不适用；第 3 章选填；第 5 章不填。**本档为最简归档，且本模块无 HTTP API 面**——PWA 壳为纯前端构建与运行时机制，本文档作为「接口面缺席」的显式记录，供 D4 交互设计读取时知道无需接口契约。
+> 章节裁剪依据 d3-api 分册裁剪矩阵（工具类）：第 2 章不适用；第 3 章选填；第 5 章不填。**本档为最简归档，且本模块无 HTTP API 面**——PWA 壳为纯前端构建与运行时机制，本文档作为「接口面缺席」的显式记录，供 D4 交互设计读取时知道无需接口契约。【R20】v1.1 记录一项构建产物的契约变化：网页字体的加载方式。
 
 ## 1. 模块设计概述
 
@@ -22,7 +22,7 @@
 
 | 边界 | 说明 |
 |------|------|
-| 做什么 | vite-plugin-pwa 应用壳（autoUpdate + 预缓存 + SPA 导航回退）；SW 注册自管与 controllerchange 单次重载；断网横幅；安装入口；manifest（standalone + 192/512/maskable 图标） |
+| 做什么 | vite-plugin-pwa 应用壳（autoUpdate + 预缓存 + SPA 导航回退）；SW 注册自管与 controllerchange 单次重载；断网横幅；安装入口；manifest（standalone + 192/512/maskable 图标）；【R20】应用入口页网页字体非阻塞加载 |
 | **API 面** | **无任何 HTTP 端点**——全部为构建期（Workbox SW 生成）与浏览器运行时机制（Service Worker / 事件 / navigator.onLine） |
 | 不做什么 | 不缓存任何 API 响应（`navigateFallbackDenylist: [/^\/api\//]`，vite.config.js:54，network-only，防离线读旧）；不做后台同步/推送/离线写缓冲；不做更新提示 UI（autoUpdate 静默接管） |
 | 用户类型 | 纯技术机制，不标注（AA v1.0） |
@@ -34,6 +34,7 @@
 | PS-1 | API 面从导航回退中排除（network-only）：计时同步/模板数据永不落 SW 缓存 | vite.config.js:31-32 注释 + :54 denylist |
 | PS-2 | SW 由应用侧注册（`injectRegister: null`）而非插件注入，接管 controllerchange 时已有 controller 的页面重载一次（display 页常开数日，避免旧缓存 bundle 常驻；首次访问不重载） | src/index.jsx:11-23（D25 注释）、vite.config.js `injectRegister` |
 | PS-3 | 断网横幅只提示不阻断——计时壳与本地引擎继续工作 | src/components/PwaBits.jsx:22 注释 |
+| 【R20】PS-4 | 网页字体非阻塞加载：同一样式表地址改为先预加载（`rel="preload" as="style"`）、`onload` 后切换为样式表，并以 `<noscript>` 内的常规样式表回退；不改字体来源、不改 SW 缓存策略 | 用户裁定 D47；应用 index.html 于代码阶段实现（写法修订见 §4.6）；官网 site/index.html 用 `media="print"` 写法（提交 aa72c9f），不经 Vite 处理 |
 
 ### 1.4 领域对象总览
 
@@ -73,6 +74,34 @@
 
 浏览器事件面（offline/online/beforeinstallprompt/controllerchange），无服务端集成。
 
+【R20】与隐私说明的一处关联：字体仍由 Google Fonts 提供，浏览器在加载 Roboto 时会向 Google 的服务器发送带访客 IP 的请求。非阻塞加载不改变这一数据流向，因此隐私说明的第三方一节继续列出 Google Fonts（R20 §7）。
+
+### 4.6 【R20】网页字体加载的构建产物契约
+
+**现状**（2026-11-24 已提交内容）：`index.html` 第 24–27 行以阻塞渲染的方式加载 Roboto 样式表。
+
+**目标产物**（代码阶段实际写法，修订说明见 PRD FR-4 做法 1）：`index.html` 的字体部分改为
+
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      onload="this.rel='stylesheet'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
+```
+
+| 项 | 契约 |
+|----|------|
+| 样式表地址与参数 | 不变（字重 400、500、700；`display=swap`） |
+| 首屏行为 | 字体请求未完成或卡住时，页面照常渲染，文字以回退字体显示（MUI 字体栈 `Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif`，`src/theme.js:3-9`） |
+| 无 JavaScript | `<noscript>` 内的常规样式表生效 |
+| Vite 构建处理 | 预加载链接保持原样；构建后 `build/index.html` 中应能看到 `rel="preload"`、`as="style"`、`onload` 与 `<noscript>`。注意：Vite 会改写外链的 `<link rel="stylesheet">` 标签并丢弃 `media`、`onload` 等额外属性，所以不能用「`media="print"` 加 `onload`」的写法——它在构建产物里会变回阻塞式 |
+| Service Worker | 不变：外部字体不在预缓存清单里，也没有针对字体的运行时缓存规则 |
+| `vite.config.js` | 不改 |
+
+**验收**：见 P-03 PRD v1.1 FR-4「验收项」表（Lighthouse 预算不变并通过、记录实测值、字体请求挂起时首屏仍渲染的回归 E2E、构建产物与 noscript 检查）。Gate 2 执行并把结果写入 Gate 2 报告；本文不预设这些验收的数值结果。
+
 ## 5. 模块清单汇总
 
 不填（无对外服务、无 SQL/DDL）。
@@ -81,4 +110,6 @@
 
 | 版本 | 日期 | 变更类型 | 更新说明 |
 |------|------|---------|---------|
+| v1.1 | 2026-11-24 | rule_changed | 代码阶段修订（v1.1 尚未发布，就地修订）：§4.6 的字体加载写法由 `media="print"` + `onload` 改为「预加载加到位切换」——Vite 会改写外链样式表标签并丢弃这两个属性，原写法在构建产物里仍是阻塞式（见 §4.6「Vite 构建处理」） |
+| v1.1 | 2026-11-24 | rule_added | R20 增量设计（用户裁定 D47）：新增 §4.6 网页字体加载的构建产物契约（`media="print"` + `onload` + `<noscript>` 回退），验收项见 P-03 PRD v1.1 FR-4；HTTP API 面仍为空 |
 | v1.0 | 2026-11-11 | initial | 逆向归档初稿（平台支撑域最简归档）：显式记录本模块无 HTTP API 面，机制与前端行为归前端规格/D4；API 面唯一约束为 `/api/*` 永不缓存。验证：本档为前端机制，服务端套件不覆盖（`bun test server/` 85 pass / 0 fail 仅确认无服务端回归，本归档会话执行）；PWA 浏览器行为本会话未运行验证 |

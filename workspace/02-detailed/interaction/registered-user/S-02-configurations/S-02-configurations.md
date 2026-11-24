@@ -4,9 +4,9 @@
 |------|-----|
 | 模块编码 | S-02（应用域：支撑业务域） |
 | 文档性质 | 逆向归档：系统已上线，本文档如实反映现有实现（组件/交互/文案均为现网事实，非理想化重设计） |
-| 版本 | v1.0 |
-| 状态 | 稳定 |
-| 最后更新 | 2026-11-11 |
+| 版本 | v1.1 |
+| 状态 | 稳定（v1.0 现网事实）+ 设计稿（v1.1 增量，待代码阶段实现） |
+| 最后更新 | 2026-11-24 |
 | 用户类型 | 注册用户（计时操作员/管理员共用本页；管理员代管差异见 §8.4） |
 | 业务类型 | 主数据（master_data：模板属主 CRUD，无审批/状态机） |
 | 页面类型 | config 单页多 Card（含局部 code 交互：阶段排序 HTML5 拖拽 + PID 弹层；无独立列表页/详情页） |
@@ -41,6 +41,8 @@
 | C7 | 提示音 | 提示音 | C-01-04 告警域（`SoundSettingsPanel`，设备本地偏好，不随模板保存；另册，本文不展开） |
 | C8 | 添加计时项目 | 添加计时项目 | S-02（§5.7） |
 | C9 | 调整顺序 | 调整顺序 | S-02（§5.9） |
+| 【R20】C10 | 两步验证 | 两步验证 | S-01-04；不在本篇展开，规格见 S-01-account PageSpec §5.1 |
+| 【R20】C11 | 我的登录记录 | 我的登录记录 | P-04；不在本篇展开，规格见 S-01-account PageSpec §5.3 |
 
 ## 2. Action 定义
 
@@ -152,6 +154,13 @@ CFG 播种（initializeDefaultConfigurations：「默认配置」缺失则用内
 
 ### 5.10 底部动作区（`:1346-1369`）— 「重置为默认」（outlined）+「保存」（contained success，大号），xs 纵排/sm 横排居中。
 
+### 5.12【R20】「账号与安全」区块（页面末尾，v1.1 新增）
+
+- 位置：底部动作区**之后**、页面最末尾，有独立小标题 `account.sectionTitle`。与模板编辑流程无关，因此不插在模板各卡之间。
+- 组成：两张卡——C10「两步验证」、C11「我的登录记录」。整块以 `React.lazy` 引入，不进入设置页主代码块；二维码库只在绑定弹窗里加载。
+- 与模板编辑的隔离：区块内的操作不触碰模板状态，不触发 `isDirty()`，不受「切换模板」确认的影响。
+- 字段、状态矩阵与词条不在本篇重复，见 S-01-account PageSpec §5。
+
 ### 5.11 保存载荷（A04 实发内容）
 
 `buildConfigurationPayload`（`src/services/configurationShared.js:9-43`）：`schemaVersion:2 + name + debateStages + timerSettings + stageOrder + stageLabels`，extras 五项（stageGrace/stageAutoAdvance/teamNames/stagePid/pidOptions）为空则省略键；teamNames 空侧剔除。**不含** isPublic/creditName/galleryCopyCount/shareToken/shareEnabled（后果见 §5.2 注记）。
@@ -212,6 +221,7 @@ CFG 播种（initializeDefaultConfigurations：「默认配置」缺失则用内
 
 | 版本 | 日期 | 变更类型 | 变更说明 | 目标节 |
 |------|------|---------|---------|--------|
+| v1.1 | 2026-11-24 | structural | R20 增量设计：页面末尾新增「账号与安全」区块（C10 两步验证、C11 我的登录记录，按需加载）。模板各卡、16 个 Action、保存载荷零变更；两张新卡的规格在 S-01-account PageSpec，本篇只登记位置与隔离约束 | §1 Card 总览、§5.12 |
 | v1.0 | 2026-11-11 | initial | 逆向归档首次生成：16 Action、9 Card 字段级规格、dirty 快照机制、深链优先级、admin 代管差异成文；如实注记三处实现行为：已有阶段无改名入口（§5.7 注记）、已发布模板保存退场无预警（§5.2）、设置页不订阅 SSE（§8.5） | §2/§5/§8 |
 
 ### 输出校验记录（机械自检，逆向归档如实记录）

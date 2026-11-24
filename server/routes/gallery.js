@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { toDisplayResponse } from '../lib/configDocs.js';
 import { parseObjectId } from '../lib/ids.js';
+import { consentOf, createAuditRecorder } from '../lib/auditLog.js';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -42,8 +43,9 @@ function escapeRegex(text) {
  * flagged isPublic. Responses never include owner identity or share tokens
  * (a self-chosen creditName is the only attribution, opt-in by the owner).
  */
-export function createGalleryRouter({ configurations, requireAuth, requireAdmin }) {
+export function createGalleryRouter({ configurations, requireAuth, requireAdmin, auditLogs }) {
     const router = Router();
+    const audit = createAuditRecorder(auditLogs);
 
     router.get('/', async (req, res) => {
         try {
@@ -147,7 +149,22 @@ export function createGalleryRouter({ configurations, requireAuth, requireAdmin 
                 { _id: id, isPublic: true },
                 { $set: { isPublic: false, updatedAt: Date.now() } },
             );
-            res.json({ success: true, data: { unpublished: result.modifiedCount > 0 } });
+            const unpublished = result.modifiedCount > 0;
+            // Governance actions leave a trace (R20): a forced takedown is
+            // recorded with the template id only — never its title.
+            if (unpublished && audit.enabled) {
+                const doc = await configurations.findOne({ _id: id });
+                await audit.record({
+                    type: 'gallery_unpublished',
+                    result: 'success',
+                    req,
+                    consent: consentOf(req.authUser),
+                    actorUserId: parseObjectId(req.user?.id),
+                    subjectUserId: parseObjectId(doc?.ownerId),
+                    detail: { templateId: id, by: 'admin' },
+                });
+            }
+            res.json({ success: true, data: { unpublished } });
         } catch (error) {
             console.error('POST /api/gallery/:id/unpublish', error);
             res.status(500).json({ success: false, message: error.message });

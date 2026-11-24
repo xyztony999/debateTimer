@@ -66,6 +66,58 @@ test('cors gate lets same-origin POST bypass the allowlist', () => {
     expect(nextCalled).toBe(true);
 });
 
+// The cors library writes its headers through setHeader/getHeader, which the
+// fake response above does not have.
+function headerCapturingRes() {
+    const headers = {};
+    return {
+        headers,
+        statusCode: 0,
+        setHeader(name, value) {
+            headers[String(name).toLowerCase()] = String(value);
+            return this;
+        },
+        getHeader(name) {
+            return headers[String(name).toLowerCase()];
+        },
+        removeHeader(name) {
+            delete headers[String(name).toLowerCase()];
+        },
+        end() {},
+    };
+}
+
+test('cross-origin responses expose Retry-After: the front end on another origin must be able to read the lock-out time', () => {
+    const gate = createCorsMiddleware({ allowedOrigins: ['https://pages.example.com'] });
+    const res = headerCapturingRes();
+    let nextCalled = false;
+    gate(
+        fakeReq({ origin: 'https://pages.example.com', host: 'api.example.com' }),
+        res,
+        () => {
+            nextCalled = true;
+        },
+    );
+    expect(nextCalled).toBe(true);
+    // Allowlist semantics are unchanged; one more header becomes readable.
+    expect(res.headers['access-control-allow-origin']).toBe('https://pages.example.com');
+    expect(res.headers['access-control-allow-credentials']).toBe('true');
+    expect(res.headers['access-control-expose-headers']).toBe('Retry-After');
+});
+
+test('cors gate still rejects an origin that is not on the allowlist', () => {
+    const gate = createCorsMiddleware({ allowedOrigins: ['https://pages.example.com'] });
+    const res = headerCapturingRes();
+    let forwarded = null;
+    gate(fakeReq({ origin: 'https://evil.example', host: 'api.example.com' }), res, (error) => {
+        forwarded = error;
+    });
+    expect(forwarded).toBeInstanceOf(Error);
+    expect(forwarded.message).toMatch(/CORS blocked/);
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    expect(res.headers['access-control-expose-headers']).toBeUndefined();
+});
+
 test('unsafe origin guard allows same-origin POST (direct LAN access)', () => {
     const guard = createUnsafeOriginGuard({ allowedOrigins: ['https://pages.example.com'] });
     const { res, nextCalled } = runMiddleware(guard, fakeReq({ origin: 'http://192.168.1.10:3001' }));

@@ -42,3 +42,43 @@ export function createRateLimiter({ windowMs = 60_000, max = 60 } = {}) {
         next();
     };
 }
+
+/**
+ * Sliding-window limiter keyed by whatever the caller chooses (the second-
+ * factor step keys it by account, so a new IP or a fresh pre-login ticket does
+ * not reset it). It is not Express middleware: the handler reports each
+ * failure and asks whether the key is blocked before trying. Same window and
+ * Retry-After semantics as above; in-memory, single-process.
+ */
+export function createAttemptLimiter({ windowMs = 900_000, max = 5 } = {}) {
+    /** @type {Map<string, number[]>} key -> timestamps of failures */
+    const failures = new Map();
+
+    const alive = (key, now) => (failures.get(key) || []).filter((t) => now - t < windowMs);
+    const retryAfterSec = (times, now) => Math.max(1, Math.ceil((times[0] + windowMs - now) / 1000));
+
+    return {
+        isBlocked(key) {
+            const now = Date.now();
+            const times = alive(key, now);
+            return times.length >= max
+                ? { blocked: true, retryAfterSec: retryAfterSec(times, now) }
+                : { blocked: false, retryAfterSec: 0 };
+        },
+        recordFailure(key) {
+            const now = Date.now();
+            const times = [...alive(key, now), now];
+            failures.set(key, times);
+            const blocked = times.length >= max;
+            return {
+                failures: times.length,
+                remaining: Math.max(0, max - times.length),
+                blocked,
+                retryAfterSec: blocked ? retryAfterSec(times, now) : 0,
+            };
+        },
+        reset(key) {
+            failures.delete(key);
+        },
+    };
+}

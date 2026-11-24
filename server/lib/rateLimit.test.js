@@ -1,4 +1,4 @@
-import { createRateLimiter } from './rateLimit.js';
+import { createAttemptLimiter, createRateLimiter } from './rateLimit.js';
 
 function fakeReqRes(ip = '1.2.3.4') {
     const req = { ip };
@@ -49,4 +49,58 @@ test('tracks IPs independently', () => {
     expect(b.replies).toHaveLength(0);
     limit(a.req, a.res, () => {});
     expect(a.replies[0]).toBe(429);
+});
+
+describe('createAttemptLimiter (keyed by account, counts failures only)', () => {
+    test('allows up to max failures, then blocks with Retry-After', () => {
+        const limiter = createAttemptLimiter({ windowMs: 60_000, max: 5 });
+        expect(limiter.isBlocked('acct').blocked).toBe(false);
+        for (let i = 1; i <= 4; i += 1) {
+            expect(limiter.recordFailure('acct')).toEqual({
+                failures: i, remaining: 5 - i, blocked: false, retryAfterSec: 0,
+            });
+        }
+        const fifth = limiter.recordFailure('acct');
+        expect(fifth.blocked).toBe(true);
+        expect(fifth.remaining).toBe(0);
+        expect(fifth.retryAfterSec).toBeGreaterThanOrEqual(1);
+        expect(fifth.retryAfterSec).toBeLessThanOrEqual(60);
+        expect(limiter.isBlocked('acct').blocked).toBe(true);
+    });
+
+    test('keys are independent — one account being blocked never touches another', () => {
+        const limiter = createAttemptLimiter({ windowMs: 60_000, max: 2 });
+        limiter.recordFailure('a');
+        limiter.recordFailure('a');
+        expect(limiter.isBlocked('a').blocked).toBe(true);
+        expect(limiter.isBlocked('b').blocked).toBe(false);
+        // Asking does not count as a failure.
+        expect(limiter.isBlocked('b')).toEqual({ blocked: false, retryAfterSec: 0 });
+    });
+
+    test('reset clears the counter after a success', () => {
+        const limiter = createAttemptLimiter({ windowMs: 60_000, max: 2 });
+        limiter.recordFailure('a');
+        limiter.recordFailure('a');
+        limiter.reset('a');
+        expect(limiter.isBlocked('a').blocked).toBe(false);
+    });
+
+    test('the window slides — failures age out', async () => {
+        const limiter = createAttemptLimiter({ windowMs: 200, max: 2 });
+        limiter.recordFailure('a');
+        limiter.recordFailure('a');
+        expect(limiter.isBlocked('a').blocked).toBe(true);
+        await new Promise((resolve) => setTimeout(resolve, 260));
+        expect(limiter.isBlocked('a').blocked).toBe(false);
+    });
+
+    test('Retry-After counts from the oldest failure still in the window', async () => {
+        const limiter = createAttemptLimiter({ windowMs: 1000, max: 2 });
+        limiter.recordFailure('a');
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const blocked = limiter.recordFailure('a');
+        expect(blocked.blocked).toBe(true);
+        expect(blocked.retryAfterSec).toBe(1); // ceil(~600ms)
+    });
 });

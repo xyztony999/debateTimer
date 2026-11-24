@@ -8,6 +8,7 @@ import React, {
     useState,
 } from 'react';
 import { authService } from '../services/authService';
+import { isTotpRequired } from '../utils/authFlow';
 
 const AuthContext = createContext({
     user: null,
@@ -17,8 +18,16 @@ const AuthContext = createContext({
     register: async () => ({ success: false }),
     logout: async () => {},
     refresh: async () => {},
+    adoptSession: async () => {},
+    setPending: () => {},
 });
 
+/**
+ * `user` is the server's session user: { id, username, role, pending }.
+ * `pending` lists the post-login steps the account still owes
+ * ('privacy_consent' | 'totp_enroll'); while it is non-empty the rest of the
+ * app is closed and the account is routed to /gate (R20).
+ */
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -66,29 +75,48 @@ export function AuthProvider({ children }) {
         };
     }, [refresh, refreshStatus]);
 
-    const login = useCallback(async (username, password) => {
-        const result = await authService.login(username, password);
+    /**
+     * Stores a session user that a sign-in, sign-up or second-factor response
+     * handed back. Only called with a real session: a LOGIN that asks for a
+     * second factor carries a ticket instead and starts no session.
+     */
+    const adoptSession = useCallback(async (data) => {
         if (!mountedRef.current) {
-            return result;
+            return;
         }
-        if (result.success) {
-            setUser(result.data);
-            await refreshStatus();
-        }
-        return result;
+        setUser(data);
+        await refreshStatus();
     }, [refreshStatus]);
 
-    const register = useCallback(async (username, password) => {
-        const result = await authService.register(username, password);
+    /**
+     * Replaces the pending steps on the current session user, from a response
+     * that reports them (privacy consent). `pending` is the only field that
+     * changes, so the rest of `user` is kept as is.
+     */
+    const setPending = useCallback((pending) => {
+        setUser((prev) => (prev ? { ...prev, pending: Array.isArray(pending) ? pending : [] } : prev));
+    }, []);
+
+    const login = useCallback(async (username, password) => {
+        const result = await authService.login(username, password);
+        // A second-factor response (status 'totp_required') holds a ticket
+        // and no session: the page runs the verification step instead.
+        if (result.success && !isTotpRequired(result.data)) {
+            await adoptSession(result.data);
+        }
+        return result;
+    }, [adoptSession]);
+
+    const register = useCallback(async (username, password, consent) => {
+        const result = await authService.register(username, password, consent);
         if (!mountedRef.current) {
             return result;
         }
         if (result.success) {
-            setUser(result.data);
-            await refreshStatus();
+            await adoptSession(result.data);
         }
         return result;
-    }, [refreshStatus]);
+    }, [adoptSession]);
 
     const logout = useCallback(async () => {
         await authService.logout();
@@ -100,8 +128,18 @@ export function AuthProvider({ children }) {
     }, [refreshStatus]);
 
     const value = useMemo(
-        () => ({ user, loading, status, login, register, logout, refresh }),
-        [user, loading, status, login, register, logout, refresh],
+        () => ({
+            user,
+            loading,
+            status,
+            login,
+            register,
+            logout,
+            refresh,
+            adoptSession,
+            setPending,
+        }),
+        [user, loading, status, login, register, logout, refresh, adoptSession, setPending],
     );
 
     return (

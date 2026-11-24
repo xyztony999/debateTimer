@@ -122,6 +122,13 @@ bun run build && bunx --package @lhci/cli@0.15.1 lhci autorun
 2. `/gallery`：卡片列表（阶段数/总时长/模式构成）+ 详情 + 一键「复制到我的模板」
 3. 管理员可强制下架；导入脚本支持 `--public`，`server/scripts/presets/` 预置 UOMDC/BP/奥瑞冈样例赛制
 
+### 账号安全与隐私
+
+1. 登录支持两步验证（验证器 App 的动态口令）：普通账号在设置页自愿开启，管理员账号必须开启
+2. 丢失验证器时用一次性恢复码登录，或由管理员重置
+3. 注册需阅读并同意隐私说明；说明更新后，已有用户下次登录时重新确认
+4. 注册、登录、两步验证、账号与管理操作会写入审计日志，管理员可在后台按事件类型、用户名、时间筛选查看；日志留存 184 天后自动删除
+
 ### PWA 与手机适配
 
 1. 可安装到桌面 / 主屏幕；断网时应用壳离线可用（计时核心不依赖网络，API 数据不缓存）
@@ -149,11 +156,11 @@ bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 
 想在自己服务器跑一套完整的前端 + API + MongoDB？见 [`deploy/selfhost/README.md`](deploy/selfhost/README.md)：
 一键脚本支持全栈一体化（一个 Node 进程同时托管页面与 API，`STATIC_DIR=../build`）或
-Nginx 静态 + API 反代两种拓扑，适合内网与社区私有化部署。
+Nginx 静态 + API 反代两种拓扑，适合内网与社区私有化部署。自部署前请留意两步验证的主密钥、隐私说明与审计日志这三处，见自部署说明中的对应一节。
 
 ### 数据备份（服务器 cron）
 
-`server/scripts/backup.js`：纯驱动导出 `configurations / users / match_logs` 为 NDJSON 快照（`server/backups/`），保留 14 天自动轮换；`--restore <名称> --force` 整库回放（含 ownerId 深层复活）。服务器 crontab 示例：
+`server/scripts/backup.js`：纯驱动导出 `configurations / users / match_logs / app_settings / audit_logs` 为 NDJSON 快照（`server/backups/`），保留 14 天自动轮换；`--restore <名称> --force` 整库回放（含 ownerId 深层复活）。服务器 crontab 示例：
 
 ```bash
 30 4 * * *  cd /www/wwwroot/debatetimer-api/server && node scripts/backup.js >> /www/wwwlogs/debatetimer-backup.log 2>&1

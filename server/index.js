@@ -9,15 +9,20 @@ import { createCorsMiddleware, createUnsafeOriginGuard, parseAllowedOrigins } fr
 import { createStaticSite } from './lib/staticSite.js';
 import { createSseHub } from './lib/sseHub.js';
 import { createTimerSessionRegistry } from './lib/timerSessions.js';
-import { createDisplayRateLimiter, createGalleryRateLimiter } from './lib/rateLimits.js';
+import { createDisplayRateLimiter, createGalleryRateLimiter, createPrivacyRateLimiter } from './lib/rateLimits.js';
 import { createAdminRouter } from './routes/admin.js';
+import { createAuditRouter } from './routes/audit.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createConfigurationsRouter } from './routes/configurations.js';
 import { createIntentRouter } from './routes/intent.js';
 import { createPairingRouter } from './routes/pairing.js';
+import { createPrivacyRouter } from './routes/privacy.js';
 import { createDisplayRouter } from './routes/display.js';
 import { createMatchLogsRouter } from './routes/matchLogs.js';
 import { createGalleryRouter } from './routes/gallery.js';
+import { createEnforceGates } from './lib/authGates.js';
+import { findUnresolvedPlaceholders } from './lib/privacyNotices.js';
+import { reportTotpKeyStatus } from './lib/totpCrypto.js';
 
 const PORT = Number(process.env.PORT) || 3001;
 // 127.0.0.1 keeps the API behind a reverse proxy (Baota nginx). All-stack
@@ -70,6 +75,10 @@ async function start() {
     // fixed string _id — unique by construction, no index needed. Included in
     // scripts/backup.js COLLECTIONS so restores keep the toggle.
     const appSettings = db.collection('app_settings');
+    // Security and account audit trail (R20, module P-04): append-only, each
+    // event expires 184 days after it was written. New collection — starts
+    // empty; nothing in the existing collections is migrated or rewritten.
+    const auditLogs = db.collection('audit_logs');
 
     await db.command({ ping: 1 });
 
@@ -100,17 +109,55 @@ async function start() {
         { partialFilterExpression: { isPublic: true } },
     );
     await matchLogs.createIndex({ ownerId: 1, savedAt: -1 });
+    // TTL index drives retention: MongoDB's TTL monitor (≈60 s cadence)
+    // removes documents whose expireAt has passed. Requirements: expireAt is
+    // a BSON Date, the collection is not capped and ttlMonitorEnabled is left
+    // at its default.
+    await auditLogs.createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 });
+    await auditLogs.createIndex({ at: -1 });
+    await auditLogs.createIndex({ type: 1, at: -1 });
+    await auditLogs.createIndex({ subjectUserId: 1, at: -1 });
+    await auditLogs.createIndex({ actorUserId: 1, at: -1 });
 
     const { attachUser, requireAuth, requireAdmin } = createAuthMiddleware({ users, sessions });
     app.use(attachUser);
+    // Post-login gates (privacy-notice confirmation, administrator two-factor
+    // enrolment) apply to the API only — static assets and the SPA shell stay
+    // reachable so the client can load the page that completes the steps.
+    app.use('/api', createEnforceGates());
 
-    app.use('/api/auth', createAuthRouter({ users, sessions, configurations, appSettings }));
+    app.use('/api/auth', createAuthRouter({
+        users,
+        sessions,
+        configurations,
+        appSettings,
+        auditLogs,
+        requireAuth,
+    }));
+    // Privacy notice read is anonymous and rate-limited per IP; consent
+    // acceptance needs a session.
+    app.use('/api/privacy', createPrivacyRateLimiter(), createPrivacyRouter({
+        users,
+        auditLogs,
+        requireAuth,
+    }));
     // Anonymous public surfaces get in-memory per-IP limits (SSE streams on
     // /display are long-lived and count once at connect). Thresholds are
     // env-tunable with unchanged defaults — see server/.env.example.
     app.use('/api/display', createDisplayRateLimiter(), createDisplayRouter({ configurations, sse, timerSessions }));
-    app.use('/api/gallery', createGalleryRateLimiter(), createGalleryRouter({ configurations, requireAuth, requireAdmin }));
-    app.use('/api/configurations', createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }));
+    app.use('/api/gallery', createGalleryRateLimiter(), createGalleryRouter({
+        configurations,
+        requireAuth,
+        requireAdmin,
+        auditLogs,
+    }));
+    app.use('/api/configurations', createConfigurationsRouter({
+        configurations,
+        sse,
+        requireAuth,
+        timerSessions,
+        auditLogs,
+    }));
     app.use('/api/session', createPairingRouter({ timerSessions, requireAuth }));
     // D40 (v1.1): host operation intent (three-segment path, owner-only) —
     // rides the same /api/session prefix as pairing.
@@ -124,7 +171,9 @@ async function start() {
         sse,
         requireAuth,
         requireAdmin,
+        auditLogs,
     }));
+    app.use('/api/audit', createAuditRouter({ auditLogs, users, requireAuth, requireAdmin }));
 
     // All-stack self-hosted mode: after every API route, serve the frontend
     // build with an SPA fallback. Unknown /api paths stay JSON 404s.
@@ -139,6 +188,14 @@ async function start() {
         }
         console.log(`CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
         console.log(`MongoDB database: ${db.databaseName}`);
+        if (!reportTotpKeyStatus()) {
+            console.error('Administrators will NOT be required to enroll until the key is configured.');
+        }
+        const placeholders = findUnresolvedPlaceholders()
+            .filter((token) => token !== '{{PRIVACY_EFFECTIVE_DATE}}');
+        if (placeholders.length > 0) {
+            console.error(`Privacy notice still contains unfilled placeholders: ${placeholders.join(', ')}`);
+        }
     });
 }
 

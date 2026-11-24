@@ -105,6 +105,40 @@ bash /www/wwwroot/debatetimer-api/deploy/baota/deploy.sh --api-only
 
 `webhook.php` 默认只接受 `deploy/production` 的 push。PHP 用户必须能执行 `deploy.sh`；权限不够时用 Actions SSH。
 
+## 两步验证的主密钥（`TOTP_SECRET_KEY`）
+
+登录用的两步验证（验证器 App 里的动态口令）需要一个主密钥，用来加密保存每个账号的验证器密钥。**不配置时两步验证整体不生效**：启动日志里有一条报错，管理员账号的强制绑定暂不执行，后台页面顶部有一条提示。服务本身照常可用。
+
+在服务器上生成一个，写进 `server/.env`（Base64，解码后必须正好 32 字节）：
+
+```bash
+cd /www/wwwroot/debatetimer-api/server
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+# 把输出写进 .env 的一行：TOTP_SECRET_KEY=<上面打印的那一串>
+```
+
+- 改完 `.env` 要重启 API 才生效：用下面「立刻手动重启」的命令，或等下一次 `deploy.sh` 发布。
+- 生成后**离线另存一份**。这个值丢了，已绑定的账号就无法再通过两步验证，只能逐个重置。
+- 它不进 Git、不进备份、不写进文档或工单。
+- 服务器上 `node` 不在 PATH 时用完整路径：`/www/server/nodejs/v24.16.0/bin/node`。
+
+### 有人丢了验证器
+
+还有恢复码：在登录页选「使用恢复码」，每个只能用一次。
+
+恢复码也用完了：管理员在后台用户表里点「重置两步验证」。若是管理员本人（后台不能重置自己），在服务器上执行：
+
+```bash
+cd /www/wwwroot/debatetimer-api/server
+node scripts/reset-totp.js --username <用户名>
+```
+
+按提示再输入一遍用户名确认。该账号会在所有设备上下线，下次登录时重新绑定验证器。
+
+### api 域名保持「仅 DNS」
+
+审计日志记录的来源 IP，以及按 IP 的限流，都依赖请求直接到达这台服务器。`api.debatetimer.tonyxyz.com` 在 Cloudflare 里要保持灰云（仅 DNS）。如果改成橙云（代理），要同时在 Nginx 里配置 Cloudflare 的 realip，否则记录到的会是 Cloudflare 的地址。
+
 ## 检查
 
 ```bash

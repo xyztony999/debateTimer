@@ -2,10 +2,10 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
+| 版本 | v1.1 |
 | 状态 | 稳定 |
-| 最后更新 | 2026-11-11 |
-| 上游 | enum-pool.md v1.0（定义与取值以总册为准，本册只登记**跨模块复用**子集与消费矩阵） |
+| 最后更新 | 2026-11-24 |
+| 上游 | enum-pool.md v1.2（定义与取值以总册为准，本册只登记**跨模块复用**子集与消费矩阵） |
 
 ## 1. 文档定位
 
@@ -38,7 +38,10 @@
 | EP-SESSION-10 | 快照 wire 字段 schema v2 | 见总册 | `server/lib/timerSessions.js:325-406`（validateSnapshot 权威）；编解码 `src/timer/snapshotCodec.js` | C-01（buildSnapshot 上行）、C-02（adoptSnapshot 下行 + P2P 直连同帧 `src/timer/useTimerSessionSync.js:238-239`）、S-04（不消费 wire，但实绩起点同 stageId 体系） |
 | EP-CONFIG-01 | 预置阶段 id（16 个稳定 id） | `sound_check`…`aff_closing` | `src/config/stageRegistry.js:22-41` | S-02（模板编辑/图标 `src/components/StageIcon.jsx:15-32`）、C-01（APPLY_STAGE）、C-02（applyStage 指令校验 `server/lib/timerSessions.js:239-244`）、S-04（记录 stageId/label 快照 `server/lib/matchLogs.js:94-95`）、D-02（预置导入 `server/scripts/presets/*.json`） |
 | EP-CONFIG-04 | 线路颜色 7 色白名单 | `#1e3a5f` 等 | `server/lib/configDocs.js:18-20` | S-02（调色板 `src/config/pidIcons.js:62-66`）、C-01/C-02（PID 呈现随配置快照下发 `server/lib/configDocs.js:268-282`） |
-| EP-I18N-01 | 界面语言 | `en` / `fr-CA` / `zh-Hans` | `src/i18n.js:24-25` | 全模块 UI（i18n 骨架）；S-02（多语言阶段名 `stageLabels` 键随语言）；C-01（TTS 语种链 `src/services/speech.js:12-16`） |
+| EP-I18N-01 | 界面语言 | `en` / `fr-CA` / `zh-Hans` | `src/i18n.js:24-25` | 全模块 UI（i18n 骨架）；S-02（多语言阶段名 `stageLabels` 键随语言）；C-01（TTS 语种链 `src/services/speech.js:12-16`）；【R20】隐私说明按界面语言下发（S-01 `GET /api/privacy/notices/current?lng=`） |
+| EP-AUDIT-01【R20】 | 审计事件类型 `auditEventType` | 20 个取值，见总册 §3.7 | `server/lib/auditLog.js`（规划） | S-01（注册、登录、两步验证、同意事件）、D-01（账号治理、模板强制删除、两步验证重置）、D-02（注册开关变更）、S-03（发布与下架）、P-04（存储与查询） |
+| EP-AUDIT-02【R20】 | 审计结果 `auditResult` | `success` / `failure` | P-04 PRD §7 | S-01（`login_failed` 与 `totp_failed` 取 failure）、P-04（列表筛选与本人视图的 IP 脱敏判定） |
+| EP-IDENT-06【R20】 | 两步验证操作渠道 `totpChannel` | `self` / `forced_enrollment` / `admin` / `cli` | S-01 API v1.1 §4.4；D-01 API v1.1 A7 | S-01（绑定、解绑）、D-01（管理员重置）、`server/scripts/reset-totp.js`（脚本重置）、P-04（事件的 `detail.channel`） |
 
 ## 4. 消费矩阵（模块 × 枚举编号）
 
@@ -46,14 +49,15 @@
 |------|---------|
 | C-01 | EP-TIMER-01/02/03/04/06/07、EP-SESSION-01/10、EP-CONFIG-01/04、EP-I18N-01 |
 | C-02 | EP-SESSION-01/02/03/04/05/06/07/08/09/10/11、EP-TIMER-01/02/03/04/06、EP-CONFIG-01 |
-| S-01 | EP-IDENT-01/02/03 |
+| S-01 | EP-IDENT-01/02/03；【R20】EP-IDENT-05~09、EP-AUDIT-01/02/03、EP-PROTECT-03、EP-I18N-01（隐私说明语言） |
 | S-02 | EP-TIMER-01、EP-CONFIG-01/02/03/04/05、EP-I18N-01 |
-| S-03 | EP-IDENT-01、EP-TIMER-01、EP-CONFIG-06/07 |
+| S-03 | EP-IDENT-01、EP-TIMER-01、EP-CONFIG-06/07；【R20】EP-AUDIT-01 |
 | S-04 | EP-TIMER-01/02/04/06（记录侧复用）、EP-PROTECT-02、EP-CONFIG-01 |
-| D-01 | EP-IDENT-01/03 |
-| D-02 | EP-IDENT-02、EP-CONFIG-01/05 |
+| D-01 | EP-IDENT-01/03；【R20】EP-AUDIT-01、EP-IDENT-06 |
+| D-02 | EP-IDENT-02、EP-CONFIG-01/05；【R20】EP-AUDIT-01 |
 | P-01 | EP-SESSION-01/02/03/04、EP-PROTECT-01（display 窗口） |
-| P-02 | EP-PROTECT-01/02 |
+| P-02 | EP-PROTECT-01/02；【R20】EP-PROTECT-03 |
+| P-04【R20】 | EP-AUDIT-01/02/03、EP-IDENT-01（角色变更的前后值）、EP-PROTECT-04 |
 
 ## 5. 已知口径差异（如实登记，不判错）
 
@@ -65,4 +69,5 @@
 
 | 版本 | 日期 | 更新说明 |
 |------|------|---------|
+| v1.1 | 2026-11-24 | R20：新增三组跨模块枚举（EP-AUDIT-01 审计事件类型、EP-AUDIT-02 审计结果、EP-IDENT-06 两步验证渠道）；EP-I18N-01 增加隐私说明语言这一消费方；消费矩阵补 S-01、S-03、D-01、D-02、P-02 的新引用并新增 P-04 一行 |
 | v1.0 | 2026-11-11 | 初始生成：从枚举池挑选 13 组跨模块枚举，给出权威定义、消费矩阵与 3 条口径差异登记 |

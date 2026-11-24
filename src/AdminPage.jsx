@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
@@ -41,23 +41,31 @@ import {
     getRegistrationSetting,
     listAllConfigurations,
     listUsers,
+    resetTotp,
     updateRegistrationSetting,
     updateUser,
 } from './services/adminService';
 import GalleryService from './services/GalleryService';
+import { accountService } from './services/accountService';
+import { formatDateTime } from './utils/dateTime';
+
+// Only the admin page shows the audit log: it is downloaded when the page is
+// opened, not with the timer or the sign-in page.
+const AuditLogCard = lazy(() => import('./components/admin/AuditLogCard'));
 
 export default function AdminPage() {
     const navigate = useNavigate();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { user, logout } = useAuth();
     const { darkMode, toggleDarkMode } = useColorMode();
-    const { confirm } = useFeedback();
+    const { confirm, notify } = useFeedback();
 
     const [users, setUsers] = useState([]);
     const [configs, setConfigs] = useState([]);
     const [registration, setRegistration] = useState(null);
     const [regBusy, setRegBusy] = useState(false);
     const [error, setError] = useState('');
+    const [totpUnavailable, setTotpUnavailable] = useState(false);
     const [newUsername, setNewUsername] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newRole, setNewRole] = useState('user');
@@ -94,6 +102,21 @@ export default function AdminPage() {
         };
     }, [refresh]);
 
+    // Administrators must bind an authenticator — but only once the server has
+    // the key for it. Without that key the requirement is quietly inactive, so
+    // the page says so. A failed read shows nothing: this is a hint, not a gate.
+    useEffect(() => {
+        let cancelled = false;
+        accountService.getTotpStatus().then((result) => {
+            if (!cancelled && result.success && result.data?.available === false) {
+                setTotpUnavailable(true);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const handleCreate = async (event) => {
         event.preventDefault();
         const result = await createUser({
@@ -123,6 +146,19 @@ export default function AdminPage() {
         }
         setRegistration(result.data);
     };
+
+    // Who last moved the registration switch, or that nobody has (the server
+    // default is in force). Says nothing when an admin-set value has no time.
+    const registrationNote = registration?.source === 'admin' && registration.updatedAt
+        ? t('admin.regLastChanged', {
+            name: registration.updatedBy || '—',
+            time: formatDateTime(registration.updatedAt, i18n.language),
+        })
+        : registration?.source === 'env'
+            ? t('admin.regNeverSet', {
+                state: registration.registrationOpen ? t('admin.stateOpen') : t('admin.stateClosed'),
+            })
+            : '';
 
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 6 }}>
@@ -164,6 +200,9 @@ export default function AdminPage() {
                     {t('admin.subtitle')}
                 </Typography>
                 {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+                {totpUnavailable
+                    ? <Alert severity="warning" sx={{ mb: 2 }}>{t('admin.totpUnavailableBanner')}</Alert>
+                    : null}
 
                 <Stack spacing={3}>
                     <Card>
@@ -206,78 +245,120 @@ export default function AdminPage() {
                                 <Button type="submit" variant="contained">{t('admin.createUser')}</Button>
                             </Stack>
 
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell>{t('auth.username')}</TableCell>
-                                        <TableCell>{t('admin.role')}</TableCell>
-                                        <TableCell>{t('admin.status')}</TableCell>
-                                        <TableCell align="right">{t('admin.actions')}</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {users.map((row) => (
-                                        <TableRow key={row.id}>
-                                            <TableCell>{row.username}</TableCell>
-                                            <TableCell>
-                                                <Chip size="small" label={row.role === 'admin' ? t('admin.roleAdmin') : t('admin.roleUser')} />
-                                            </TableCell>
-                                            <TableCell>
-                                                {row.disabled ? t('admin.disabled') : t('admin.active')}
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                                                    <Button
-                                                        size="small"
-                                                        disabled={row.id === user?.id}
-                                                        onClick={async () => {
-                                                            const result = await updateUser(row.id, { disabled: !row.disabled });
-                                                            if (!result.success) setError(result.message);
-                                                            else await refresh();
-                                                        }}
-                                                    >
-                                                        {row.disabled ? t('admin.enable') : t('admin.disable')}
-                                                    </Button>
-                                                    <Button
-                                                        size="small"
-                                                        disabled={row.id === user?.id && row.role === 'admin'}
-                                                        onClick={async () => {
-                                                            const result = await updateUser(row.id, {
-                                                                role: row.role === 'admin' ? 'user' : 'admin',
-                                                            });
-                                                            if (!result.success) setError(result.message);
-                                                            else await refresh();
-                                                        }}
-                                                    >
-                                                        {row.role === 'admin' ? t('admin.makeUser') : t('admin.makeAdmin')}
-                                                    </Button>
-                                                    <Button
-                                                        size="small"
-                                                        color="error"
-                                                        disabled={row.id === user?.id}
-                                                        onClick={async () => {
-                                                            const accepted = await confirm({
-                                                                title: t('settings.confirmTitle'),
-                                                                message: t('admin.confirmDeleteUser', { name: row.username }),
-                                                                confirmLabel: t('common.delete'),
-                                                                confirmColor: 'error',
-                                                            });
-                                                            if (!accepted) {
-                                                                return;
-                                                            }
-                                                            const result = await deleteUser(row.id);
-                                                            if (!result.success) setError(result.message);
-                                                            else await refresh();
-                                                        }}
-                                                    >
-                                                        {t('admin.delete')}
-                                                    </Button>
-                                                </Stack>
-                                            </TableCell>
+                            <Box sx={{ overflowX: 'auto' }}>
+                                <Table size="small" sx={{ whiteSpace: 'nowrap' }}>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>{t('auth.username')}</TableCell>
+                                            <TableCell>{t('admin.role')}</TableCell>
+                                            <TableCell>{t('admin.status')}</TableCell>
+                                            <TableCell>{t('admin.totpStatus')}</TableCell>
+                                            <TableCell>{t('admin.createdAt')}</TableCell>
+                                            <TableCell align="right">{t('admin.actions')}</TableCell>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHead>
+                                    <TableBody>
+                                        {users.map((row) => (
+                                            <TableRow key={row.id}>
+                                                <TableCell>{row.username}</TableCell>
+                                                <TableCell>
+                                                    <Chip size="small" label={row.role === 'admin' ? t('admin.roleAdmin') : t('admin.roleUser')} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {row.disabled ? t('admin.disabled') : t('admin.active')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        size="small"
+                                                        color={row.totpEnabled === true ? 'success' : 'default'}
+                                                        label={row.totpEnabled === true ? t('admin.totpOn') : t('admin.totpOff')}
+                                                    />
+                                                </TableCell>
+                                                <TableCell title={formatDateTime(row.createdAt, i18n.language, 'full') ?? undefined}>
+                                                    {formatDateTime(row.createdAt, i18n.language) ?? '—'}
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                                                        {/* Only for someone else's account that has it on: the
+                                                            administrator rebinds their own on the settings page. */}
+                                                        {row.totpEnabled === true && row.id !== user?.id
+                                                            ? (
+                                                                <Button
+                                                                    size="small"
+                                                                    color="warning"
+                                                                    onClick={async () => {
+                                                                        const accepted = await confirm({
+                                                                            title: t('settings.confirmTitle'),
+                                                                            message: t('admin.confirmResetTotp', { name: row.username }),
+                                                                            confirmColor: 'warning',
+                                                                        });
+                                                                        if (!accepted) {
+                                                                            return;
+                                                                        }
+                                                                        const result = await resetTotp(row.id);
+                                                                        if (!result.success) setError(result.message);
+                                                                        else {
+                                                                            notify(t('admin.totpResetDone'), { severity: 'success' });
+                                                                            await refresh();
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    {t('admin.resetTotp')}
+                                                                </Button>
+                                                            )
+                                                            : null}
+                                                        <Button
+                                                            size="small"
+                                                            disabled={row.id === user?.id}
+                                                            onClick={async () => {
+                                                                const result = await updateUser(row.id, { disabled: !row.disabled });
+                                                                if (!result.success) setError(result.message);
+                                                                else await refresh();
+                                                            }}
+                                                        >
+                                                            {row.disabled ? t('admin.enable') : t('admin.disable')}
+                                                        </Button>
+                                                        <Button
+                                                            size="small"
+                                                            disabled={row.id === user?.id && row.role === 'admin'}
+                                                            onClick={async () => {
+                                                                const result = await updateUser(row.id, {
+                                                                    role: row.role === 'admin' ? 'user' : 'admin',
+                                                                });
+                                                                if (!result.success) setError(result.message);
+                                                                else await refresh();
+                                                            }}
+                                                        >
+                                                            {row.role === 'admin' ? t('admin.makeUser') : t('admin.makeAdmin')}
+                                                        </Button>
+                                                        <Button
+                                                            size="small"
+                                                            color="error"
+                                                            disabled={row.id === user?.id}
+                                                            onClick={async () => {
+                                                                const accepted = await confirm({
+                                                                    title: t('settings.confirmTitle'),
+                                                                    message: t('admin.confirmDeleteUser', { name: row.username }),
+                                                                    confirmLabel: t('common.delete'),
+                                                                    confirmColor: 'error',
+                                                                });
+                                                                if (!accepted) {
+                                                                    return;
+                                                                }
+                                                                const result = await deleteUser(row.id);
+                                                                if (!result.success) setError(result.message);
+                                                                else await refresh();
+                                                            }}
+                                                        >
+                                                            {t('admin.delete')}
+                                                        </Button>
+                                                    </Stack>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </Box>
                         </CardContent>
                     </Card>
 
@@ -397,8 +478,19 @@ export default function AdminPage() {
                                     ? t('admin.registrationOn')
                                     : t('admin.registrationOff')}
                             />
+                            {registrationNote
+                                ? (
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                        {registrationNote}
+                                    </Typography>
+                                )
+                                : null}
                         </CardContent>
                     </Card>
+
+                    <Suspense fallback={null}>
+                        <AuditLogCard />
+                    </Suspense>
                 </Stack>
             </Container>
         </Box>

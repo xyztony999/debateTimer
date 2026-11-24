@@ -2,13 +2,13 @@
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | v1.0 |
-| 日期 | 2026-11-11 |
+| 版本 | v1.1 |
+| 日期 | 2026-11-24 |
 | 模块编码 | D-02（基础数据域，无子模块；文件夹 `D-02-settings`） |
-| 状态 | 逆向归档（系统已上线，如实反映现有实现） |
-| 输入 | D-02-system-settings PRD v1.0 + AA/FL v1.0 + 现有代码 |
+| 状态 | v1.0 为逆向归档（系统已上线，如实反映现有实现）；v1.1 增量以【R20】标注，属前瞻设计，待代码阶段实现 |
+| 输入 | D-02-system-settings PRD v1.1 + AA v1.2 / FL v1.2 + 现有代码 + R20 安全与合规设计说明 |
 | 功能类型 | 主数据（系统设置）+ 工具（批量导入脚本）（承 PRD §7） |
-| 实现索引 | server/routes/admin.js:41-102、server/lib/authPolicy.js、server/routes/auth.js:35-63、server/index.js:84-87、server/scripts/backup.js:25、server/.env.example:23-26 |
+| 实现索引 | server/routes/admin.js:41-102、server/lib/authPolicy.js、server/routes/auth.js:35-63、server/index.js:84-87、server/scripts/backup.js:25、server/.env.example:23-26；【R20】规划落点 `server/lib/auditLog.js`（`recordAudit`） |
 
 > 章节裁剪依据 d3-api 分册裁剪矩阵：第 2 章不适用（无聚合根、无跨聚合根编排）；第 3/4/5/6 章按主数据类保留。本文档范围按任务指定聚焦 **app_settings 读写**；预置导入脚本（FR-2，CLI 非 HTTP 面）仅在边界标注，不展开接口规格。
 
@@ -22,8 +22,8 @@
 
 | 边界 | 说明 |
 |------|------|
-| 做什么 | `GET/PUT /api/admin/settings/registration` 两端点（挂 D-01 admin 路由）；注册开关的生效判定语义（首用户短路 → DB 优先 → env 回落）；`/api/auth/status` 与 `/register` 的消费读取；app_settings 纳入备份集合 |
-| 不做什么 | 注册准入业务规则（何时放行/关闭提示——语义归 S-01-03，本模块只提供存储与读取通道）；设置的通用管理界面（当前开关 UI 归管理页）；运行时热加载/多设置项框架（新增设置项 = 新增单例文档与读写端点）；预置导入 CLI 的接口规格（运维脚本，见 PRD FR-2） |
+| 做什么 | `GET/PUT /api/admin/settings/registration` 两端点（挂 D-01 admin 路由）；注册开关的生效判定语义（首用户短路 → DB 优先 → env 回落）；`/api/auth/status` 与 `/register` 的消费读取；app_settings 纳入备份集合；【R20】PUT 在开关值变化时写审计事件 |
+| 不做什么 | 注册准入业务规则（何时放行/关闭提示——语义归 S-01-03，本模块只提供存储与读取通道）；设置的通用管理界面（当前开关 UI 归管理页）；运行时热加载/多设置项框架（新增设置项 = 新增单例文档与读写端点）；预置导入 CLI 的接口规格（运维脚本，见 PRD FR-2）；【R20】审计日志的存储与查阅（属 P-04） |
 | 用户类型 | 管理员（读写）；访客/注册用户经 `/api/auth/status`、`/register` 间接受影响 |
 
 ### 1.3 设计决策
@@ -145,7 +145,13 @@ app_settings 文档（单例）：
 - 请求 body：`{registrationOpen: boolean}`；非 boolean → 400 `registrationOpen must be a boolean`（admin.js:78-81）。
 - 逻辑：`updatedAt = Date.now()`；`updatedBy = req.user?.username ?? null`；`appSettings.updateOne({_id:'registration'}, {$set:{registrationOpen, updatedAt, updatedBy}}, {upsert:true})`（admin.js:82-88）。
 - 响应 200：`{success:true, data:{registrationOpen, source:'admin', envDefault, updatedAt, updatedBy}}`。
-- 幂等：重复 PUT 同值无副作用；写后 env 失效（DS-2）。
+- 幂等：重复 PUT 同值无副作用，也不产生审计事件；写后 env 失效（DS-2）。
+- 【R20】审计：写入成功后，若存储值发生了变化，调用 P-04 的 `recordAudit` 写 `registration_setting_changed`。actor 为当前管理员，subject 为空，consent 取 `consentOf(管理员)`。detail：
+  - 此前没有 registration 文档 → `{ from: null, to: <新值> }`；
+  - 此前有文档且值不同 → `{ from: <旧值>, to: <新值> }`；
+  - 值相同 → 不产生事件。
+
+  为此处理函数在 `updateOne` 之前先读一次现有文档。审计写入失败则请求返回 500，此时开关已写入，管理页刷新后显示的是新值。
 
 #### 4.4.3 消费端（读取通道，归 S-01 上下文引用）
 
@@ -191,4 +197,5 @@ app_settings 文档（单例）：
 
 | 版本 | 日期 | 变更类型 | 更新说明 |
 |------|------|---------|---------|
+| v1.1 | 2026-11-24 | rule_added | R20 增量设计：PUT 在存储值实际变化时写审计事件 `registration_setting_changed`（detail 只含开关值的前后）；接口的请求与响应契约不变 |
 | v1.0 | 2026-11-11 | initial | 逆向归档初稿：app_settings 单文档模式 + 注册开关读写两端点 + 消费端读取通道；预置导入 CLI 按任务范围仅在边界标注（规格见 PRD FR-2）。验证：`bun test server/` 85 pass / 0 fail（本归档会话执行） |

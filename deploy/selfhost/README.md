@@ -64,6 +64,13 @@ bash /opt/debatetimer/deploy/selfhost/setup.sh
 - 若沿用 `deploy/baota/debatetimer-api.service`（内含
   `NODE_ENV=production`），纯 HTTP 下必须显式 `COOKIE_SECURE=false`。
 
+## 两步验证、隐私说明与审计日志
+
+- **两步验证**：在 `server/.env` 里配置主密钥 `TOTP_SECRET_KEY` 才会启用，之后管理员账号必须绑定验证器。生成命令与保管要求见
+  [`deploy/baota/README.md`](../baota/README.md) 的「两步验证的主密钥」一节。不配置时该功能整体停用，其余照常可用。
+- **隐私说明**：注册页和登录后展示的隐私说明写在 `server/lib/privacyNotices.js`，默认内容描述的是本项目线上服务的运营者、联系邮箱与托管安排。自部署前请改成你自己的信息，并修改其中的版本号（版本变了，已有用户需要重新确认一次）。
+- **审计日志**：注册、登录、两步验证、账号与管理操作会记录事件类型、时间、涉及的账号和来源 IP，保存在 MongoDB 的 `audit_logs` 集合里，184 天后自动删除；管理员可在后台查看。这个集合包含在 `server/scripts/backup.js` 的备份范围内。
+
 ## 常见问题
 
 | 症状 | 原因与处理 |

@@ -4,6 +4,7 @@ import { pickConfigFields, toConfigResponse, toListItem } from '../lib/configDoc
 import { parseObjectId } from '../lib/ids.js';
 import { generateShareToken } from '../lib/shareToken.js';
 import { initSseResponse } from '../lib/sseHub.js';
+import { consentOf, createAuditRecorder } from '../lib/auditLog.js';
 
 function ownerObjectId(user, requestedOwnerId) {
     const raw = resolveOwnerId(user, requestedOwnerId);
@@ -29,9 +30,10 @@ function sendError(res, error, fallback) {
     res.status(status).json(body);
 }
 
-export function createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions }) {
+export function createConfigurationsRouter({ configurations, sse, requireAuth, timerSessions, auditLogs }) {
     const router = Router();
     router.use(requireAuth);
+    const audit = createAuditRecorder(auditLogs);
 
     router.get('/stream', (req, res) => {
         initSseResponse(res);
@@ -359,6 +361,20 @@ export function createConfigurationsRouter({ configurations, sse, requireAuth, t
                 { _id: existing._id },
                 { $set: updates },
             );
+            // Publishing and withdrawing move content between private and
+            // public, so the change of state is recorded (R20). Same-state
+            // re-saves record nothing; the event carries the template id only.
+            if (isPublic !== Boolean(existing.isPublic) && audit.enabled) {
+                await audit.record({
+                    type: isPublic ? 'gallery_published' : 'gallery_unpublished',
+                    result: 'success',
+                    req,
+                    consent: consentOf(req.authUser),
+                    actorUserId: parseObjectId(req.user.id),
+                    subjectUserId: parseObjectId(existing.ownerId),
+                    detail: isPublic ? { templateId: existing._id } : { templateId: existing._id, by: 'owner' },
+                });
+            }
             sse.broadcast({
                 ownerId: String(existing.ownerId),
                 name: existing.name,

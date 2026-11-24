@@ -39,6 +39,10 @@ export function isSameOrigin(req) {
 // Wraps the cors middleware so same-origin requests skip the allowlist
 // entirely (they need no CORS headers); everything else goes through the
 // original origin check.
+//
+// The deployed front end (GitHub Pages) talks to the API cross-origin. A
+// browser only lets cross-origin scripts read a few safelisted response
+// headers; anything else must be listed in Access-Control-Expose-Headers.
 export function createCorsMiddleware({ allowedOrigins }) {
     const corsMiddleware = cors({
         origin(origin, callback) {
@@ -49,6 +53,10 @@ export function createCorsMiddleware({ allowedOrigins }) {
             callback(new Error(`CORS blocked for origin: ${origin}`));
         },
         credentials: true,
+        // Every 429 carries Retry-After. Without this line the sign-in and
+        // two-step pages cannot tell the user how long the lock-out lasts
+        // and have to assume the full window.
+        exposedHeaders: ['Retry-After'],
     });
 
     return function corsGate(req, res, next) {

@@ -144,5 +144,5 @@
 | 会话代际（sessionId） | 快照信封携带的会话标识；变化即服务端重启了 seq 空间，消费端去重必须重置 | `server/lib/timerSessions.js:33`、useTimerSessionSync.js:59（D23） |
 | 直连通道 | 同网 WebRTC DataChannel（仅 host 候选，无 STUN/TURN），信令走既有会话通道，3s 未开静默回退中转 | `src/timer/rtcChannel.js:1-22` |
 | 遥控双模 | 手机作瘦遥控器发指令（服务器中转）+ 同网直连收快照副本，直连序号独立 1e9 空间 | profile 工作区 INDEX p2p-remote 模块 |
-| UOMDC | 渥太华大学华语辩论社——本系统规则基准 | README §简介 |
+| UOMDC | 渥太华大学华语辩论社。仅作为样例赛制「UOMDC 标准赛制」的名称来源，不是本项目的规则基准 | 样例模板 `server/scripts/presets/uomdc-standard.json` |
 | PID 时间线 | 比赛流程的地铁线路图式呈现（港铁现役 PID 风格：全线一色/已过褪灰/车标/换乘环） | profile 工作区 INDEX pid-timeline 系列（R5-R7） |

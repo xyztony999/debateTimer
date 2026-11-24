@@ -49,3 +49,12 @@ export async function destroySession(sessions, token) {
 export async function destroyUserSessions(sessions, userId) {
     await sessions.deleteMany({ userId });
 }
+
+/**
+ * Signs an account out on every other device, keeping the session that
+ * made the request (used after two-factor enrolment / re-enrolment).
+ */
+export async function destroyOtherUserSessions(sessions, userId, keepTokenHash) {
+    const result = await sessions.deleteMany({ userId, tokenHash: { $ne: keepTokenHash } });
+    return result?.deletedCount ?? 0;
+}

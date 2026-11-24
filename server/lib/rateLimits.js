@@ -7,7 +7,7 @@
  * get isolated state. The underlying sliding-window limiter (and its
  * single-process caveat) lives in rateLimit.js.
  */
-import { createRateLimiter } from './rateLimit.js';
+import { createAttemptLimiter, createRateLimiter } from './rateLimit.js';
 
 function positiveNumber(value, fallback) {
     const parsed = Number(value);
@@ -43,5 +43,25 @@ export function createGalleryRateLimiter(env = process.env) {
     return createRateLimiter({
         windowMs: positiveNumber(env.GALLERY_RATE_WINDOW_MS, 60_000),
         max: positiveNumber(env.GALLERY_RATE_MAX, 120),
+    });
+}
+
+/** /api/privacy — anonymous privacy-notice reads (R20). */
+export function createPrivacyRateLimiter(env = process.env) {
+    return createRateLimiter({
+        windowMs: positiveNumber(env.PRIVACY_RATE_WINDOW_MS, 60_000),
+        max: positiveNumber(env.PRIVACY_RATE_MAX, 60),
+    });
+}
+
+/**
+ * Second-factor attempts, keyed per ACCOUNT (not per IP): 5 failures per
+ * 15 minutes. TOTP codes and recovery codes share one counter so neither is
+ * a parallel guessing channel (R20 D56).
+ */
+export function createTotpAttemptLimiter(env = process.env) {
+    return createAttemptLimiter({
+        windowMs: positiveNumber(env.TOTP_ATTEMPT_RATE_WINDOW_MS, 900_000),
+        max: positiveNumber(env.TOTP_ATTEMPT_RATE_MAX, 5),
     });
 }

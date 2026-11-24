@@ -2,14 +2,22 @@ import { hashSessionToken, SESSION_COOKIE_NAME } from './session.js';
 import { publicUser } from './authPolicy.js';
 
 export function createAuthMiddleware({ users, sessions }) {
-    async function loadUserFromRequest(req) {
+    /**
+     * Resolves the session cookie to the full account document and attaches:
+     *   req.user             — the public projection (id, username, role)
+     *   req.authUser         — the full document, for gates and TOTP (never serialized)
+     *   req.sessionTokenHash — identifies the current session
+     *   req.sessionCreatedAt — when the current session was created
+     */
+    async function attachAccountFromRequest(req) {
         const token = req.cookies?.[SESSION_COOKIE_NAME];
         if (!token) {
             return null;
         }
 
+        const tokenHash = hashSessionToken(token);
         const session = await sessions.findOne({
-            tokenHash: hashSessionToken(token),
+            tokenHash,
             expiresAt: { $gt: new Date() },
         });
         if (!session) {
@@ -21,12 +29,26 @@ export function createAuthMiddleware({ users, sessions }) {
             return null;
         }
 
-        return publicUser(user);
+        req.authUser = user;
+        req.sessionTokenHash = tokenHash;
+        req.sessionCreatedAt = session.createdAt ?? null;
+        req.user = publicUser(user);
+        return req.user;
+    }
+
+    async function loadUserFromRequest(req) {
+        if (req.user) {
+            return req.user;
+        }
+        return attachAccountFromRequest(req);
     }
 
     async function attachUser(req, _res, next) {
         try {
-            req.user = await loadUserFromRequest(req);
+            const user = await attachAccountFromRequest(req);
+            if (!user) {
+                req.user = null; // same shape as before R20: "no session" is null
+            }
             next();
         } catch (error) {
             next(error);
@@ -36,7 +58,7 @@ export function createAuthMiddleware({ users, sessions }) {
     async function requireAuth(req, res, next) {
         try {
             if (!req.user) {
-                req.user = await loadUserFromRequest(req);
+                await attachAccountFromRequest(req);
             }
             if (!req.user) {
                 res.status(401).json({ success: false, message: 'Authentication required' });

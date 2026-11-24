@@ -8,6 +8,9 @@ import { OfflineBanner } from './components/PwaBits';
 const TimerControlPage = lazy(() => import('./TimerControlPage'));
 const SettingsPage = lazy(() => import('./DebateSetting'));
 const LoginPage = lazy(() => import('./LoginPage'));
+// Post-login steps (privacy notice, mandatory two-step setup). Its own guard:
+// no session → /login, nothing owed → the original destination.
+const GatePage = lazy(() => import('./GatePage'));
 const AdminPage = lazy(() => import('./AdminPage'));
 const TimerDisplayPage = lazy(() => import('./TimerDisplayPage'));
 const RecordsPage = lazy(() => import('./RecordsPage'));
@@ -24,6 +27,7 @@ function App() {
                     <Suspense fallback={null}>
                         <Routes>
                             <Route path="/login" element={<LoginPage />} />
+                            <Route path="/gate" element={<GatePage />} />
                             <Route path="/display/:token" element={<TimerDisplayPage />} />
                             <Route path="/gallery" element={<GalleryPage />} />
                             <Route path="/gallery/:id" element={<GalleryPage />} />
